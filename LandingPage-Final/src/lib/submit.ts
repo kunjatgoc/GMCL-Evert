@@ -31,3 +31,31 @@ export async function submitRegistration(
     }
   }
 }
+
+const REAL_ACCOUNT_ENDPOINT =
+  import.meta.env.VITE_REAL_ACCOUNT_URL ?? '/api/real-account'
+
+/** The seam for the real-balance request card. Same contract as above. */
+export async function submitRealAccount(email: string): Promise<SubmitResult> {
+  try {
+    const res = await fetch(REAL_ACCOUNT_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+
+    if (res.ok) return { ok: true }
+    if (res.status === 409)
+      return {
+        ok: false,
+        error: 'You have already asked. Our team will email you shortly.',
+      }
+
+    return { ok: false, error: 'Request failed. Please try again.' }
+  } catch {
+    return {
+      ok: false,
+      error: 'Could not reach the server. Check your connection and try again.',
+    }
+  }
+}

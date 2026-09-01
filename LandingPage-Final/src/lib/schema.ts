@@ -27,6 +27,18 @@ export const COUNTRIES = [
 
 export type Country = (typeof COUNTRIES)[number]
 
+// One definition, two forms: the league entry above and the real-account
+// request below it must agree on what an address is.
+const emailField = z
+  .string()
+  .trim()
+  .min(1, 'Please enter your email address.')
+  .email('That does not look like a valid email address.')
+
+export const realAccountSchema = z.object({ email: emailField })
+
+export type RealAccountRequest = z.infer<typeof realAccountSchema>
+
 export const registrationSchema = z
   .object({
     fullName: z
@@ -38,11 +50,7 @@ export const registrationSchema = z
       // single-word mononyms, which are legitimate in many countries.
       .regex(/^[\p{L}\p{M}][\p{L}\p{M}'’.\- ]*$/u, 'Use letters only.'),
 
-    email: z
-      .string()
-      .trim()
-      .min(1, 'Please enter your email address.')
-      .email('That does not look like a valid email address.'),
+    email: emailField,
 
     country: z.string().min(2),
 

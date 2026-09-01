@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { registrationSchema } from '../src/lib/schema'
+import { realAccountSchema, registrationSchema } from '../src/lib/schema'
 
 const valid = {
   fullName: 'Alex Mercer',
@@ -41,5 +41,23 @@ describe('registrationSchema', () => {
     expect(registrationSchema.safeParse({ ...valid, fullName: '12345' }).success).toBe(
       false
     )
+  })
+})
+
+describe('realAccountSchema', () => {
+  it('accepts a valid address', () => {
+    expect(realAccountSchema.safeParse({ email: 'alex@example.com' }).success).toBe(
+      true
+    )
+  })
+
+  it('rejects a malformed address', () => {
+    expect(realAccountSchema.safeParse({ email: 'alex@' }).success).toBe(false)
+  })
+
+  it('trims before storing, so " a@b.com " is accepted as a@b.com', () => {
+    const r = realAccountSchema.safeParse({ email: '  alex@example.com  ' })
+    expect(r.success).toBe(true)
+    if (r.success) expect(r.data.email).toBe('alex@example.com')
   })
 })

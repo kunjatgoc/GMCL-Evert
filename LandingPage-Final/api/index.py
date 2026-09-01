@@ -109,6 +109,27 @@ def register(entry: Registration) -> dict:
     return {"id": registration_id}
 
 
+class RealAccountRequest(BaseModel):
+    """The card under the form posts only an address."""
+
+    email: EmailStr
+
+
+@app.post("/api/real-account", status_code=201)
+def request_real_account(entry: RealAccountRequest) -> dict:
+    if not DATABASE_URL:
+        raise HTTPException(503, "This request cannot be taken right now.")
+
+    try:
+        with pool.connection() as conn, conn.cursor() as cur:
+            cur.execute("CALL sp_request_real_account(%s)", (entry.email,))
+            (request_id,) = cur.fetchone()
+    except errors.UniqueViolation:
+        raise HTTPException(409, "That email has already asked.")
+
+    return {"id": request_id}
+
+
 if __name__ == "__main__":
     base = dict(
         fullName="Alex Mercer",
@@ -124,5 +145,13 @@ if __name__ == "__main__":
         except ValidationError:
             continue
         raise AssertionError(f"accepted {bad}")
+
+    assert RealAccountRequest(email="alex@example.com").email == "alex@example.com"
+    try:
+        RealAccountRequest(email="alex@")
+    except ValidationError:
+        pass
+    else:
+        raise AssertionError("accepted a malformed address")
 
     print("ok")

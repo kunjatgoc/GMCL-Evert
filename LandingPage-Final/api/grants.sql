@@ -36,3 +36,16 @@ grant execute on procedure sp_register(text, text, text, text, bigint)
 
 grant usage on schema public to gmcl_api;
 revoke all on table registration from gmcl_api;
+
+-- Same treatment for the real-money request procedure: the API role may call
+-- it and nothing else, so a leaked password cannot read the list back.
+alter procedure sp_request_real_account(text, bigint)
+    security definer
+    set search_path = public, pg_temp;
+
+revoke all on procedure sp_request_real_account(text, bigint)
+    from public;
+grant execute on procedure sp_request_real_account(text, bigint)
+    to gmcl_api;
+
+revoke all on table real_account_request from gmcl_api;
