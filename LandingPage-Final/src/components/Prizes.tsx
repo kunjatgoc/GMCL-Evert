@@ -17,7 +17,6 @@ const PRIZES = [
   {
     place: '1st',
     label: '1st place',
-    note: '',
     amount: 1000,
     icon: Trophy,
     img: '/img/trophy-1.webp',
@@ -33,7 +32,6 @@ const PRIZES = [
   {
     place: '2nd',
     label: '2nd place',
-    note: '',
     amount: 500,
     icon: Medal,
     img: '/img/trophy-2.webp',
@@ -49,7 +47,6 @@ const PRIZES = [
   {
     place: '3rd',
     label: '3rd place',
-    note: '',
     amount: 250,
     icon: Award,
     img: '/img/trophy-3.webp',
@@ -68,7 +65,6 @@ const PRIZES = [
     place: '4th',
     label: '4th \u2013 50th place',
     amount: 2350,
-    note: '$50 each \u00d7 47',
     icon: Users,
     img: '/img/trophy-4.webp',
     order: 'md:order-4',
@@ -204,10 +200,6 @@ export function Prizes() {
                       duration={first ? 2000 : 1500}
                     />
                   </p>
-
-                  {p.note && (
-                    <p className="mt-2 text-[13px] text-[#E4EAE7]/70">{p.note}</p>
-                  )}
 
                   {/* Bottom rim only  the podium art below supplies the
                       actual plinth now. */}

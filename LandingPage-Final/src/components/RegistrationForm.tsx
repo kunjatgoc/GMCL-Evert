@@ -129,7 +129,7 @@ export function RegistrationForm() {
                 </span>
                 <h3 className="mt-6 text-2xl font-bold">You are in.</h3>
                 <p className="mt-3 max-w-sm text-[1rem] leading-relaxed text-[#E4EAE7]">
-                  Your entry is recorded. NewEra Broker will email your league
+                  Your entry is recorded. newera Broker will email your league
                   credentials and the rule sheet before the board opens on
                   7 September.
                 </p>
