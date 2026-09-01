@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion, AnimatePresence } from 'motion/react'
@@ -49,7 +49,10 @@ export function RegistrationForm() {
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    watch,
+    trigger,
+    getValues,
+    formState: { errors, isSubmitting, isSubmitted },
   } = useForm<Registration>({
     resolver: zodResolver(registrationSchema),
     // Leaving a field you never typed in is not a mistake  it is a person
@@ -58,6 +61,16 @@ export function RegistrationForm() {
     reValidateMode: 'onChange',
     defaultValues: { country: 'IN' },
   })
+
+  // A number is only valid against a country, and that rule lives in the
+  // schema's superRefine under path ['phone']. reValidateMode only refreshes
+  // the field that changed, so switching country would leave a now-wrong
+  // number sitting there unflagged -- or a now-correct one still flagged.
+  // Only after a submit, so an untouched form stays quiet.
+  const country = watch('country')
+  useEffect(() => {
+    if (isSubmitted && getValues('phone')) trigger('phone')
+  }, [country, isSubmitted, getValues, trigger])
 
   const onSubmit = async (data: Registration) => {
     setFormError(null)
