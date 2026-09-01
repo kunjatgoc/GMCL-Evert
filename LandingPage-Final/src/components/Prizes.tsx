@@ -60,11 +60,13 @@ const PRIZES = [
     scale: '',
   },
   {
-    // One card standing in for 47 places, so it reads as a band rather than a
-    // position: widest plinth, lowest step, dimmest ring.
+    // What one person in the band takes, matching the three cards beside it
+    // -- the $2,350 pot across 47 places would read as a single prize. The
+    // card still reads as a band, not a position: widest plinth, lowest step,
+    // dimmest ring.
     place: '4th',
     label: '4th \u2013 50th place',
-    amount: 2350,
+    amount: 50,
     icon: Users,
     img: '/img/trophy-4.webp',
     order: 'md:order-4',
