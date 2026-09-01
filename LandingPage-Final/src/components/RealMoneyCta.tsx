@@ -1,18 +1,36 @@
+import { useEffect } from 'react'
 import { Mail } from 'lucide-react'
 import { SectionReveal } from './ui/SectionReveal'
+import { scrollToId } from '../lib/scroll'
 
 const EMAIL = 'support@playgml.com'
+const ANCHOR = 'realaccount'
 
 /**
  * Wide, short companion to the registration card: the one path for entrants
  * who want a live balance rather than demo capital. Deliberately landscape and
  * a size wider than the form, so it reads as an aside to the offer above it
  * rather than a second competing form.
+ *
+ * Darker than the glass around it on purpose -- it sits directly under the
+ * form and would otherwise read as a second panel of the same card.
  */
 export function RealMoneyCta() {
+  // The section is lazy-loaded, so by the time this mounts the browser has
+  // long since given up on /#realaccount -- the element did not exist when it
+  // parsed the hash. Do the jump ourselves, through Lenis when it is driving.
+  useEffect(() => {
+    if (window.location.hash !== `#${ANCHOR}`) return
+    const id = requestAnimationFrame(() => scrollToId(ANCHOR))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
   return (
     <SectionReveal className="mx-auto mt-10 max-w-5xl">
-      <div className="glass glass-lip relative flex flex-col items-start gap-4 overflow-hidden rounded-3xl px-7 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-10 sm:px-10 sm:py-5">
+      <div
+        id={ANCHOR}
+        className="glass-lip relative flex scroll-mt-24 flex-col items-start gap-4 overflow-hidden rounded-3xl border border-white/10 bg-[#050D09]/95 px-7 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-10 sm:px-10 sm:py-5"
+      >
         <div>
           <p className="text-[1.2rem] font-semibold leading-snug text-white">
             Do you want to start with real money?
