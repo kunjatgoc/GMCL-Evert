@@ -56,13 +56,7 @@ export function RegistrationForm() {
     // looking at the form. Judge on submit, then correct live from there.
     mode: 'onSubmit',
     reValidateMode: 'onChange',
-    // `accountType` has to start as '' here, not as a defaultValue on the
-    // <select>: the field is registered, so react-hook-form owns the value
-    // and the element's own attribute never reaches form state.
-    defaultValues: {
-      country: 'IN',
-      accountType: '' as unknown as Registration['accountType'],
-    },
+    defaultValues: { country: 'IN' },
   })
 
   const onSubmit = async (data: Registration) => {
@@ -226,37 +220,6 @@ export function RegistrationForm() {
                   />
                 </div>
 
-                <div>
-                  <label className={label} htmlFor="accountType">
-                    Account type
-                  </label>
-                  <select
-                    id="accountType"
-                    aria-invalid={!!errors.accountType}
-                    aria-describedby={
-                      errors.accountType ? 'accountType-error' : undefined
-                    }
-                    className={`${field} w-full cursor-pointer appearance-none`}
-                    {...register('accountType')}
-                  >
-                    <option value="" disabled className="bg-[#121212]">
-                      Select an account type
-                    </option>
-                    <option value="demo" className="bg-[#121212]">
-                      Demo
-                    </option>
-                    <option value="real" className="bg-[#121212]">
-                      Real
-                    </option>
-                    <option value="both" className="bg-[#121212]">
-                      Both
-                    </option>
-                  </select>
-                  <FieldError
-                    id="accountType-error"
-                    message={errors.accountType?.message}
-                  />
-                </div>
 
                 {formError && (
                   <p

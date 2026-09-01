@@ -47,10 +47,6 @@ export const registrationSchema = z
     country: z.string().min(2),
 
     phone: z.string().trim().min(1, 'Please enter your phone number.'),
-
-    accountType: z.enum(['demo', 'real', 'both'], {
-      errorMap: () => ({ message: 'Please choose an account type.' }),
-    }),
   })
   .superRefine((val, ctx) => {
     const parsed = parsePhoneNumberFromString(val.phone, val.country as CountryCode)

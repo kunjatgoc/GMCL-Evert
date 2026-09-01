@@ -23,8 +23,6 @@ create table if not exists registration (
     email        text        not null,
     mobile       text        not null,          -- E.164, normalised by the API
     country      text        not null,          -- ISO 3166-1 alpha-2
-    account_type text        not null
-                 check (account_type in ('demo', 'real', 'both')),
     created_at   timestamptz not null default now()
 );
 

@@ -18,7 +18,6 @@ sees the original path.
 """
 
 import os
-from typing import Literal
 
 import phonenumbers
 from fastapi import FastAPI, HTTPException
@@ -68,7 +67,6 @@ class Registration(BaseModel):
     email: EmailStr
     country: str = Field(min_length=2, max_length=2)
     phone: str
-    accountType: Literal["demo", "real", "both"]
 
     @model_validator(mode="after")
     def normalise_phone(self):
@@ -96,13 +94,12 @@ def register(entry: Registration) -> dict:
     try:
         with pool.connection() as conn, conn.cursor() as cur:
             cur.execute(
-                "CALL sp_register(%s, %s, %s, %s, %s)",
+                "CALL sp_register(%s, %s, %s, %s)",
                 (
                     entry.fullName,
                     entry.email,
                     entry.phone,
                     entry.country.upper(),
-                    entry.accountType,
                 ),
             )
             (registration_id,) = cur.fetchone()
@@ -118,11 +115,10 @@ if __name__ == "__main__":
         email="alex@example.com",
         country="IN",
         phone="9876543210",
-        accountType="demo",
     )
     assert Registration(**base).phone == "+919876543210"
 
-    for bad in ({"country": "GB"}, {"accountType": "vip"}, {"email": "alex@"}):
+    for bad in ({"country": "GB"}, {"email": "alex@"}, {"fullName": "1"}):
         try:
             Registration(**{**base, **bad})
         except ValidationError:

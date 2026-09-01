@@ -6,7 +6,6 @@ const valid = {
   email: 'alex@example.com',
   country: 'IN',
   phone: '9876543210',
-  accountType: 'demo' as const,
 }
 
 describe('registrationSchema', () => {
@@ -37,11 +36,6 @@ describe('registrationSchema', () => {
     expect(r.success).toBe(true)
   })
 
-  it('rejects an account type outside the three options', () => {
-    expect(registrationSchema.safeParse({ ...valid, accountType: '' }).success).toBe(
-      false
-    )
-  })
 
   it('rejects a name made of digits', () => {
     expect(registrationSchema.safeParse({ ...valid, fullName: '12345' }).success).toBe(

@@ -12,19 +12,17 @@ create or replace procedure sp_register(
     p_email        text,
     p_mobile       text,
     p_country      text,
-    p_account_type text,
     inout p_id     bigint default null
 )
 language plpgsql
 as $$
 begin
-    insert into registration (full_name, email, mobile, country, account_type)
+    insert into registration (full_name, email, mobile, country)
     values (
         btrim(p_full_name),
         lower(btrim(p_email)),
         btrim(p_mobile),
-        upper(btrim(p_country)),
-        p_account_type
+        upper(btrim(p_country))
     )
     returning id into p_id;
 end;

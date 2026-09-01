@@ -35,9 +35,9 @@ export function TrustBar() {
         </p>
 
         <p className="text-[15px] text-[#E4EAE7]">
-          Trade a <span className="font-medium text-white">demo</span> account,
-          a <span className="font-medium text-white">real</span> one or both.
-          You choose when you register below.
+          Free to enter. A{' '}
+          <span className="font-medium text-white">$10,000 demo account</span>,
+          no deposit, and no risk to money you already have.
         </p>
       </div>
     </motion.section>

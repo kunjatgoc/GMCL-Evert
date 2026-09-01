@@ -23,15 +23,15 @@ $$;
 -- sp_register runs as its owner, so the caller needs no rights on the table
 -- it writes. search_path is pinned because a security definer routine that
 -- resolves names through the caller's search_path can be hijacked.
-alter procedure sp_register(text, text, text, text, text, bigint)
+alter procedure sp_register(text, text, text, text, bigint)
     security definer
     set search_path = public, pg_temp;
 
 -- Postgres grants EXECUTE on a new routine to PUBLIC by default. Revoke that
 -- first, or the grant below buys nothing.
-revoke all on procedure sp_register(text, text, text, text, text, bigint)
+revoke all on procedure sp_register(text, text, text, text, bigint)
     from public;
-grant execute on procedure sp_register(text, text, text, text, text, bigint)
+grant execute on procedure sp_register(text, text, text, text, bigint)
     to gmcl_api;
 
 grant usage on schema public to gmcl_api;
