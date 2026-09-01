@@ -23,8 +23,8 @@ const PRIZES = [
     img: '/img/trophy-1.webp',
     order: 'md:order-2',
     drop: '',
-    pad: 'pt-16 pb-12',
-    art: 'h-48',
+    pad: 'pt-20 pb-14',
+    art: 'h-56',
     plinth: 'h-14',
     ring: 'border-[rgba(0,255,135,0.42)]',
     glow: 'rgba(0,255,135,0.20)',
@@ -39,8 +39,8 @@ const PRIZES = [
     img: '/img/trophy-2.webp',
     order: 'md:order-1',
     drop: 'md:mb-[-43.6%]',
-    pad: 'pt-11 pb-9',
-    art: 'h-30',
+    pad: 'pt-14 pb-11',
+    art: 'h-34',
     plinth: 'h-6',
     ring: 'border-white/12',
     glow: 'rgba(255,255,255,0.05)',
@@ -55,8 +55,8 @@ const PRIZES = [
     img: '/img/trophy-3.webp',
     order: 'md:order-3',
     drop: 'md:mb-[-57.6%]',
-    pad: 'pt-11 pb-9',
-    art: 'h-30',
+    pad: 'pt-14 pb-11',
+    art: 'h-34',
     plinth: 'h-6',
     ring: 'border-white/10',
     glow: 'rgba(255,255,255,0.04)',
@@ -73,8 +73,8 @@ const PRIZES = [
     img: '/img/trophy-4.webp',
     order: 'md:order-4',
     drop: 'md:mb-[-44.9%]',
-    pad: 'pt-11 pb-9',
-    art: 'h-24',
+    pad: 'pt-14 pb-11',
+    art: 'h-28',
     plinth: 'h-6',
     ring: 'border-white/8',
     glow: 'rgba(255,255,255,0.03)',
@@ -105,7 +105,7 @@ export function Prizes() {
         onError={(e) => (e.currentTarget.style.display = 'none')}
       />
 
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-[88rem]">
         <header className="mx-auto max-w-2xl text-center">
           <h2
             id="prizes-heading"
@@ -194,8 +194,8 @@ export function Prizes() {
                   <p
                     className={`mt-2 font-bold leading-none tracking-tight ${
                       first
-                        ? 'text-[clamp(2.4rem,5vw,3.2rem)] text-[#00FF87] text-glow'
-                        : 'text-[clamp(1.9rem,4vw,2.4rem)] text-white'
+                        ? 'text-[clamp(2.7rem,5.4vw,3.7rem)] text-[#00FF87] text-glow'
+                        : 'text-[clamp(2.1rem,4.3vw,2.8rem)] text-white'
                     }`}
                   >
                     <Counter
