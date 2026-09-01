@@ -1,0 +1,414 @@
+/* Ported from threeui  the dial CSS inside
+   src/shaders/neuform-isolated/sources/performance-gauges.html (MIT).
+
+   The instrument is upstream's, milled the same way: anodised plate, brushed
+   shell, knurled bezel, counterbored screws, printed face grain, and cover
+   glass with settled dust. Only the palette moves  the authored amber dial
+   becomes this page's spring green.
+
+   Every dimension is a container query unit against the card width, so one
+   instrument reads identically at 240px and at 640px. That is upstream's
+   trick and the reason the markup carries no pixel sizes. */
+
+.gauge {
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+
+  /* Procedural noise, generated inline so the component stays self-contained:
+     fractal noise for print grain, anisotropic noise for brushed metal, and a
+     low-frequency field for smudge and dust on the glass. */
+  --tex-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)'/%3E%3C/svg%3E");
+  --tex-metal: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 1.5' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23m)'/%3E%3C/svg%3E");
+  --tex-dust: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='d'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.014' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.6'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23d)'/%3E%3C/svg%3E");
+}
+
+/* ---------- mounting plate ---------- */
+
+.gauge__plate {
+  position: absolute;
+  inset: 0;
+  border-radius: 11.5cqw;
+  background: radial-gradient(120% 100% at 30% 0%, #121215 0%, #09090a 55%, #060607 100%);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  box-shadow:
+    0 1px 1px -0.5px rgba(0, 0, 0, 0.5),
+    0 3px 3px -1.5px rgba(0, 0, 0, 0.4),
+    0 6px 6px -3px rgba(0, 0, 0, 0.35),
+    0 12px 12px -6px rgba(0, 0, 0, 0.3),
+    0 24px 24px -12px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.5s;
+}
+
+/* Fine anodised tooth so the plate is not a flat fill. */
+.gauge__plate::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--tex-grain), var(--tex-dust);
+  background-size: 34cqw 34cqw, 170% 170%;
+  background-blend-mode: soft-light, normal;
+  mix-blend-mode: screen;
+  opacity: 0.07;
+  pointer-events: none;
+}
+
+.gauge:hover .gauge__plate {
+  border-color: rgba(0, 255, 135, 0.16);
+}
+
+/* ---------- instrument shell ---------- */
+
+.gauge__shell {
+  position: absolute;
+  inset: 13cqw;
+  border-radius: 50%;
+  padding: 2.2%;
+  background:
+    var(--tex-metal),
+    conic-gradient(
+      from 210deg,
+      #3a3a3d 0deg,
+      #17171a 60deg,
+      #2c2c30 130deg,
+      #0d0d0f 200deg,
+      #313135 280deg,
+      #131316 340deg,
+      #3a3a3d 360deg
+    );
+  background-size: 100% 100%, auto;
+  background-blend-mode: overlay, normal;
+  box-shadow:
+    0 18px 40px -12px rgba(0, 0, 0, 0.9),
+    0 2px 0 rgba(255, 255, 255, 0.05),
+    inset 0 2px 6px rgba(255, 255, 255, 0.1),
+    inset 0 -6px 14px rgba(0, 0, 0, 0.65);
+}
+
+.gauge__bezel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  padding: 3.4%;
+  background: radial-gradient(closest-side, #0b0b0d 76%, #212125 92%, #08080a 100%);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1), inset 0 -3px 8px rgba(0, 0, 0, 0.8);
+}
+
+/* Knurled grip ring milled into the bezel edge. */
+.gauge__bezel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(255, 255, 255, 0.16) 0deg 0.5deg,
+    rgba(0, 0, 0, 0) 0.5deg 2.2deg
+  );
+  -webkit-mask-image: radial-gradient(closest-side, transparent 92%, #000 93.5%, #000 99%, transparent 100%);
+  mask-image: radial-gradient(closest-side, transparent 92%, #000 93.5%, #000 99%, transparent 100%);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Brushed tooling marks across the bezel ring. */
+.gauge__bezel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-image: var(--tex-metal);
+  background-size: 100% 100%;
+  -webkit-mask-image: radial-gradient(closest-side, transparent 95%, #000 96.5%, #000 100%);
+  mask-image: radial-gradient(closest-side, transparent 95%, #000 96.5%, #000 100%);
+  mix-blend-mode: overlay;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* A turned stainless pan head sunk into a counterbored well. */
+.gauge__screw {
+  position: absolute;
+  width: 5cqw;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 34% 26%,
+      rgba(255, 255, 255, 0.55) 0%,
+      rgba(255, 255, 255, 0.08) 26%,
+      rgba(255, 255, 255, 0) 46%
+    ),
+    radial-gradient(closest-side, rgba(0, 0, 0, 0) 58%, rgba(0, 0, 0, 0.45) 84%, rgba(0, 0, 0, 0.7) 100%),
+    conic-gradient(
+      from calc(var(--a, 0deg) - 52deg),
+      #9a9ba1 0deg,
+      #43444a 34deg,
+      #c3c4ca 74deg,
+      #4d4e55 118deg,
+      #a7a8ae 168deg,
+      #37383d 214deg,
+      #b2b3b9 262deg,
+      #45464c 312deg,
+      #9a9ba1 360deg
+    );
+  box-shadow:
+    0 0 0 0.16cqw rgba(0, 0, 0, 0.6),
+    0 0.12cqw 0 0.16cqw rgba(255, 255, 255, 0.05),
+    0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.75),
+    inset 0 -0.16cqw 0.32cqw rgba(0, 0, 0, 0.6),
+    inset 0 0.12cqw 0.24cqw rgba(255, 255, 255, 0.4);
+}
+
+/* Cross drive: dark recess with a lit lower lip so it reads as cut, not printed. */
+.gauge__screw::before {
+  content: '';
+  position: absolute;
+  inset: 22%;
+  transform: rotate(var(--a, 0deg));
+  background:
+    linear-gradient(#050506, #1e1e23) center / 100% 20% no-repeat,
+    linear-gradient(#050506, #1e1e23) center / 20% 100% no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.62)) center calc(50% + 0.11cqw) / 100% 20% no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.62)) calc(50% + 0.11cqw) center / 20% 100% no-repeat;
+}
+
+.gauge__screw::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-image: var(--tex-metal);
+  background-size: 100% 100%;
+  mix-blend-mode: overlay;
+  opacity: 0.45;
+}
+
+/* ---------- dial face ---------- */
+
+.gauge__face {
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(closest-side at 50% 28%, #101612 0%, #0a0f0c 50%, #050807 100%);
+  box-shadow: inset 0 5px 16px rgba(0, 0, 0, 0.5), inset 0 -2px 9px rgba(0, 0, 0, 0.4);
+}
+
+.gauge__layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* A full-bleed square rotated about its centre carries its child around the dial. */
+.gauge__spoke {
+  position: absolute;
+  inset: 0;
+}
+
+.gauge__tick {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 1px;
+}
+
+.gauge__tick--minor {
+  top: 9%;
+  width: 0.9%;
+  height: 2.8%;
+  opacity: 0.5;
+}
+
+.gauge__tick--major {
+  top: 8%;
+  width: 1.8%;
+  height: 6.4%;
+}
+
+.gauge__numeral {
+  position: absolute;
+  left: 50%;
+  top: 17.5%;
+  line-height: 1;
+  white-space: nowrap;
+  font-size: 5.31cqw;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.72);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- needle ---------- */
+
+.gauge__needle {
+  position: absolute;
+  inset: 0;
+  transform: rotate(var(--angle, 0deg));
+  transition: transform var(--needle-duration, 1200ms) var(--needle-ease, cubic-bezier(0.2, 0.9, 0.25, 1));
+  will-change: transform;
+}
+
+.gauge__flutter {
+  position: absolute;
+  inset: 0;
+}
+
+.gauge__blade {
+  position: absolute;
+  left: 50%;
+  top: 11.5%;
+  bottom: 50%;
+  width: 3.2%;
+  transform: translateX(-50%);
+  clip-path: polygon(41% 0, 59% 0, 100% 97%, 100% 100%, 0 100%, 0 97%);
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55));
+  background: linear-gradient(180deg, #5cffb4, #00c853);
+}
+
+.gauge__blade::after {
+  content: '';
+  position: absolute;
+  inset: 7% 40% 20% 40%;
+  border-radius: 999px;
+  background: linear-gradient(rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0));
+}
+
+.gauge__tail {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2%;
+  height: 9.5%;
+  transform: translateX(-50%);
+  border-radius: 0 0 999px 999px;
+  background: #0d3a24;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.gauge__hub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 9%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #5c5c63, #1b1b1f 60%, #050506);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.75), inset 0 1px 2px rgba(255, 255, 255, 0.35);
+  display: grid;
+  place-items: center;
+}
+
+/* ---------- glass ---------- */
+
+.gauge__glass {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      120% 78% at 22% 6%,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0.05) 32%,
+      rgba(255, 255, 255, 0) 56%
+    ),
+    linear-gradient(148deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 40%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.gauge__glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+}
+
+/* Smudge and settled dust caught by the raking highlight. */
+.gauge__dust {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-image: var(--tex-dust), var(--tex-grain);
+  background-size: 130% 130%, 30.03cqw 30.03cqw;
+  mix-blend-mode: soft-light;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* Printed-dial tooth, held under the ticks and numerals. */
+.gauge__grain {
+  position: absolute;
+  inset: 0;
+  background-image: var(--tex-grain);
+  background-size: 25.4cqw 25.4cqw;
+  mix-blend-mode: overlay;
+  opacity: 0.13;
+  pointer-events: none;
+}
+
+/* ---------- centre stack typography ---------- */
+
+.gauge__stack {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gauge__cap {
+  font-size: 2.89cqw;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.gauge__cap--sm {
+  font-size: 2.43cqw;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  color: rgba(0, 255, 135, 0.75);
+}
+
+.gauge__readout {
+  font-size: 8.55cqw;
+  font-weight: 300;
+  line-height: 1;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- motion ---------- */
+
+@keyframes gauge-flutter {
+  0%,
+  100% {
+    transform: rotate(-0.4deg);
+  }
+  50% {
+    transform: rotate(0.4deg);
+  }
+}
+
+.gauge__flutter[data-live] {
+  animation: gauge-flutter 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gauge__needle {
+    transition: none !important;
+  }
+  .gauge__flutter[data-live] {
+    animation: none !important;
+  }
+}

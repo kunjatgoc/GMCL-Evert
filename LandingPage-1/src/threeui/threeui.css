@@ -1,0 +1,21 @@
+/* Host rules the vendored ThreeUI renderers expect.
+   Lifted from threeui's src/shaders/community.css  only the two selectors
+   LaserVariants actually needs, so the other 540 lines stay out of the bundle. */
+
+.threeui-background {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.threeui-background > canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
