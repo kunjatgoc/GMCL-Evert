@@ -261,7 +261,7 @@ export function RegistrationForm() {
                   )}
                 </GlowButton>
 
-                <p className="pt-1 text-center text-[13.5px] leading-relaxed text-[#E4EAE7]/80">
+                <p className="pt-1 text-center text-[15.5px] leading-relaxed text-white/90">
                   Demo capital only. No deposit, no payment details, no risk to
                   your own funds.
                 </p>
