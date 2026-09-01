@@ -17,7 +17,8 @@ const PRIZES = [
   {
     place: '1st',
     label: '1st place',
-    amount: 100000,
+    note: '',
+    amount: 1000,
     icon: Trophy,
     img: '/img/trophy-1.webp',
     order: 'md:order-2',
@@ -32,7 +33,8 @@ const PRIZES = [
   {
     place: '2nd',
     label: '2nd place',
-    amount: 50000,
+    note: '',
+    amount: 500,
     icon: Medal,
     img: '/img/trophy-2.webp',
     order: 'md:order-1',
@@ -47,7 +49,8 @@ const PRIZES = [
   {
     place: '3rd',
     label: '3rd place',
-    amount: 25000,
+    note: '',
+    amount: 250,
     icon: Award,
     img: '/img/trophy-3.webp',
     order: 'md:order-3',
@@ -64,7 +67,8 @@ const PRIZES = [
     // position: widest plinth, lowest step, dimmest ring.
     place: '4th',
     label: '4th \u2013 50th place',
-    amount: null,
+    amount: 2350,
+    note: '$50 each \u00d7 47',
     icon: Users,
     img: '/img/trophy-4.webp',
     order: 'md:order-4',
@@ -194,16 +198,16 @@ export function Prizes() {
                         : 'text-[clamp(1.9rem,4vw,2.4rem)] text-white'
                     }`}
                   >
-                    {p.amount === null ? (
-                      <span className="text-[#E4EAE7]/60">TBC</span>
-                    ) : (
-                      <Counter
-                        to={p.amount}
-                        prefix="$"
-                        duration={first ? 2000 : 1500}
-                      />
-                    )}
+                    <Counter
+                      to={p.amount}
+                      prefix="$"
+                      duration={first ? 2000 : 1500}
+                    />
                   </p>
+
+                  {p.note && (
+                    <p className="mt-2 text-[13px] text-[#E4EAE7]/70">{p.note}</p>
+                  )}
 
                   {/* Bottom rim only  the podium art below supplies the
                       actual plinth now. */}
