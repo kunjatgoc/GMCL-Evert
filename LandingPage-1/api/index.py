@@ -4,16 +4,20 @@ Pydantic owns the shape (types, email format, phone validity for the chosen
 country). `sp_register` owns the write and the duplicate rule. No SQL is
 written here beyond the CALL.
 
-    python3 -m venv .venv && .venv/bin/pip install -r api/requirements.txt
+The file is named index.py because Vercel routes a Python function by its
+path; vercel.json rewrites every /api/* request onto it and FastAPI still
+sees the original path.
+
+    python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
     psql "$DATABASE_URL" -f api/schema.sql
     for f in api/procedures/*.sql; do psql "$DATABASE_URL" -f "$f"; done
+    psql "$DATABASE_URL" -f api/grants.sql
 
-    .venv/bin/uvicorn --env-file .env api.main:app --reload --port 8000
-    .venv/bin/python api/main.py     # validation self-check, no database needed
+    .venv/bin/uvicorn --env-file .env api.index:app --reload --port 8000
+    .venv/bin/python api/index.py    # validation self-check, no database needed
 """
 
 import os
-from contextlib import asynccontextmanager
 from typing import Literal
 
 import phonenumbers
@@ -35,21 +39,20 @@ ALLOWED_ORIGINS = [
     if o.strip()
 ]
 
-# timeout=5 so a database that is down fails the request in seconds rather
-# than parking a worker for the 30s default.
-pool = ConnectionPool(DATABASE_URL, min_size=1, max_size=4, timeout=5, open=False)
+# One serverless instance serves one request at a time and is frozen between
+# them, so the pool exists only to reuse a connection across the requests a
+# warm instance happens to get. min_size=0 keeps a cold start from opening a
+# socket it may never use — the database is remote, so every connection costs
+# a TCP and TLS handshake. timeout=5 so a database that is down fails the
+# request in seconds rather than parking the instance for the 30s default.
+pool = ConnectionPool(DATABASE_URL, min_size=0, max_size=2, timeout=5, open=False)
 
-
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    if not DATABASE_URL:
-        raise RuntimeError("DATABASE_URL is not set")
+# Opened here rather than in a lifespan handler: Vercel's ASGI wrapper does not
+# reliably run lifespan events, and with min_size=0 this connects to nothing.
+if DATABASE_URL:
     pool.open()
-    yield
-    pool.close()
 
-
-app = FastAPI(title="GMCL registration", lifespan=lifespan)
+app = FastAPI(title="GMCL registration")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -87,6 +90,9 @@ class Registration(BaseModel):
 # Add a honeypot field and a per-IP window in sp_register when the spam starts.
 @app.post("/api/register", status_code=201)
 def register(entry: Registration) -> dict:
+    if not DATABASE_URL:
+        raise HTTPException(503, "Registration is temporarily unavailable.")
+
     try:
         with pool.connection() as conn, conn.cursor() as cur:
             cur.execute(

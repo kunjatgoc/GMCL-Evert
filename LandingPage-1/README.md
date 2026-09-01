@@ -38,17 +38,20 @@ and the one-entry-per-email rule.
 
 `api/schema.sql` holds tables and indexes. Every procedure is its own file
 under `api/procedures/`  they are independent and `create or replace`, so they
-apply in any order and re-apply safely.
+apply in any order and re-apply safely. `api/grants.sql` runs last and locks
+the API's role down to one privilege: execute `sp_register`.
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r api/requirements.txt
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
-psql "$DATABASE_URL" -f api/schema.sql
-for f in api/procedures/*.sql; do psql "$DATABASE_URL" -f "$f"; done
+psql "$ADMIN_DATABASE_URL" -f api/schema.sql
+for f in api/procedures/*.sql; do psql "$ADMIN_DATABASE_URL" -f "$f"; done
+psql "$ADMIN_DATABASE_URL" -f api/grants.sql
+psql "$ADMIN_DATABASE_URL" -c "alter role gmcl_api password '…'"
 
-DATABASE_URL=postgresql://... .venv/bin/uvicorn api.main:app --port 8000
+DATABASE_URL=postgresql://... .venv/bin/uvicorn api.index:app --port 8000
 
-.venv/bin/python api/main.py                  # validation self-check, no DB
+.venv/bin/python api/index.py                 # validation self-check, no DB
 ```
 
 | Env | Where | Default |
@@ -56,6 +59,48 @@ DATABASE_URL=postgresql://... .venv/bin/uvicorn api.main:app --port 8000
 | `DATABASE_URL` | API | required at startup |
 | `ALLOWED_ORIGINS` | API, comma-separated | `http://localhost:5173` |
 | `VITE_REGISTER_URL` | build time | `/api/register` |
+
+## Deploying to Vercel
+
+Both halves ship as one Vercel project. Vite builds the page; `api/index.py`
+becomes a Python serverless function. It is called `index.py` because Vercel
+routes a function by its file path, and `vercel.json` rewrites `/api/*` onto
+it — FastAPI still receives the original path, so `/api/register` matches.
+Page and API share an origin, so CORS never comes into play and
+`VITE_REGISTER_URL` stays unset.
+
+Project settings: **Root Directory** `LandingPage-1`. Framework preset Vite,
+build and output detected. One environment variable, `DATABASE_URL`, pointing
+at the Postgres on the Linux server.
+
+### The database is on the open internet
+
+Vercel functions have no fixed egress IP, so `pg_hba.conf` cannot be narrowed
+to a source address — the port has to accept connections from anywhere. That
+makes four things mandatory rather than advisable.
+
+1. **TLS, enforced by the server.** In `postgresql.conf` set
+   `listen_addresses = '*'` and `ssl = on`; in `pg_hba.conf` use `hostssl` for
+   the entry and `hostnossl all all 0.0.0.0/0 reject` above it, so a plaintext
+   connection is refused rather than downgraded.
+2. **TLS, verified by the client.** `DATABASE_URL` ends in
+   `?sslmode=verify-full`. Without `verify-full`, a man in the middle presents
+   any certificate and psycopg accepts it. Use a real certificate (Let's
+   Encrypt on the Postgres host works) so no root has to be shipped.
+3. **The `gmcl_api` role from `api/grants.sql`**, never the owner or a
+   superuser. It can call one procedure and cannot read a single row back.
+4. **fail2ban on the Postgres log**, since the port answers to the world.
+   Postgres itself has no login throttle.
+
+Two consequences to expect. Cold starts pay a fresh TCP and TLS handshake to
+the server, so the first request after an idle spell is slow; and a traffic
+spike opens connections in proportion to the instances Vercel starts —
+`max_size=2` per instance is the only cap, so keep `max_connections` on the
+server comfortably above what a burst can produce.
+
+Running the API on the Linux server instead, next to the database, removes all
+of this: Postgres binds to `localhost`, and the page only needs
+`VITE_REGISTER_URL` and `ALLOWED_ORIGINS`.
 
 Responses: `201 {id}`, `409` duplicate email, `422` failed validation. The form
 branches on all three.
