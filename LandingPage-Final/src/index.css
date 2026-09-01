@@ -1,0 +1,205 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #0a0a0a;
+  --color-surface: #121212;
+  --color-surface-2: #171717;
+  --color-accent: #00ff87;
+  --color-accent-deep: #00c853;
+  --color-muted: #E4EAE7;
+  --color-rim: rgba(0, 255, 135, 0.18);
+
+  --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root {
+  color-scheme: dark;
+  --glow: rgba(0, 255, 135, 0.35);
+  /* Height of the fixed top bar. Anything that has to clear it reads this
+     rather than repeating a magic number. */
+  --nav-h: 3.25rem;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  /* Lenis drives scrolling; native smooth-scroll would fight it. */
+  scroll-behavior: auto;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv02', 'cv03', 'cv04';
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+/* Money and dates must not jitter while counters roll. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: #000;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* --- layout ------------------------------------------------------------ */
+
+/* Page shell. Left-anchored, never centred. A centred measure on a wide
+   screen leaves an equal void either side, and two matched voids are exactly
+   what reads as "empty"  anchoring left turns the leftover into one margin
+   instead of two gaps. Reading measure is capped per block, not here. */
+.shell {
+  width: 100%;
+  max-width: 120rem;
+  margin-inline: 0 auto;
+}
+
+/* --- reusable surfaces ------------------------------------------------- */
+
+.glass {
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.055) 0%,
+    rgba(255, 255, 255, 0.015) 42%,
+    rgba(0, 0, 0, 0.2) 100%
+  );
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  border: 1px solid var(--color-rim);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    0 20px 60px -20px rgba(0, 0, 0, 0.9);
+}
+
+/* Thin bright hairline along the top edge  the detail that makes glass
+   read as a physical pane rather than a translucent div. */
+.glass-lip::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 255, 135, 0.55),
+    transparent
+  );
+}
+
+.text-glow {
+  text-shadow: 0 0 28px rgba(0, 255, 135, 0.45);
+}
+
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+/* --- motion ------------------------------------------------------------ */
+
+@keyframes breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 255, 135, 0), 0 10px 40px -8px rgba(0, 255, 135, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(0, 255, 135, 0), 0 10px 52px -6px rgba(0, 255, 135, 0.62);
+  }
+}
+
+/* The hero plate is a still image now, so it drifts to stay alive the way the
+   WebGL scene used to. Both stops are scaled past 1  the pan would otherwise
+   pull the frame edge into view. Transform only, so it stays on the
+   compositor and never triggers layout. */
+@keyframes hero-drift {
+  from {
+    transform: scale(1.06) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.13) translate3d(-1.6%, -1.1%, 0);
+  }
+}
+
+/* Horizon bloom over the skyline, breathing on a slower cycle than the drift
+   so the two never visibly sync up. */
+@keyframes horizon-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* Market-activity glyph at the head of the ticker. One keyframe for every
+   bar; a negative animation-delay per bar offsets them into a wave so they
+   never rise in unison. scaleY only, so it stays on the compositor. */
+@keyframes tick-bar {
+  from {
+    transform: scaleY(0.25);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* Instrument strip. Two identical lanes sit side by side; shifting the pair
+   by exactly half its width puts lane two where lane one started. */
+@keyframes marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes rail-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
