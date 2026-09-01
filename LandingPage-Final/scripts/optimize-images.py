@@ -32,10 +32,13 @@ TARGETS = {
     "streak":            (2400,  400, True,  82),
     "particles":         (1600, 1600, True,  82),
     "podium":            (1800,  650, True,  85),
+    # Four-tier replacement, staged until the Prizes grid grows a fourth card.
+    "podium-4tier":      (1800,  650, True,  85),
     "newera-mark":       ( 512,  512, True,  90),
     "trophy-1":          ( 720,  720, True,  88),
     "trophy-2":          ( 640,  640, True,  88),
     "trophy-3":          ( 640,  640, True,  88),
+    "trophy-4":          ( 640,  640, True,  88),
     "icon-dates":        ( 360,  360, True,  90),
     "icon-capital":      ( 360,  360, True,  90),
     "icon-win":          ( 360,  360, True,  90),
