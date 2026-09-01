@@ -13,24 +13,24 @@ gsap.registerPlugin(ScrollTrigger)
 const FACTS = [
   {
     icon: CalendarRange,
-    label: 'League window',
+    label: 'Dates',
     value: '7 – 18 Sept',
-    body: 'Twelve trading days. The board opens at 00:00 on the 7th and locks at 23:59 on the 18th.',
+    body: 'Twelve days of trading. It starts at 00:00 on 7 September and ends at 23:59 on 18 September.',
     img: '/img/icon-dates.webp',
   },
   {
     icon: Wallet,
-    label: 'Starting capital',
+    label: 'Starting amount',
     value: '$10,000',
     counter: 10000,
-    body: 'Every participant is funded with the same $10,000 USD demo account. No deposits, no advantage bought.',
+    body: 'Everyone gets the same $10,000 demo account. You pay nothing, and nobody can buy a bigger one.',
     img: '/img/icon-capital.webp',
   },
   {
     icon: TrendingUp,
-    label: 'Win condition',
+    label: 'How you win',
     value: 'Biggest gain',
-    body: 'The trader who grows their balance the most by the close of the 18th takes first place.',
+    body: 'Whoever grows their account the most by the end of 18 September wins first place.',
     img: '/img/icon-win.webp',
   },
 ] as const
@@ -130,9 +130,9 @@ export function AboutLeague() {
               About the <span className="text-[#00FF87]">League</span>
             </h2>
             <p className="mt-5 max-w-xl text-[1.05rem] leading-relaxed text-[#E4EAE7]">
-              One rule set, one starting balance, one winner. Twelve days of
-              live market conditions on a demo account, so the only thing you
-              can lose is the lead.
+              Everyone follows the same rules and starts with the same amount.
+              You trade for twelve days at real market prices, using practice
+              money. Whoever makes the most wins.
             </p>
           </header>
 
