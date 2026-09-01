@@ -28,7 +28,14 @@ export function RealMoneyCta() {
   // parsed the hash. Do the jump ourselves, through Lenis when it is driving.
   useEffect(() => {
     if (window.location.hash !== `#${ANCHOR}`) return
-    const id = requestAnimationFrame(() => scrollToId(ANCHOR))
+    const id = requestAnimationFrame(() => {
+      // The card is the last thing on the page, so landing it at the top edge
+      // leaves it stranded against the footer. Centre it in the viewport
+      // instead -- it is short, and this is the only thing the link is for.
+      const el = document.getElementById(ANCHOR)
+      const gap = el ? (window.innerHeight - el.offsetHeight) / 2 : 0
+      scrollToId(ANCHOR, -Math.max(24, gap))
+    })
     return () => cancelAnimationFrame(id)
   }, [])
 
