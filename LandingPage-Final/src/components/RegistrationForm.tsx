@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { AlertCircle, Check, Loader2 } from 'lucide-react'
 import { GlowButton } from './ui/GlowButton'
 import { Eyebrow } from './ui/Eyebrow'
+import { RealMoneyCta } from './RealMoneyCta'
 import { COUNTRIES, registrationSchema, type Registration } from '../lib/schema'
 import { submitRegistration } from '../lib/submit'
 import { EASE } from '../lib/motion'
@@ -269,6 +270,8 @@ export function RegistrationForm() {
           </AnimatePresence>
         </div>
       </div>
+
+      <RealMoneyCta />
     </section>
   )
 }
