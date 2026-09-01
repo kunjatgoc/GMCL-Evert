@@ -35,20 +35,13 @@ canvases that keep running off-screen, in a hidden tab, and under
 
 ## Fonts
 
-All three faces are self-hosted under the SIL Open Font License 1.1.
+Both faces are self-hosted under the SIL Open Font License 1.1.
 
 `lexend.woff2` and `fragment-mono.woff2` are the files threeui bundles:
 
 - Lexend  Copyright 2018 The Lexend Project Authors, Reserved Font Name
   "RevReading Lexend"
 - Fragment Mono  Copyright 2022 The Fragment-Mono Project Authors
-
-`TheNeue-Black.woff2` did not come from threeui. It is the display face, taken
-from the 1.007 release of The League of Moveable Type's repository:
-
-- The Neue Black  Copyright Tré Seals / Vocal Type.
-  <https://github.com/theleagueof/the-neue-black> ·
-  <https://www.theleagueofmoveabletype.com/the-neue-black>
 
 ## Updating
 

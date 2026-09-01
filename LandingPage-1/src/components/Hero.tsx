@@ -17,7 +17,7 @@ const LaserVariants = lazy(() =>
 
 const HEADLINE = [
   { text: 'Global Market', accent: false },
-  { text: 'Champion League', accent: false },
+  { text: 'Champion League', accent: true },
 ] as const
 
 const HEADLINE_TEXT = HEADLINE.map((line) => line.text).join(' ')
@@ -262,7 +262,12 @@ export function Hero() {
             transition={{ duration: 0.5, ease: EASE, delay: 0.15 }}
           >
             {HEADLINE.map((line) => (
-              <span key={line.text} aria-hidden data-article-heading className="block">
+              <span
+                key={line.text}
+                aria-hidden
+                data-article-heading
+                className={line.accent ? 'block text-[#00FF87]' : 'block'}
+              >
                 {line.text}
               </span>
             ))}
@@ -291,13 +296,13 @@ export function Hero() {
               }
             />
 
-            <span className="inline-flex items-center gap-2 text-small text-[#B7BEBB] [text-shadow:0_1px_2px_#0a0a0a,0_2px_18px_#0a0a0a]">
+            <span className="inline-flex items-center gap-2 text-small text-[#EDF1EF] [text-shadow:0_1px_2px_#0a0a0a,0_2px_18px_#0a0a0a]">
               <ShieldCheck className="size-4 text-[#00FF87]" />
               Free to enter · Demo capital only
             </span>
           </div>
 
-          <p className="text-lead text-[#B7BEBB] [text-shadow:0_1px_2px_#0a0a0a,0_2px_22px_#0a0a0a] md:col-span-5 md:col-start-8">
+          <p className="text-lead text-[#EDF1EF] [text-shadow:0_1px_2px_#0a0a0a,0_2px_22px_#0a0a0a] md:col-span-5 md:col-start-8">
             Twelve days to turn $10,000 into the biggest number on the board.
             Three traders leave with a share of{' '}
             <span className="font-semibold text-white">$175,000</span>. Entry
