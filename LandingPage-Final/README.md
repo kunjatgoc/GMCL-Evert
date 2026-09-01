@@ -18,7 +18,7 @@ In order, matching `requirements.md`. There is nothing else on the page.
 | # | Component | Notes |
 |---|---|---|
 | 1 | `Hero` | WebGL grid + candlestick field, masked headline reveal, magnetic CTA |
-| 2 | `TrustBar` | "Powered by newera Broker" + Demo ID instruction |
+| 2 | `TrustBar` | "Associated with newera Broker" + Demo ID instruction |
 | 3 | `AboutLeague` | Three fact cards, GSAP scroll rail, count-up |
 | 4 | `Prizes` | Podium: 1st centre and elevated, count-ups, pointer tilt |
 | 5 | `RegistrationForm` | Name / Email / Phone+country / Demo ID, zod validation |

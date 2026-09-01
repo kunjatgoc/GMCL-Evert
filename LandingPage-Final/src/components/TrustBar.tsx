@@ -6,7 +6,7 @@ import { fadeIn, viewportOnce } from '../lib/motion'
 export function TrustBar() {
   return (
     <motion.section
-      aria-label="Powered by newera Broker"
+      aria-label="Associated with newera Broker"
       variants={fadeIn}
       initial="hidden"
       whileInView="show"
@@ -25,7 +25,7 @@ export function TrustBar() {
             twice. IconArt renders its image aria-hidden, hence the sr-only
             name so the credit still reads correctly aloud. */}
         <p className="inline-flex items-center gap-2.5 text-[15px] font-medium tracking-tight text-white">
-          Powered by
+          Associated with
           <IconArt
             src="/img/newera-mark.webp"
             fallback={BadgeCheck}

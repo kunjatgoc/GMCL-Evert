@@ -86,7 +86,7 @@ export default function App() {
       </main>
 
       <footer className="border-t border-white/5 px-6 py-8 text-center text-[13.5px] text-[#E4EAE7]/70">
-        Global Market League · Powered by newera Broker. Demo accounts
+        Global Market League · Associated with newera Broker. Demo accounts
         only &mdash; no real capital is traded and no deposit is required.
       </footer>
     </>
