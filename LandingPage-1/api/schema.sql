@@ -6,6 +6,17 @@
 --
 -- Re-running either step is safe; every statement is idempotent.
 
+-- Entries are timed in IST, so every session renders timestamptz in IST rather
+-- than whatever the host happens to be set to. This changes display only:
+-- created_at still stores an absolute instant, so comparisons and DST are the
+-- server's problem, not ours.
+do $$
+begin
+    execute format('alter database %I set timezone = %L',
+                   current_database(), 'Asia/Kolkata');
+end;
+$$;
+
 create table if not exists registration (
     id           bigserial   primary key,
     full_name    text        not null,
