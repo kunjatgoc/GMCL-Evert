@@ -20,13 +20,18 @@ export function TrustBar() {
       />
 
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-5 text-center sm:flex-row sm:text-left">
+        {/* The supplied logo is a wordmark, so it carries the brand name
+            itself — setting "NewEra Broker" beside it would print the name
+            twice. IconArt renders its image aria-hidden, hence the sr-only
+            name so the credit still reads correctly aloud. */}
         <p className="inline-flex items-center gap-2.5 text-[15px] font-medium tracking-tight text-white">
+          Powered by
           <IconArt
             src="/img/newera-mark.webp"
             fallback={BadgeCheck}
-            className="h-7 w-auto shrink-0 drop-shadow-[0_0_12px_rgba(0,255,135,0.5)]"
+            className="h-5 w-auto shrink-0 drop-shadow-[0_0_14px_rgba(0,255,135,0.35)]"
           />
-          Powered by <span className="text-[#00FF87]">NewEra Broker</span>
+          <span className="sr-only">NewEra Broker</span>
         </p>
 
         <p className="text-[15px] text-[#E4EAE7]">
