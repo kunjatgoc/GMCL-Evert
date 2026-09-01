@@ -26,17 +26,41 @@ export function RealMoneyCta() {
   // The section is lazy-loaded, so by the time this mounts the browser has
   // long since given up on /#realaccount -- the element did not exist when it
   // parsed the hash. Do the jump ourselves, through Lenis when it is driving.
+  //
+  // Repeated rather than done once: React runs this child effect BEFORE the
+  // App effect that starts Lenis, and the hero art above is still loading, so
+  // a single jump aims at a page that has not finished growing and stops
+  // short. Each retry re-measures. Any real scroll input cancels the rest.
   useEffect(() => {
     if (window.location.hash !== `#${ANCHOR}`) return
-    const id = requestAnimationFrame(() => {
+
+    let cancelled = false
+    const stop = () => {
+      cancelled = true
+    }
+
+    const jump = () => {
+      if (cancelled) return
       // The card is the last thing on the page, so landing it at the top edge
       // leaves it stranded against the footer. Centre it in the viewport
       // instead -- it is short, and this is the only thing the link is for.
       const el = document.getElementById(ANCHOR)
-      const gap = el ? (window.innerHeight - el.offsetHeight) / 2 : 0
+      if (!el) return
+      const gap = (window.innerHeight - el.offsetHeight) / 2
       scrollToId(ANCHOR, -Math.max(24, gap))
-    })
-    return () => cancelAnimationFrame(id)
+    }
+
+    const timers = [0, 120, 350, 700, 1200].map((ms) => setTimeout(jump, ms))
+    for (const ev of ['wheel', 'touchstart', 'keydown'] as const) {
+      window.addEventListener(ev, stop, { passive: true })
+    }
+
+    return () => {
+      timers.forEach(clearTimeout)
+      for (const ev of ['wheel', 'touchstart', 'keydown'] as const) {
+        window.removeEventListener(ev, stop)
+      }
+    }
   }, [])
 
   const onSubmit = async (e: FormEvent) => {
