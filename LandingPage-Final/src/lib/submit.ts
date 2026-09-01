@@ -19,7 +19,7 @@ export async function submitRegistration(
 
     if (res.ok) return { ok: true }
     if (res.status === 409)
-      return { ok: false, error: 'You have already applied for the demo. Sit back and relax — you will get an email from our side.' }
+      return { ok: false, error: 'You have already applied for the demo. Sit back and relax, you will get an email from our side.' }
 
     return { ok: false, error: 'Registration failed. Please try again.' }
   } catch {
