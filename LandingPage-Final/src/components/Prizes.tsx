@@ -1,15 +1,22 @@
 import { motion } from 'motion/react'
-import { Award, Medal, Trophy } from 'lucide-react'
+import { Award, Medal, Trophy, Users } from 'lucide-react'
 import { GlassCard } from './ui/GlassCard'
 import { Counter } from './ui/Counter'
 import { IconArt } from './ui/IconArt'
 import { depthIn, viewportOnce } from '../lib/motion'
 
-// DOM order is 1-2-3: that is the reading order on mobile and for screen
+// DOM order is 1-2-3-4: that is the reading order on mobile and for screen
 // readers. Only desktop reorders it into a podium, via `order`.
+//
+// `drop` is how far below the champion each card sits. A percentage margin on
+// a grid item resolves against ITS OWN grid area, not the container, so each
+// value is the platform's top offset in podium-4tier.webp (1620x452) divided
+// by that column's share of the row. Both scale with width, so the ratio holds
+// at every breakpoint. Platform tops: 2nd +128px, 3rd +167px, 4th +251px.
 const PRIZES = [
   {
     place: '1st',
+    label: '1st place',
     amount: 100000,
     icon: Trophy,
     img: '/img/trophy-1.webp',
@@ -24,11 +31,12 @@ const PRIZES = [
   },
   {
     place: '2nd',
+    label: '2nd place',
     amount: 50000,
     icon: Medal,
     img: '/img/trophy-2.webp',
     order: 'md:order-1',
-    drop: 'md:mb-[-28.3%]',
+    drop: 'md:mb-[-43.6%]',
     pad: 'pt-11 pb-9',
     art: 'h-30',
     plinth: 'h-6',
@@ -38,16 +46,34 @@ const PRIZES = [
   },
   {
     place: '3rd',
+    label: '3rd place',
     amount: 25000,
     icon: Award,
     img: '/img/trophy-3.webp',
     order: 'md:order-3',
-    drop: 'md:mb-[-28.3%]',
+    drop: 'md:mb-[-57.6%]',
     pad: 'pt-11 pb-9',
     art: 'h-30',
     plinth: 'h-6',
     ring: 'border-white/10',
     glow: 'rgba(255,255,255,0.04)',
+    scale: '',
+  },
+  {
+    // One card standing in for 47 places, so it reads as a band rather than a
+    // position: widest plinth, lowest step, dimmest ring.
+    place: '4th',
+    label: '4th \u2013 50th place',
+    amount: null,
+    icon: Users,
+    img: '/img/trophy-4.webp',
+    order: 'md:order-4',
+    drop: 'md:mb-[-44.9%]',
+    pad: 'pt-11 pb-9',
+    art: 'h-24',
+    plinth: 'h-6',
+    ring: 'border-white/8',
+    glow: 'rgba(255,255,255,0.03)',
     scale: '',
   },
 ] as const
@@ -84,7 +110,7 @@ export function Prizes() {
             <span className="text-[#00FF87]">Prizes</span>
           </h2>
           <p className="mt-5 text-[1.05rem] leading-relaxed text-[#E4EAE7]">
-            Paid to the three traders who grow their demo balance the most by
+            Paid to the fifty traders who grow their demo balance the most by
             the close of 18 September.
           </p>
         </header>
@@ -92,9 +118,9 @@ export function Prizes() {
         {/* The cards stand on the podium art. Padding-bottom is a percentage
             of the container WIDTH, so the overlap stays proportional as the
             podium scales  roughly half of it sits behind the cards. */}
-        <div className="relative isolate mt-20 md:pb-[25.45%]">
+        <div className="relative isolate mt-20 md:pb-[27.9%]">
           <img
-            src="/img/podium.webp"
+            src="/img/podium-4tier.webp"
             alt=""
             aria-hidden
             loading="lazy"
@@ -102,7 +128,7 @@ export function Prizes() {
             onError={(e) => (e.currentTarget.style.display = 'none')}
           />
 
-          <div className="relative z-10 grid gap-6 md:grid-cols-3 md:items-end md:gap-7">
+          <div className="relative z-10 grid gap-6 md:grid-cols-[298fr_308fr_294fr_568fr] md:items-end md:gap-7">
           {PRIZES.map((p, i) => {
             const first = p.place === '1st'
             const Icon = p.icon
@@ -158,7 +184,7 @@ export function Prizes() {
                   </div>
 
                   <p className="mt-7 text-[12px] font-semibold uppercase tracking-[0.22em] text-[#E4EAE7]">
-                    {p.place} place
+                    {p.label}
                   </p>
 
                   <p
@@ -168,7 +194,15 @@ export function Prizes() {
                         : 'text-[clamp(1.9rem,4vw,2.4rem)] text-white'
                     }`}
                   >
-                    <Counter to={p.amount} prefix="$" duration={first ? 2000 : 1500} />
+                    {p.amount === null ? (
+                      <span className="text-[#E4EAE7]/60">TBC</span>
+                    ) : (
+                      <Counter
+                        to={p.amount}
+                        prefix="$"
+                        duration={first ? 2000 : 1500}
+                      />
+                    )}
                   </p>
 
                   {/* Bottom rim only  the podium art below supplies the
