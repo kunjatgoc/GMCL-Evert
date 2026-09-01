@@ -13,7 +13,7 @@ gsap.registerPlugin(ScrollTrigger)
 
 const HEADLINE = [
   { text: 'Global Market', accent: false },
-  { text: 'Champion League', accent: true },
+  { text: 'League', accent: true },
 ]
 
 /** Each line rises out from behind a hard mask, one after the other. */
@@ -72,7 +72,7 @@ export function Hero() {
       ref={root}
       id="top"
       className="grain relative isolate flex min-h-[100svh] flex-col justify-center overflow-hidden px-6 pb-28 pt-[calc(var(--nav-h)+7rem)] xl:px-20 2xl:px-28"
-      aria-label="Global Market Champion League"
+      aria-label="Global Market League"
     >
       {/* The skyline plate is the whole backdrop. The portrait crop is a
           separate file rather than an object-position tweak: the towers sit on

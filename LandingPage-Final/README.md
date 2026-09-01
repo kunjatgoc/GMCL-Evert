@@ -1,4 +1,4 @@
-# Global Market Champion League  landing page
+# Global Market League — landing page
 
 Single-page, five-section landing page for a NewEra Broker trading competition.
 Dark black + spring green, WebGL hero, scroll-driven motion.

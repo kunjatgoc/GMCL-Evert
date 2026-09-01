@@ -1,4 +1,4 @@
--- Global Market Champion League  tables and indexes.
+-- Global Market League — tables and indexes.
 -- Procedures live one-per-file in api/procedures/ and are applied after this.
 --
 --     psql "$DATABASE_URL" -f api/schema.sql

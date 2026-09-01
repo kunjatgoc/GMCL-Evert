@@ -53,7 +53,7 @@ export function Nav() {
           href="#top"
           className="shrink-0 text-[14px] font-bold tracking-tight text-white"
         >
-          GMCL
+          GML
         </a>
 
         {/* The strip is the only element allowed to grow: the brand and the
