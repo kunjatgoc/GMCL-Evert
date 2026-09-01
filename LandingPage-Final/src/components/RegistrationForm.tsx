@@ -161,7 +161,7 @@ export function RegistrationForm() {
                   <input
                     id="fullName"
                     autoComplete="name"
-                    placeholder="Alex Mercer"
+                    placeholder="Arjun Sharma"
                     aria-invalid={!!errors.fullName}
                     aria-describedby={
                       errors.fullName ? 'fullName-error' : undefined
