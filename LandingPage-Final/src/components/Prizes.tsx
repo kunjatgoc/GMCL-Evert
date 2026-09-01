@@ -2,7 +2,6 @@ import { motion } from 'motion/react'
 import { Award, Medal, Trophy } from 'lucide-react'
 import { GlassCard } from './ui/GlassCard'
 import { Counter } from './ui/Counter'
-import { Eyebrow } from './ui/Eyebrow'
 import { IconArt } from './ui/IconArt'
 import { depthIn, viewportOnce } from '../lib/motion'
 
@@ -78,10 +77,9 @@ export function Prizes() {
 
       <div className="mx-auto max-w-7xl">
         <header className="mx-auto max-w-2xl text-center">
-          <Eyebrow>$175,000 total pool</Eyebrow>
           <h2
             id="prizes-heading"
-            className="mt-6 text-[clamp(2.1rem,5.2vw,3.6rem)] font-bold leading-[1.05]"
+            className="text-[clamp(2.1rem,5.2vw,3.6rem)] font-bold leading-[1.05]"
           >
             <span className="text-[#00FF87]">Prizes</span>
           </h2>
