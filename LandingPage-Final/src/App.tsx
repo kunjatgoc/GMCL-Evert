@@ -86,8 +86,18 @@ export default function App() {
       </main>
 
       <footer className="border-t border-white/5 px-6 py-8 text-center text-[13.5px] text-[#E4EAE7]/70">
-        Global Market League · Associated with newera Broker. Demo accounts
-        only &mdash; no real capital is traded and no deposit is required.
+        <p>
+          Global Market League · Associated with newera Broker. Demo accounts
+          only &mdash; no real capital is traded and no deposit is required.
+        </p>
+
+        {/* Sits last and reads quieter than the credit above it, which is
+            where a disclaimer belongs: present on every page, never
+            competing with the offer. */}
+        <p className="mx-auto mt-3 max-w-2xl text-[12.5px] text-[#E4EAE7]/55">
+          This site is provided for educational purposes only and does not
+          constitute financial or investment advice.
+        </p>
       </footer>
     </>
   )
