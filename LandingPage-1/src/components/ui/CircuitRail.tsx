@@ -109,7 +109,7 @@ export function CircuitRail({ containerRef }: Props) {
   }, [containerRef])
 
   // The board wires itself up as you scroll through it. Scrubbed, so the
-  // trace tracks the reader rather than playing on its own clock — the pulse
+  // trace tracks the reader rather than playing on its own clock -- the pulse
   // is the part that has its own clock.
   useLayoutEffect(() => {
     if (paths.length === 0) return

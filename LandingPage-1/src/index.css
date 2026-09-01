@@ -153,7 +153,7 @@ h3 {
 
 /* Page shell. Left-anchored, never centred. A centred measure on a wide
    screen leaves an equal void either side, and two matched voids are exactly
-   what reads as "empty" — anchoring left turns the leftover into one margin
+   what reads as "empty" -- anchoring left turns the leftover into one margin
    instead of two gaps. Reading measure is capped per block, not here. */
 .shell {
   width: 100%;

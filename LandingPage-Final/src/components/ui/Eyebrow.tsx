@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
  * The marker is a candlestick rather than a status dot: a wick with a solid
  * body. It reads as this page's own mark instead of the generic "live" light,
  * and it rhymes with the tower silhouettes in the hero plate and the bars in
- * the nav ticker. Deliberately static — four of these sit on the page, and the
+ * the nav ticker. Deliberately static -- four of these sit on the page, and the
  * nav already owns the moving version.
  */
 export function Eyebrow({ children }: { children: ReactNode }) {

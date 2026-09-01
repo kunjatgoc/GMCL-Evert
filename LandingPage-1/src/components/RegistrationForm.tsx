@@ -75,7 +75,7 @@ export function RegistrationForm() {
     formState: { errors, isSubmitting },
   } = useForm<Registration>({
     resolver: zodResolver(registrationSchema),
-    // Leaving a field you never typed in is not a mistake — it is a person
+    // Leaving a field you never typed in is not a mistake -- it is a person
     // looking at the form. Judge on submit, then correct live from there.
     mode: 'onSubmit',
     reValidateMode: 'onChange',

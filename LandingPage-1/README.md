@@ -65,7 +65,7 @@ DATABASE_URL=postgresql://... .venv/bin/uvicorn api.index:app --port 8000
 Both halves ship as one Vercel project. Vite builds the page; `api/index.py`
 becomes a Python serverless function. It is called `index.py` because Vercel
 routes a function by its file path, and `vercel.json` rewrites `/api/*` onto
-it — FastAPI still receives the original path, so `/api/register` matches.
+it -- FastAPI still receives the original path, so `/api/register` matches.
 Page and API share an origin, so CORS never comes into play and
 `VITE_REGISTER_URL` stays unset.
 
@@ -76,7 +76,7 @@ at the Postgres on the Linux server.
 ### The database is on the open internet
 
 Vercel functions have no fixed egress IP, so `pg_hba.conf` cannot be narrowed
-to a source address — the port has to accept connections from anywhere. That
+to a source address -- the port has to accept connections from anywhere. That
 makes four things mandatory rather than advisable.
 
 1. **TLS, enforced by the server.** In `postgresql.conf` set
@@ -94,7 +94,7 @@ makes four things mandatory rather than advisable.
 
 Two consequences to expect. Cold starts pay a fresh TCP and TLS handshake to
 the server, so the first request after an idle spell is slow; and a traffic
-spike opens connections in proportion to the instances Vercel starts —
+spike opens connections in proportion to the instances Vercel starts --
 `max_size=2` per instance is the only cap, so keep `max_connections` on the
 server comfortably above what a burst can produce.
 

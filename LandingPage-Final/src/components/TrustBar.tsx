@@ -21,7 +21,7 @@ export function TrustBar() {
 
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-5 text-center sm:flex-row sm:text-left">
         {/* The supplied logo is a wordmark, so it carries the brand name
-            itself — setting "newera Broker" beside it would print the name
+            itself -- setting "newera Broker" beside it would print the name
             twice. IconArt renders its image aria-hidden, hence the sr-only
             name so the credit still reads correctly aloud. */}
         <p className="inline-flex items-center gap-2.5 text-[15px] font-medium tracking-tight text-white">

@@ -8,7 +8,7 @@ gsap.registerPlugin(ScrollTrigger)
  * Wires a section's scroll behaviour and returns the cleanup a layout effect
  * wants back.
  *
- * Every `[data-reveal]` inside `scope` wipes in as it crosses the fold — the
+ * Every `[data-reveal]` inside `scope` wipes in as it crosses the fold -- the
  * attribute's value, if present, is a delay in seconds. Anything scroll-linked
  * beyond that goes in `build`, which runs inside the same gsap context, so one
  * `revert()` unwinds the lot.

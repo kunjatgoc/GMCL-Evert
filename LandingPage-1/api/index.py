@@ -27,7 +27,7 @@ from psycopg import errors
 from psycopg_pool import ConnectionPool
 from pydantic import BaseModel, EmailStr, Field, ValidationError, model_validator
 
-# Read lazily so the module imports without a database — the self-check below
+# Read lazily so the module imports without a database -- the self-check below
 # and any unit test of the model need the schema, not a connection.
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
@@ -42,7 +42,7 @@ ALLOWED_ORIGINS = [
 # One serverless instance serves one request at a time and is frozen between
 # them, so the pool exists only to reuse a connection across the requests a
 # warm instance happens to get. min_size=0 keeps a cold start from opening a
-# socket it may never use — the database is remote, so every connection costs
+# socket it may never use -- the database is remote, so every connection costs
 # a TCP and TLS handshake. timeout=5 so a database that is down fails the
 # request in seconds rather than parking the instance for the 30s default.
 pool = ConnectionPool(DATABASE_URL, min_size=0, max_size=2, timeout=5, open=False)
@@ -72,7 +72,7 @@ class Registration(BaseModel):
 
     @model_validator(mode="after")
     def normalise_phone(self):
-        """The browser already checked this. Check it again — the endpoint is
+        """The browser already checked this. Check it again -- the endpoint is
         public, and the stored number has to be E.164 whoever posted it."""
         try:
             parsed = phonenumbers.parse(self.phone, self.country.upper())
@@ -86,7 +86,7 @@ class Registration(BaseModel):
         return self
 
 
-# ponytail: no rate limit or bot check on a public POST — deliberate, deferred.
+# ponytail: no rate limit or bot check on a public POST -- deliberate, deferred.
 # Add a honeypot field and a per-IP window in sp_register when the spam starts.
 @app.post("/api/register", status_code=201)
 def register(entry: Registration) -> dict:

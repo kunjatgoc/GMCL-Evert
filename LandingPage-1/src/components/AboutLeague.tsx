@@ -128,7 +128,7 @@ export function AboutLeague() {
             </p>
           </header>
 
-          {/* Drifts against the scroll direction — the parallax is what sells
+          {/* Drifts against the scroll direction -- the parallax is what sells
               it as floating in front of the backdrop rather than pasted on.
               The dial runs a power-on self-test when it scrolls into view,
               then settles on where the front of the board tends to finish. */}

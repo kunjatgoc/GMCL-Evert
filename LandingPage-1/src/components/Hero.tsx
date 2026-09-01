@@ -186,7 +186,7 @@ export function Hero() {
         )}
 
         {/* Scan grid drifting up the floor. The travel is exactly one 8px
-            period, so the loop closes on itself — motion with nothing moving
+            period, so the loop closes on itself -- motion with nothing moving
             at random. */}
         <div
           aria-hidden
@@ -221,7 +221,7 @@ export function Hero() {
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-40 bg-gradient-to-b from-[#0a0a0a] to-transparent"
       />
       {/* Blend the scene into the ticker below, and give the foot band a
-          floor to sit on — the plate is at full strength down there. */}
+          floor to sit on -- the plate is at full strength down there. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-56 [background:linear-gradient(to_top,rgba(10,10,10,0.94)_0%,rgba(10,10,10,0.72)_38%,transparent_100%)]"
