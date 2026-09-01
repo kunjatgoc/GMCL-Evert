@@ -145,14 +145,13 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, ease: EASE, delay: 0.62 }}
         >
-          Think you can trade? Prove it. Enter the league, climb the board and
-          win your share of{' '}
-          <span className="font-semibold text-white">$175,000 in prizes</span>.
-          Never traded before? Every fresher starts with a{' '}
-          <span className="font-semibold text-white">
-            $10,000 USD demo account
-          </span>{' '}
-          &mdash; live market conditions, zero risk to your own money.
+          Join our Global Trading Challenge and experience how global markets
+          work. Start with a{' '}
+          <span className="font-semibold text-white">$10,000 demo account</span>
+          , learn, experiment with different strategies, and compete with other
+          traders. Climb the leaderboard and stand a chance to win up to{' '}
+          <span className="font-semibold text-white">$1,000</span>, all without
+          risking your real money.
         </motion.p>
 
         <motion.div
