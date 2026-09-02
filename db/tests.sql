@@ -61,42 +61,42 @@ begin
     end;
 
     -- signup OTP --------------------------------------------------------
-    call sp_issue_auth_token(v_user, 'signup_otp', 'stale-hash', 10, v_token);
-    call sp_issue_auth_token(v_user, 'signup_otp', v_hash, 10, v_token);
+    call sp_issue_auth_token(v_user, 'signup_otp', 'stale-hash', 10, 0, v_token);
+    call sp_issue_auth_token(v_user, 'signup_otp', v_hash, 10, 0, v_token);
     assert (select count(*) from auth_token
              where user_id = v_user and consumed_at is null) = 1,
            'issuing a second OTP left the first one live';
 
-    call sp_verify_signup_otp('ada@example.com', 'wrong', v_other);
-    assert v_other is null, 'a wrong code verified';
+    call sp_verify_otp(v_user, 'signup_otp', 'wrong', v_ok);
+    assert not v_ok, 'a wrong code verified';
     select attempts into v_attempts from auth_token where id = v_token;
     assert v_attempts = 1, 'a wrong code did not cost an attempt';
     assert (select email_verified_at from users where id = v_user) is null,
            'a wrong code verified the address';
 
-    call sp_verify_signup_otp('  ADA@example.com  ', v_hash, v_other);
-    assert v_other = v_user, 'the right code did not verify';
+    call sp_verify_otp(v_user, 'signup_otp', v_hash, v_ok);
+    assert v_ok, 'the right code did not verify';
     assert (select email_verified_at from users where id = v_user) is not null,
            'verifying did not mark the address';
 
-    call sp_verify_signup_otp('ada@example.com', v_hash, v_other);
-    assert v_other is null, 'a spent code verified a second time';
+    call sp_verify_otp(v_user, 'signup_otp', v_hash, v_ok);
+    assert not v_ok, 'a spent code verified a second time';
 
     -- attempt cap -------------------------------------------------------
-    call sp_issue_auth_token(v_user, 'signup_otp', v_hash, 10, v_token);
+    call sp_issue_auth_token(v_user, 'signup_otp', v_hash, 10, 0, v_token);
     for i in 1..5 loop
-        call sp_verify_signup_otp('ada@example.com', 'wrong', v_other);
+        call sp_verify_otp(v_user, 'signup_otp', 'wrong', v_ok);
     end loop;
-    call sp_verify_signup_otp('ada@example.com', v_hash, v_other);
-    assert v_other is null, 'the token survived five wrong guesses';
+    call sp_verify_otp(v_user, 'signup_otp', v_hash, v_ok);
+    assert not v_ok, 'the token survived five wrong guesses';
 
     -- expiry ------------------------------------------------------------
-    call sp_issue_auth_token(v_user, 'signup_otp', v_hash, -1, v_token);
-    call sp_verify_signup_otp('ada@example.com', v_hash, v_other);
-    assert v_other is null, 'an expired code verified';
+    call sp_issue_auth_token(v_user, 'signup_otp', v_hash, -1, 0, v_token);
+    call sp_verify_otp(v_user, 'signup_otp', v_hash, v_ok);
+    assert not v_ok, 'an expired code verified';
 
     -- password reset ----------------------------------------------------
-    call sp_issue_auth_token(v_user, 'password_reset', 'reset-hash', 30, v_token);
+    call sp_issue_auth_token(v_user, 'password_reset', 'reset-hash', 30, 0, v_token);
     call sp_reset_password(v_user, 'wrong', 'new-hash', v_ok);
     assert not v_ok, 'a wrong reset token was accepted';
     assert (select password_hash from users where id = v_user) = 'pbkdf2$1$aa$bb',
@@ -173,6 +173,33 @@ begin
     begin
         update metaid_request set status = 'approved' where id = v_other;
         assert false, 'a request was approved with nobody named against it';
+    exception when check_violation then null;
+    end;
+
+    -- the resend guard, and verification -----------------------------------
+    assert (select email_verified_at from users where id = v_gml) is null,
+           'the staff account started out verified';
+
+    call sp_issue_auth_token(v_gml, 'signup_otp', 'confirm-hash', 5, 60, v_token);
+    assert v_token is not null, 'the first confirmation code was refused';
+
+    call sp_issue_auth_token(v_gml, 'signup_otp', 'other-hash', 5, 60, v_scratch);
+    assert v_scratch is null, 'the resend guard let a second code straight through';
+
+    call sp_verify_otp(v_gml, 'signup_otp', 'wrong', v_ok);
+    assert not v_ok, 'a wrong code verified';
+
+    call sp_verify_otp(v_gml, 'signup_otp', 'confirm-hash', v_ok);
+    assert v_ok, 'a refused resend retired the code that was still live';
+    assert (select email_verified_at from users where id = v_gml) is not null,
+           'answering the code did not settle verification';
+
+    call sp_issue_auth_token(v_gml, 'signup_otp', 'fresh-hash', 5, 0, v_token);
+    assert v_token is not null, 'a zero window still refused a resend';
+
+    begin
+        call sp_issue_auth_token(v_gml, 'sms_otp', 'x', 5, 0, v_scratch);
+        assert false, 'an unknown token purpose was accepted';
     exception when check_violation then null;
     end;
 

@@ -95,6 +95,32 @@ create table if not exists auth_token (
     created_at   timestamptz not null default now()
 );
 
+-- A `login_otp` purpose existed briefly, for a code asked for at every
+-- sign-in. The code is now asked for once, to confirm the address, which is
+-- what `signup_otp` already meant -- so the value goes, and the tokens issued
+-- under it with it. They are all spent or expired; a live one would only be a
+-- code for a screen that no longer asks.
+do $$
+begin
+    if exists (
+        select 1 from pg_constraint
+         where conname = 'auth_token_purpose_check'
+           and pg_get_constraintdef(oid) like '%login_otp%'
+    ) then
+        delete from auth_token where purpose = 'login_otp';
+        alter table auth_token drop constraint auth_token_purpose_check;
+        alter table auth_token add constraint auth_token_purpose_check
+            check (purpose in ('signup_otp', 'password_reset'));
+    end if;
+end;
+$$;
+
+-- Both replaced by procedures with different signatures. `create or replace`
+-- cannot change a parameter list, so the old shapes have to go or the database
+-- would keep answering on them.
+drop procedure if exists sp_verify_signup_otp(text, text, bigint);
+drop procedure if exists sp_issue_auth_token(bigint, text, text, integer, bigint);
+
 -- Every lookup is "the live token for this person and this purpose", so the
 -- index carries the same filter the queries do.
 create index if not exists auth_token_open_key

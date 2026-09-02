@@ -6,6 +6,11 @@ shell history, out of `ps`, and out of this repository.
 
     .venv/bin/python scripts/seed_admin.py kunj.goc@gmail.com
 
+A new account is not confirmed yet, so this also mails it a six-digit code.
+The code is entered at the first sign-in, once, and the address is settled from
+then on. Without SMTP configured the account is still created -- the script
+says so, and the first sign-in sends the code instead.
+
 Requires DATABASE_URL in the environment (or `set -a; . ./.env; set +a`) and
 db/app_schema.sql already applied.
 """
@@ -17,10 +22,20 @@ import sys
 
 import psycopg
 
-# hash_password lives with the code that verifies it, so the two can never
-# drift apart into a format the login endpoint cannot read.
+# Everything to do with the code and the hash lives with the endpoint that
+# checks them, so the two can never drift apart into a format the other cannot
+# read.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "api"))
-from index import hash_password  # noqa: E402
+from index import (  # noqa: E402
+    OTP_RESEND_SECONDS,
+    OTP_TTL_MINUTES,
+    SESSION_SECRET,
+    SMTP_HOST,
+    hash_password,
+    new_otp,
+    otp_hash,
+    send_otp_email,
+)
 
 
 def main() -> int:
@@ -51,13 +66,58 @@ def main() -> int:
                 set password_hash = excluded.password_hash,
                     role_id       = excluded.role_id,
                     is_active     = true
-            returning id, (xmax = 0) as created
+            returning id, (xmax = 0) as created, email_verified_at is null
             """,
             (email, hash_password(password)),
         )
-        user_id, created = cur.fetchone()
+        user_id, created, unconfirmed = cur.fetchone()
 
-    print(f"{'created' if created else 'updated'} admin #{user_id} {email}")
+        # Committed before anything else is attempted: the account is the point
+        # of this script, and a mail server having a bad day must not undo it.
+        conn.commit()
+        print(f"{'created' if created else 'updated'} admin #{user_id} {email}")
+
+        if not unconfirmed:
+            print("address already confirmed, no code sent")
+            return 0
+
+        if not SMTP_HOST or not SESSION_SECRET:
+            print(
+                "SMTP_HOST or SESSION_SECRET is not set, so no code went out.\n"
+                "The first sign-in will send one."
+            )
+            return 0
+
+        code = new_otp()
+        cur.execute(
+            "CALL sp_issue_auth_token(%s, 'signup_otp', %s, %s, %s)",
+            (
+                user_id,
+                otp_hash("signup_otp", user_id, code),
+                OTP_TTL_MINUTES,
+                OTP_RESEND_SECONDS,
+            ),
+        )
+        (token_id,) = cur.fetchone()
+
+        if token_id is None:
+            print("a code was sent moments ago, so this run sent none")
+            return 0
+
+        # The token is rolled back with a failed send, so the next attempt is
+        # not blocked for a minute by a code that never left the building.
+        try:
+            send_otp_email(email, code)
+        except Exception as exc:  # noqa: BLE001 -- whatever SMTP threw
+            conn.rollback()
+            print(f"the account is ready, but the code could not be sent: {exc}")
+            print("The first sign-in will send another.")
+            return 0
+
+    print(
+        f"a confirmation code is on its way to {email}; "
+        f"it expires in {OTP_TTL_MINUTES} minutes"
+    )
     return 0
 
 

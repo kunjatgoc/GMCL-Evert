@@ -56,7 +56,7 @@ Every file is idempotent, so re-running the lot is safe.
 | `real_account_request` | Real ID interest, written by the card under the form. Likewise untouched |
 | `user_roles` | `admin`, `end_user`, `gml_staff`, `newera_staff` |
 | `users` | Everyone who signs in, one row per account, one role per row |
-| `auth_token` | Signup OTPs and password-reset links -- one shape, told apart by `purpose` |
+| `auth_token` | Email-confirmation codes and password-reset links -- one shape, told apart by `purpose` |
 | `metaid_request` | A Demo or Real MetaID asked for, and the answer |
 
 `users` is the accounts table rather than an admins table, so an end user is a
@@ -69,7 +69,8 @@ worded differently without a prior SELECT. `full_name`, `phone` and
 `auth_token` stores a keyed hash the API computes, never the code or the link
 itself, and counts wrong answers: five misses kill a token. Issuing a new one
 retires the old one in the same transaction, so "resend" cannot widen the
-target.
+target, and a second issue inside 60 seconds is refused outright rather than
+mailing again.
 
 A MetaID request opens as `pending` and only `admin` or `newera_staff` can
 settle it -- that rule is in `sp_decide_metaid`, not only in the API. A partial
@@ -120,11 +121,42 @@ psql "$DATABASE_URL" -f db/app_schema.sql
 .venv/bin/python scripts/seed_admin.py you@example.com   # prompts for the password
 ```
 
+Signing in is a password. The one exception is an address that has never been
+confirmed: creating an account mails it a six-digit code, and the first
+sign-in asks for that code before it issues a session. After that, the
+password is the whole of it.
+
+Until the address is confirmed, the password buys only a ten-minute
+`gmcl_pending` cookie, which is not a session and cannot reach anything behind
+`require_admin`. Answering the code trades it for the real `gmcl_admin`
+session and settles `email_verified_at` for good. If the code from account
+creation has expired by the time anyone signs in, that sign-in sends a fresh
+one rather than leaving them stuck.
+
+The code lives five minutes, is good once, dies after five wrong answers, and
+can be resent once a minute. It is never in a response, a log or the console:
+what reaches the database is `hmac_sha256(SESSION_SECRET, purpose:user_id:code)`,
+so a copy of `auth_token` is not a list of live codes.
+
 `SESSION_SECRET` must be set for sign-in to work at all -- without it the
-endpoint answers 503 rather than issuing a cookie nobody can verify. The
-session is a signed cookie, HttpOnly, eight hours, nothing kept in JS.
-Passwords are pbkdf2-sha256 at 600k rounds, hashed by `api/index.py` so the
+endpoint answers 503 rather than issuing a cookie nobody can verify. `SMTP_HOST`
+must be set to confirm an address, for the same reason: better a 503 than
+pretending a code went out. A confirmed account signs in without either mail
+setting. The session is a signed cookie, HttpOnly, eight hours, nothing kept in
+JS. Passwords are pbkdf2-sha256 at 600k rounds, hashed by `api/index.py` so the
 seed script and the login endpoint can never disagree on the format.
+
+Mail goes out over SMTP with `smtplib` -- Amazon SES in production, no library
+beyond the standard one. The five `SMTP_*` variables live in `.env` and in the
+Vercel project, never in the source; `.env.example` carries placeholders. Port
+465 is implicit TLS, anything else does STARTTLS, and a server that offers no
+encryption never receives the password.
+
+To watch the confirmation step again on an account that has already passed it:
+
+```sql
+update users set email_verified_at = null where email = 'you@example.com';
+```
 
 Set `COOKIE_SECURE=0` locally, since dev is plain http and a Secure cookie
 would be dropped.

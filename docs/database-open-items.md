@@ -63,27 +63,28 @@ Carried over from the stack review on 2 September 2026.
 
 ---
 
-## 4. Nothing sends an email
+## 4. Only email confirmation is built
 
-`auth_token` stores the keyed hash of a signup OTP or a reset link. Nothing
-generates the code, mails it, or verifies the answer -- the endpoints that would
-do it are not written. The database half is ready and tested; the delivery half
-does not exist.
+Done: creating an admin account mails a six-digit code over SMTP, and the
+first sign-in will not issue a session until it is answered. Ordinary sign-ins
+after that send no mail at all.
 
-Also missing, and deliberately so for now: the signup, sign-in, OTP, forgot
-password and MetaID endpoints. The database work was scoped without them.
+Still missing, and deliberately so: signup, forgot password, and the MetaID
+request and approval endpoints. `sp_reset_password` and `sp_request_metaid`
+are written and tested; nothing calls them.
 
 ---
 
 ## 5. No rate limit on resend or on login
 
-`sp_issue_auth_token` will issue as often as it is called, so a held-down
-"resend" mails someone repeatedly. `admin_login` has no throttle either. Both
-sites carry a `ponytail:` comment naming the fix:
+Done for mail: `sp_issue_auth_token` refuses a second token inside the caller's
+window, and both the API and the seed script pass 60 seconds, so a held-down
+"resend" costs one message.
 
-- a `created_at > now() - interval '1 minute'` guard inside
-  `sp_issue_auth_token`, or a per-IP limit at the edge
-- a per-email attempt column on `users`, or a WAF rule
+Still open: wrong passwords are not throttled at all. `admin_login` carries a
+`ponytail:` comment naming the fix -- a per-email attempt column on `users`, or
+a WAF rule. The code that follows the password is capped at five wrong answers,
+so the guessable half is the password itself.
 
 The OTP itself is already capped -- five wrong answers kill the token -- so this
 is about mail volume and password guessing, not code guessing.

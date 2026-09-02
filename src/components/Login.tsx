@@ -1,11 +1,25 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { motion } from 'motion/react'
-import { AlertCircle, ArrowLeft, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  Loader2,
+  MailCheck,
+  ShieldCheck,
+} from 'lucide-react'
 import { GlowButton } from './ui/GlowButton'
 import { Eyebrow } from './ui/Eyebrow'
 import { field, label } from '../lib/fieldStyles'
-import { submitLogin } from '../lib/submit'
+import { resendOtp, submitLogin, submitOtp } from '../lib/submit'
 import { EASE, depthIn } from '../lib/motion'
+
+/** Mirrors OTP_RESEND_SECONDS in api/index.py. The server is the rule; this
+ *  only stops the button offering something that would be refused. */
+const RESEND_SECONDS = 60
+
+type Stage = 'password' | 'otp'
 
 /**
  * Admin sign-in.
@@ -19,29 +33,103 @@ import { EASE, depthIn } from '../lib/motion'
  * `type="email"` covers every rule a client is entitled to have an opinion
  * about, and the only other verdict (do these credentials match) belongs to
  * the server. So no zod schema and no form library here.
+ *
+ * Usually one stage. An address that has never been confirmed gets a second:
+ * a six-digit code, once, mailed when the account was created. Both stages
+ * wear the same glass, so the screen changes its question without changing its
+ * shape.
  */
 export function Login() {
+  const [stage, setStage] = useState<Stage>('password')
+  const [address, setAddress] = useState('')
+  const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [reveal, setReveal] = useState(false)
+  const [cooldown, setCooldown] = useState(0)
 
-  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  // One timeout per second rather than an interval, so the countdown cannot
+  // outlive the component or double up when the stage changes.
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const id = setTimeout(() => setCooldown((s) => s - 1), 1000)
+    return () => clearTimeout(id)
+  }, [cooldown])
+
+  const backToPassword = () => {
+    setStage('password')
+    setCode('')
+    setNotice(null)
+  }
+
+  const onPassword = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     // Read before the await: currentTarget is null once the handler yields.
     const data = new FormData(e.currentTarget)
+    const email = String(data.get('email') ?? '')
 
     setBusy(true)
     setError(null)
-    const res = await submitLogin(
-      String(data.get('email') ?? ''),
-      String(data.get('password') ?? '')
+    const res = await submitLogin(email, String(data.get('password') ?? ''))
+    setBusy(false)
+
+    if (!res.ok) {
+      setError(res.error)
+      return
+    }
+
+    // The usual case: a confirmed address needs nothing else.
+    if (res.stage === 'done') {
+      window.location.href = '/admin'
+      return
+    }
+
+    setAddress(email)
+    setCode('')
+    setStage('otp')
+    setCooldown(RESEND_SECONDS)
+    setNotice(
+      res.sent
+        ? `We sent a six-digit code to ${email}.`
+        : `A code was sent to ${email} moments ago. Use that one.`
     )
+  }
+
+  const onCode = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    const res = await submitOtp(code)
     setBusy(false)
 
     // Full navigation rather than a client-side swap: the admin bundle is a
     // separate chunk and the session cookie has just changed.
-    if (res.ok) window.location.href = '/admin'
-    else setError(res.error)
+    if (res.ok) {
+      window.location.href = '/admin'
+      return
+    }
+
+    if (res.expired) backToPassword()
+    setError(res.error)
+  }
+
+  const onResend = async () => {
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    const res = await resendOtp()
+    setBusy(false)
+
+    if (res.ok) {
+      setCode('')
+      setCooldown(RESEND_SECONDS)
+      setNotice(`A new code is on its way to ${address}.`)
+      return
+    }
+
+    if (res.expired) backToPassword()
+    setError(res.error)
   }
 
   return (
@@ -153,8 +241,17 @@ export function Login() {
                 animate={{ y: '0%' }}
                 transition={{ duration: 1.05, ease: EASE, delay: 0.22 }}
               >
-                Back to the{' '}
-                <span className="text-[#00FF87] text-glow">board</span>
+                {stage === 'password' ? (
+                  <>
+                    Back to the{' '}
+                    <span className="text-[#00FF87] text-glow">board</span>
+                  </>
+                ) : (
+                  <>
+                    Confirm your{' '}
+                    <span className="text-[#00FF87] text-glow">email</span>
+                  </>
+                )}
               </motion.span>
             </span>
           </h1>
@@ -177,81 +274,179 @@ export function Login() {
             onError={(e) => (e.currentTarget.style.display = 'none')}
           />
 
-          <form onSubmit={onSubmit} className="relative space-y-5">
-            <div>
-              <label className={label} htmlFor="email">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                inputMode="email"
-                autoComplete="email"
-                autoFocus
-                placeholder="you@example.com"
-                className={`${field} w-full`}
-              />
-            </div>
-
-            <div>
-              <label className={label} htmlFor="current-password">
-                Password
-              </label>
-              {/* The toggle sits inside the field's box, so the padding-right
-                  keeps typed text from running under it. */}
-              <div className="relative">
+          {stage === 'password' ? (
+            <form onSubmit={onPassword} className="relative space-y-5">
+              <div>
+                <label className={label} htmlFor="email">
+                  Email address
+                </label>
                 <input
-                  id="current-password"
-                  name="password"
-                  type={reveal ? 'text' : 'password'}
+                  id="email"
+                  name="email"
+                  type="email"
                   required
-                  autoComplete="current-password"
-                  className={`${field} w-full pr-12`}
+                  inputMode="email"
+                  autoComplete="email"
+                  autoFocus
+                  defaultValue={address}
+                  placeholder="you@example.com"
+                  className={`${field} w-full`}
                 />
-                <button
-                  type="button"
-                  onClick={() => setReveal((v) => !v)}
-                  aria-label={reveal ? 'Hide password' : 'Show password'}
-                  aria-pressed={reveal}
-                  className="absolute inset-y-0 right-0 grid w-12 cursor-pointer place-items-center text-white/45 transition-colors duration-200 hover:text-white"
-                >
-                  {reveal ? (
-                    <EyeOff className="size-[18px]" />
-                  ) : (
-                    <Eye className="size-[18px]" />
-                  )}
-                </button>
               </div>
-            </div>
+
+              <div>
+                <label className={label} htmlFor="current-password">
+                  Password
+                </label>
+                {/* The toggle sits inside the field's box, so the padding-right
+                    keeps typed text from running under it. */}
+                <div className="relative">
+                  <input
+                    id="current-password"
+                    name="password"
+                    type={reveal ? 'text' : 'password'}
+                    required
+                    autoComplete="current-password"
+                    className={`${field} w-full pr-12`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setReveal((v) => !v)}
+                    aria-label={reveal ? 'Hide password' : 'Show password'}
+                    aria-pressed={reveal}
+                    className="absolute inset-y-0 right-0 grid w-12 cursor-pointer place-items-center text-white/45 transition-colors duration-200 hover:text-white"
+                  >
+                    {reveal ? (
+                      <EyeOff className="size-[18px]" />
+                    ) : (
+                      <Eye className="size-[18px]" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+            {notice && (
+              <p className="flex items-start gap-2 rounded-xl border border-[rgba(0,255,135,0.3)] bg-[rgba(0,255,135,0.08)] px-4 py-3 text-[15px] text-[#9dffcf]">
+                <MailCheck className="mt-0.5 size-4 shrink-0" />
+                {notice}
+              </p>
+            )}
 
             {error && (
               <p
                 role="alert"
-                className="flex items-center gap-2 rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-4 py-3 text-[15px] text-[#ff9a9a]"
+                className="flex items-start gap-2 rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-4 py-3 text-[15px] text-[#ff9a9a]"
               >
-                <AlertCircle className="size-4 shrink-0" />
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
                 {error}
               </p>
             )}
 
-            <GlowButton
-              type="submit"
-              magnetic={false}
-              disabled={busy}
-              className="mt-2 w-full cursor-pointer"
-            >
-              {busy ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Signing in…
-                </>
-              ) : (
-                'Sign in'
-              )}
-            </GlowButton>
-          </form>
+              <GlowButton
+                type="submit"
+                magnetic={false}
+                disabled={busy}
+                className="mt-2 w-full cursor-pointer"
+              >
+                {busy ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Signing in…
+                  </>
+                ) : (
+                  'Sign in'
+                )}
+              </GlowButton>
+            </form>
+          ) : (
+            <form onSubmit={onCode} className="relative space-y-5">
+              <div>
+                <label className={label} htmlFor="otp">
+                  Six-digit code
+                </label>
+                {/* One field rather than six boxes: `one-time-code` lets the
+                    phone offer the code from the notification, and a paste of
+                    all six digits lands in one place. Non-digits are dropped as
+                    they arrive, so the server never sees a code it would only
+                    reject. */}
+                <input
+                  id="otp"
+                  name="otp"
+                  required
+                  autoFocus
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={code}
+                  onChange={(e) =>
+                    setCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                  }
+                  className={`${field} w-full text-center text-[22px] font-semibold tracking-[0.45em] [text-indent:0.45em]`}
+                />
+              </div>
+
+            {notice && (
+              <p className="flex items-start gap-2 rounded-xl border border-[rgba(0,255,135,0.3)] bg-[rgba(0,255,135,0.08)] px-4 py-3 text-[15px] text-[#9dffcf]">
+                <MailCheck className="mt-0.5 size-4 shrink-0" />
+                {notice}
+              </p>
+            )}
+
+            {error && (
+              <p
+                role="alert"
+                className="flex items-start gap-2 rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-4 py-3 text-[15px] text-[#ff9a9a]"
+              >
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                {error}
+              </p>
+            )}
+
+              <GlowButton
+                type="submit"
+                magnetic={false}
+                disabled={busy || code.length < 6}
+                className="mt-2 w-full cursor-pointer"
+              >
+                {busy ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Verifying…
+                  </>
+                ) : (
+                  'Verify and sign in'
+                )}
+              </GlowButton>
+
+              <p className="text-center text-[14px] leading-relaxed text-[#E4EAE7]/80">
+                A one-time check on a new account. After this, your password is
+                all you need.
+              </p>
+
+              <div className="flex items-center justify-between gap-4 pt-1 text-[13.5px]">
+                <button
+                  type="button"
+                  onClick={backToPassword}
+                  className="cursor-pointer text-[#E4EAE7]/75 underline-offset-4 transition-colors duration-200 hover:text-white hover:underline"
+                >
+                  Use a different account
+                </button>
+
+                {/* Disabled for exactly as long as the server would refuse
+                    another, so the countdown is the rate limit made visible
+                    rather than a second rule that could disagree with it. */}
+                <button
+                  type="button"
+                  onClick={onResend}
+                  disabled={busy || cooldown > 0}
+                  className="cursor-pointer font-medium text-[#00FF87] underline-offset-4 transition-colors duration-200 hover:underline disabled:cursor-default disabled:text-[#E4EAE7]/45 disabled:no-underline"
+                >
+                  {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
+                </button>
+              </div>
+            </form>
+          )}
         </motion.div>
 
         <motion.p

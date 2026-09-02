@@ -65,17 +65,17 @@ alter procedure sp_signup(text, text, text, text, bigint)
 revoke all on procedure sp_signup(text, text, text, text, bigint) from public;
 grant execute on procedure sp_signup(text, text, text, text, bigint) to gmcl_api;
 
-alter procedure sp_issue_auth_token(bigint, text, text, integer, bigint)
+alter procedure sp_issue_auth_token(bigint, text, text, integer, integer, bigint)
     security definer set search_path = public, pg_temp;
-revoke all on procedure sp_issue_auth_token(bigint, text, text, integer, bigint)
-    from public;
-grant execute on procedure sp_issue_auth_token(bigint, text, text, integer, bigint)
-    to gmcl_api;
+revoke all on procedure
+    sp_issue_auth_token(bigint, text, text, integer, integer, bigint) from public;
+grant execute on procedure
+    sp_issue_auth_token(bigint, text, text, integer, integer, bigint) to gmcl_api;
 
-alter procedure sp_verify_signup_otp(text, text, bigint)
+alter procedure sp_verify_otp(bigint, text, text, boolean)
     security definer set search_path = public, pg_temp;
-revoke all on procedure sp_verify_signup_otp(text, text, bigint) from public;
-grant execute on procedure sp_verify_signup_otp(text, text, bigint) to gmcl_api;
+revoke all on procedure sp_verify_otp(bigint, text, text, boolean) from public;
+grant execute on procedure sp_verify_otp(bigint, text, text, boolean) to gmcl_api;
 
 alter procedure sp_reset_password(bigint, text, text, boolean)
     security definer set search_path = public, pg_temp;
