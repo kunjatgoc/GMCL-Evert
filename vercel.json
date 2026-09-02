@@ -4,9 +4,18 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/login",
+      "destination": "/index.html"
+    }
   ],
   "functions": {
-    "api/index.py": { "maxDuration": 15 }
+    "api/index.py": {
+      "maxDuration": 15
+    }
   }
 }

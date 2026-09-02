@@ -59,3 +59,44 @@ export async function submitRealAccount(email: string): Promise<SubmitResult> {
     }
   }
 }
+
+const LOGIN_ENDPOINT = import.meta.env.VITE_LOGIN_URL ?? '/api/login'
+
+/**
+ * The seam for the login screen. Same contract as the two above.
+ *
+ * ponytail: no /api/login exists yet -- the screen ships against this seam so
+ * the endpoint can land without touching the component.
+ */
+export async function submitLogin(
+  email: string,
+  password: string
+): Promise<SubmitResult> {
+  try {
+    const res = await fetch(LOGIN_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // Same-origin, so the session cookie the server sets comes back on its
+      // own. Nothing is kept in JS.
+      credentials: 'same-origin',
+      body: JSON.stringify({ email, password }),
+    })
+
+    if (res.ok) return { ok: true }
+
+    // One message for both, deliberately: telling a stranger which half was
+    // wrong tells them which addresses are registered.
+    if (res.status === 401 || res.status === 400)
+      return { ok: false, error: 'That email and password do not match.' }
+
+    if (res.status === 429)
+      return { ok: false, error: 'Too many attempts. Try again in a minute.' }
+
+    return { ok: false, error: 'Sign in failed. Please try again.' }
+  } catch {
+    return {
+      ok: false,
+      error: 'Could not reach the server. Check your connection and try again.',
+    }
+  }
+}

@@ -100,13 +100,28 @@ export function Nav() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => scrollToId('register')}
-          className="ml-auto shrink-0 rounded-full border border-[rgba(0,255,135,0.32)] bg-[rgba(0,255,135,0.07)] px-4 py-1.5 text-[13.5px] font-semibold text-[#00FF87] transition-colors duration-300 hover:bg-[rgba(0,255,135,0.14)] sm:ml-0"
-        >
-          Join
-        </button>
+        {/* Both actions share one right-anchored group so the marquee absorbs
+            the leftover width instead of the gap between them drifting. */}
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:ml-0 sm:gap-2">
+          {/* Text-only on purpose. Two pill buttons side by side read as two
+              equal offers; registration is the one this page is selling, so
+              sign-in stays the quieter of the pair. A real navigation, not an
+              anchor jump -- /login is its own screen. */}
+          <a
+            href="/login"
+            className="rounded-full px-3 py-1.5 text-[13.5px] font-medium text-[#E4EAE7] transition-colors duration-300 hover:text-white"
+          >
+            Sign in
+          </a>
+
+          <button
+            type="button"
+            onClick={() => scrollToId('register')}
+            className="rounded-full border border-[rgba(0,255,135,0.32)] bg-[rgba(0,255,135,0.07)] px-4 py-1.5 text-[13.5px] font-semibold text-[#00FF87] transition-colors duration-300 hover:bg-[rgba(0,255,135,0.14)]"
+          >
+            Join
+          </button>
+        </div>
       </div>
     </header>
   )
