@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
-import { ChevronLeft, ChevronRight, Info, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { COUNTRIES } from '../lib/countries'
 import { EASE } from '../lib/motion'
 import { TEXT } from './type'
@@ -22,12 +22,12 @@ const PER_PAGE = 25
 const ROW_STAGGER = 0.022
 
 const control =
-  `${TEXT.body} rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white ` +
+  `${TEXT.body} rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-white ` +
   'placeholder:text-white/30 outline-none transition-all duration-300 ' +
   'focus:border-[rgba(0,255,135,0.5)] focus:bg-white/[0.05] ' +
   'focus:shadow-[0_0_0_3px_rgba(0,255,135,0.1)]'
 
-const fieldLabel = `${TEXT.label} font-semibold uppercase tracking-[0.12em] text-[#E4EAE7]/75`
+const fieldLabel = `${TEXT.label} font-semibold uppercase tracking-[0.12em] text-[var(--admin-muted)]`
 
 type Column<T> = {
   header: string
@@ -62,7 +62,6 @@ const fmt = (iso: string) =>
 type Props<T> = {
   title: string
   accent: string
-  note: string
   columns: Column<T>[]
   withCountry?: boolean
   fetchPage: (qs: string) => Promise<Page<T>>
@@ -71,7 +70,6 @@ type Props<T> = {
 function UserList<T extends { id: number }>({
   title,
   accent,
-  note,
   columns,
   withCountry = false,
   fetchPage,
@@ -133,29 +131,20 @@ function UserList<T extends { id: number }>({
             animate={{ y: '0%' }}
             transition={{ duration: 0.9, ease: EASE }}
           >
-            {title} <span className="text-[#00FF87] text-glow">{accent}</span>
+            {title} {accent}
           </motion.span>
         </h1>
 
-        <motion.p
-          className={`${TEXT.body} glass mt-6 inline-flex max-w-3xl items-start gap-3 rounded-xl px-5 py-4 leading-relaxed text-[#E4EAE7]`}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: EASE, delay: 0.25 }}
-        >
-          <Info className="mt-0.5 size-5 shrink-0 text-[#00FF87]" />
-          {note}
-        </motion.p>
       </header>
 
       <motion.form
         onSubmit={search}
-        className="glass glass-lip relative mt-7 flex flex-wrap items-end gap-3 overflow-hidden rounded-2xl p-4 sm:p-5"
+        className="glass glass-lip relative mt-5 flex flex-wrap items-end gap-2.5 overflow-hidden rounded-2xl bg-[var(--admin-card)] p-3.5 sm:p-4"
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: EASE, delay: 0.32 }}
       >
-        <label className="flex min-w-[14rem] flex-1 flex-col gap-1.5">
+        <label className="flex min-w-[13rem] flex-1 flex-col gap-1">
           <span className={fieldLabel}>Search</span>
           <input
             value={draft.q}
@@ -166,7 +155,7 @@ function UserList<T extends { id: number }>({
         </label>
 
         {withCountry && (
-          <label className="flex flex-col gap-1.5">
+          <label className="flex flex-col gap-1">
             <span className={fieldLabel}>Country</span>
             <select
               value={draft.country}
@@ -187,30 +176,30 @@ function UserList<T extends { id: number }>({
 
         {/* Native date inputs. A picker library would be three dependencies
             for something every browser already ships. */}
-        <label className="flex flex-col gap-1.5">
+        <label className="flex flex-col gap-1">
           <span className={fieldLabel}>From</span>
           <input
             type="date"
             value={draft.date_from}
             onChange={(e) => setDraft({ ...draft, date_from: e.target.value })}
-            className={`${control} [color-scheme:dark]`}
+            className={`${control} cursor-pointer [color-scheme:dark]`}
           />
         </label>
 
-        <label className="flex flex-col gap-1.5">
+        <label className="flex flex-col gap-1">
           <span className={fieldLabel}>To</span>
           <input
             type="date"
             value={draft.date_to}
             onChange={(e) => setDraft({ ...draft, date_to: e.target.value })}
-            className={`${control} [color-scheme:dark]`}
+            className={`${control} cursor-pointer [color-scheme:dark]`}
           />
         </label>
 
         <div className="flex items-center gap-2">
         <button
           type="submit"
-          className={`${TEXT.body} group relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(180deg,#5cffb4_0%,#00ff87_38%,#00c853_100%)] px-5 py-3 font-semibold text-black shadow-[0_8px_28px_-8px_rgba(0,255,135,0.55)] transition-[filter] duration-300 hover:brightness-110`}
+          className={`${TEXT.body} group relative inline-flex items-center gap-2 overflow-hidden cursor-pointer rounded-xl bg-[linear-gradient(180deg,#5cffb4_0%,#00ff87_38%,#00c853_100%)] px-4 py-2.5 font-semibold text-black shadow-[0_8px_28px_-8px_rgba(0,255,135,0.55)] transition-[filter] duration-300 hover:brightness-110`}
         >
           {/* The GlowButton sweep, kept inline: this is a rectangle, not a
               pill, and the shared component bakes its own radius in. */}
@@ -225,7 +214,7 @@ function UserList<T extends { id: number }>({
         <button
           type="button"
           onClick={reset}
-          className={`${TEXT.body} rounded-xl px-3 py-3 text-[#E4EAE7]/70 transition-colors duration-300 hover:text-white`}
+          className={`${TEXT.body} cursor-pointer rounded-xl px-3 py-2.5 text-[#E4EAE7]/70 transition-colors duration-300 hover:text-white`}
         >
           Reset
         </button>
@@ -233,7 +222,7 @@ function UserList<T extends { id: number }>({
       </motion.form>
 
       <motion.div
-        className="glass glass-lip relative mt-5 overflow-hidden rounded-2xl"
+        className="glass glass-lip relative mt-4 overflow-hidden rounded-2xl bg-[var(--admin-card)]"
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.75, ease: EASE, delay: 0.4 }}
@@ -245,7 +234,7 @@ function UserList<T extends { id: number }>({
                 {columns.map((c) => (
                   <th
                     key={c.header}
-                    className={`${TEXT.label} whitespace-nowrap px-4 py-4 font-semibold uppercase tracking-[0.1em] text-[#E4EAE7]/75 ${
+                    className={`${TEXT.label} whitespace-nowrap px-4 py-4 font-semibold uppercase tracking-[0.1em] text-[var(--admin-muted)] ${
                       c.hideOnMobile ? 'hidden md:table-cell' : ''
                     }`}
                   >
@@ -261,7 +250,7 @@ function UserList<T extends { id: number }>({
                 <tr>
                   <td
                     colSpan={columns.length}
-                    className={`${TEXT.body} px-5 py-16 text-center text-[#ff9a9a]`}
+                    className={`${TEXT.body} px-5 py-12 text-center text-[var(--admin-destructive)]`}
                   >
                     {error}
                   </td>
@@ -270,17 +259,17 @@ function UserList<T extends { id: number }>({
 
               {!loading && !error && total === 0 && (
                 <tr>
-                  <td colSpan={columns.length} className="px-5 py-16 text-center">
+                  <td colSpan={columns.length} className="px-5 py-12 text-center">
                     {/* An unfinished chart with no data on it. The point is to
                         say nothing is broken -- the net just came back empty. */}
                     <img
                       src="/img/empty-state.webp"
                       alt=""
                       aria-hidden
-                      className="mx-auto mb-7 w-full max-w-sm opacity-70"
+                      className="mx-auto mb-5 w-full max-w-xs opacity-70"
                       onError={(e) => (e.currentTarget.style.display = 'none')}
                     />
-                    <p className={`${TEXT.body} text-[#E4EAE7]/65`}>
+                    <p className={`${TEXT.body} text-[var(--admin-muted)]`}>
                       Nothing matches those filters.
                     </p>
                   </td>
@@ -292,12 +281,13 @@ function UserList<T extends { id: number }>({
                 data?.rows.map((row, i) => (
                   <motion.tr
                     key={row.id}
-                    className="border-t border-white/[0.06] transition-colors duration-200 hover:bg-[rgba(0,255,135,0.04)]"
-                    initial={{ opacity: 0, y: 6 }}
+                    className="border-t border-white/[0.06] transition-colors duration-200 hover:bg-[rgba(31,92,65,0.28)]"
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{
-                      duration: 0.4,
-                      ease: EASE,
+                      type: 'spring',
+                      stiffness: 320,
+                      damping: 30,
                       delay: i * ROW_STAGGER,
                     }}
                   >
@@ -318,7 +308,7 @@ function UserList<T extends { id: number }>({
         </div>
       </motion.div>
 
-      <div className={`${TEXT.label} mt-5 flex items-center justify-between gap-4 text-[#E4EAE7]/75`}>
+      <div className={`${TEXT.label} mt-4 flex items-center justify-between gap-4 text-[var(--admin-muted)]`}>
         <span className="tabular">
           {first}–{last} of {total.toLocaleString('en-US')}
         </span>
@@ -328,7 +318,7 @@ function UserList<T extends { id: number }>({
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1 || loading}
             aria-label="Previous page"
-            className="grid size-10 place-items-center rounded-xl border border-white/10 bg-white/[0.03] transition-colors duration-300 hover:border-[rgba(0,255,135,0.4)] hover:text-white disabled:opacity-30 disabled:hover:border-white/10"
+            className="grid size-10 cursor-pointer place-items-center rounded-xl border border-white/10 bg-white/[0.03] transition-colors duration-300 hover:border-[rgba(0,255,135,0.4)] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-white/10"
           >
             <ChevronLeft className="size-4" />
           </button>
@@ -340,7 +330,7 @@ function UserList<T extends { id: number }>({
             onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
             disabled={page >= lastPage || loading}
             aria-label="Next page"
-            className="grid size-10 place-items-center rounded-xl border border-white/10 bg-white/[0.03] transition-colors duration-300 hover:border-[rgba(0,255,135,0.4)] hover:text-white disabled:opacity-30 disabled:hover:border-white/10"
+            className="grid size-10 cursor-pointer place-items-center rounded-xl border border-white/10 bg-white/[0.03] transition-colors duration-300 hover:border-[rgba(0,255,135,0.4)] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-white/10"
           >
             <ChevronRight className="size-4" />
           </button>
@@ -358,7 +348,6 @@ export function DemoUsers() {
     <UserList<DemoUser>
       title="Demo ID"
       accent="Users"
-      note="These are Demo ID users: league entrants trading $10,000 of demo capital. No real funds are involved."
       withCountry
       fetchPage={listDemoUsers}
       columns={[
@@ -388,7 +377,7 @@ export function DemoUsers() {
           header: 'Registered',
           skeleton: 'w-32',
           cell: (r) => (
-            <span className="tabular text-[#E4EAE7]/80">{fmt(r.created_at)}</span>
+            <span className="tabular text-[var(--admin-muted)]">{fmt(r.created_at)}</span>
           ),
           hideOnMobile: true,
         },
@@ -402,7 +391,6 @@ export function RealUsers() {
     <UserList<RealUser>
       title="Real ID"
       accent="Users"
-      note="These are Real ID users: people who asked for a real-balance account. They have not been onboarded yet."
       fetchPage={listRealUsers}
       columns={[
         {
@@ -414,7 +402,7 @@ export function RealUsers() {
           header: 'Requested',
           skeleton: 'w-32',
           cell: (r) => (
-            <span className="tabular text-[#E4EAE7]/80">{fmt(r.created_at)}</span>
+            <span className="tabular text-[var(--admin-muted)]">{fmt(r.created_at)}</span>
           ),
         },
       ]}

@@ -50,11 +50,11 @@ export function StatsSkeleton() {
 
       <Shimmer className="h-[3.1rem] w-[19rem] max-w-full rounded-xl" />
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
-            className="glass glass-lip relative overflow-hidden rounded-2xl p-5"
+            className="glass glass-lip relative overflow-hidden rounded-2xl bg-[var(--admin-card)] p-5"
           >
             <div className="flex items-center gap-2.5">
               <Shimmer className="size-8 rounded-lg" />
@@ -66,17 +66,27 @@ export function StatsSkeleton() {
         ))}
       </div>
 
-      <div className="glass glass-lip relative mt-6 overflow-hidden rounded-2xl p-6">
-        <Shimmer className="h-3.5 w-48" />
-        <ul className="mt-5 space-y-3.5">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <li key={i} className="flex items-center gap-4">
-              <Shimmer className="h-4 w-64 shrink-0" />
-              <Shimmer className="h-2.5 flex-1 rounded-full" />
-              <Shimmer className="h-4 w-16 shrink-0" />
-            </li>
-          ))}
-        </ul>
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1.65fr_1fr]">
+        <div className="glass glass-lip relative overflow-hidden rounded-2xl bg-[var(--admin-card)] p-6">
+          <Shimmer className="h-5 w-40" />
+          <Shimmer className="mt-9 h-56 w-full rounded-xl" />
+          <div className="mt-2 flex justify-between">
+            <Shimmer className="h-3 w-16" />
+            <Shimmer className="h-3 w-16" />
+          </div>
+        </div>
+
+        <div className="glass glass-lip relative overflow-hidden rounded-2xl bg-[var(--admin-card)] p-6">
+          <Shimmer className="h-5 w-52" />
+          <ul className="mt-5 space-y-4">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <li key={i}>
+                <Shimmer className="h-4 w-full" />
+                <Shimmer className="mt-2 h-2.5 w-full rounded-full" />
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   )
@@ -113,7 +123,7 @@ export function PanelSkeleton() {
     <div className="relative isolate min-h-dvh md:flex" aria-busy="true">
       <span className="sr-only">Signing you in</span>
 
-      <div className="glass border-b border-white/8 p-4 md:h-dvh md:w-[19.5rem] md:shrink-0 md:border-b-0 md:border-r md:p-6">
+      <div className="glass border-b border-white/8 bg-[var(--admin-card)] p-4 md:h-dvh md:w-[19.5rem] md:shrink-0 md:border-b-0 md:border-r md:p-6">
         <div className="flex items-center gap-2.5">
           <Shimmer className="size-11 rounded-xl" />
           <div className="flex-1">

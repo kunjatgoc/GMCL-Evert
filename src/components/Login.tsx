@@ -79,7 +79,7 @@ export function Login() {
       <motion.a
         href="/"
         aria-label="Back to the event page"
-        className="group absolute left-5 top-5 z-20 inline-flex h-12 items-center rounded-full border border-white/10 bg-white/[0.04] px-3.5 text-[#E4EAE7] backdrop-blur-md transition-colors duration-300 hover:border-[rgba(0,255,135,0.4)] hover:bg-white/[0.07] hover:text-white sm:left-8 sm:top-8 sm:h-14 sm:px-4"
+        className="group absolute left-5 top-5 z-20 inline-flex h-12 cursor-pointer items-center rounded-full border border-white/10 bg-white/[0.04] px-3.5 text-[#E4EAE7] backdrop-blur-md transition-colors duration-300 hover:border-[rgba(0,255,135,0.4)] hover:bg-white/[0.07] hover:text-white sm:left-8 sm:top-8 sm:h-14 sm:px-4"
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.7, ease: EASE, delay: 0.15 }}
@@ -206,7 +206,7 @@ export function Login() {
                   onClick={() => setReveal((v) => !v)}
                   aria-label={reveal ? 'Hide password' : 'Show password'}
                   aria-pressed={reveal}
-                  className="absolute inset-y-0 right-0 grid w-12 place-items-center text-white/45 transition-colors duration-200 hover:text-white"
+                  className="absolute inset-y-0 right-0 grid w-12 cursor-pointer place-items-center text-white/45 transition-colors duration-200 hover:text-white"
                 >
                   {reveal ? (
                     <EyeOff className="size-[18px]" />
@@ -231,7 +231,7 @@ export function Login() {
               type="submit"
               magnetic={false}
               disabled={busy}
-              className="mt-2 w-full"
+              className="mt-2 w-full cursor-pointer"
             >
               {busy ? (
                 <>

@@ -7,6 +7,7 @@ import { EASE, depthIn } from '../lib/motion'
 import { getStats, type Stats } from './api'
 import { TEXT } from './type'
 import { StatsSkeleton, useDelayed } from './Skeleton'
+import { TrendChart } from './TrendChart'
 
 const nameFor = (code: string) =>
   COUNTRIES.find((c) => c.code === code)?.name ?? code
@@ -28,11 +29,14 @@ function Card({
 }) {
   return (
     <motion.div
-      className="glass glass-lip group relative overflow-hidden rounded-2xl p-5"
+      className="glass glass-lip group relative overflow-hidden rounded-2xl bg-[var(--admin-card)] p-5"
       variants={depthIn}
       custom={index}
       initial="hidden"
       animate="show"
+      // Lifts toward the cursor. A spring rather than a duration, so it
+      // settles on the way up and follows the pointer back down.
+      whileHover={{ y: -5, transition: { type: 'spring', stiffness: 380, damping: 24 } }}
     >
       {/* Engraved instrument grid, not the prize cards' carbon weave: this
           card holds a measurement, and the surface should say so. */}
@@ -43,26 +47,27 @@ function Card({
         className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[0.22] mix-blend-screen"
         onError={(e) => (e.currentTarget.style.display = 'none')}
       />
-      {/* Corner bloom, brightening on hover so the card answers the cursor. */}
+      {/* Deep Forest, not Signal Green: the card needs depth in its corner,
+          not a second thing glowing next to the number. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-[radial-gradient(circle,rgba(0,255,135,0.22),transparent_70%)] opacity-60 transition-opacity duration-500 group-hover:opacity-100"
+        className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-[radial-gradient(circle,rgba(31,92,65,0.55),transparent_70%)] opacity-70 transition-opacity duration-500 group-hover:opacity-100"
       />
 
       <span className="relative flex items-center gap-2.5">
-        <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-[rgba(0,255,135,0.25)] bg-[rgba(0,255,135,0.08)]">
-          <Icon className="size-4 text-[#00FF87]" />
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.04]">
+          <Icon className="size-4 text-[var(--admin-muted)]" />
         </span>
-        <span className={`${TEXT.label} font-semibold uppercase tracking-[0.1em] text-[#E4EAE7]/85`}>
+        <span className={`${TEXT.label} font-semibold uppercase tracking-[0.1em] text-[var(--admin-muted)]`}>
           {label}
         </span>
       </span>
 
       <Counter
         to={value}
-        className={`${TEXT.display} relative mt-5 block font-bold leading-none text-white`}
+        className={`${TEXT.display} relative mt-5 block font-bold leading-none text-[var(--admin-primary)]`}
       />
-      <p className={`${TEXT.label} relative mt-2.5 text-[#E4EAE7]/70`}>{sub}</p>
+      <p className={`${TEXT.label} relative mt-2.5 text-[var(--admin-muted)]`}>{sub}</p>
     </motion.div>
   )
 }
@@ -78,10 +83,13 @@ export function Dashboard() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Could not load.'))
   }, [])
 
-  if (error) return <p className={`${TEXT.body} text-[#ff9a9a]`}>{error}</p>
+  if (error) return <p className={`${TEXT.body} text-[var(--admin-destructive)]`}>{error}</p>
   if (!stats) return showSkeleton ? <StatsSkeleton /> : null
 
   const busiest = stats.top_countries[0]?.entries ?? 1
+  // Share is of every entrant, not of the five shown, or the percentages add
+  // up to 100 and imply these are the only countries.
+  const total = Math.max(1, stats.demo_total)
 
   return (
     <section>
@@ -97,12 +105,12 @@ export function Dashboard() {
             animate={{ y: '0%' }}
             transition={{ duration: 0.9, ease: EASE }}
           >
-            Dash<span className="text-[#00FF87] text-glow">board</span>
+            Dashboard
           </motion.span>
         </h1>
       </header>
 
-      <div className="mt-8 grid gap-4 [perspective:1400px] sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-6 grid gap-4 [perspective:1400px] sm:grid-cols-2 xl:grid-cols-4">
         <Card
           index={0}
           label="Demo ID users"
@@ -133,52 +141,74 @@ export function Dashboard() {
         />
       </div>
 
+      {/* Wide chart, narrow ranking. The two are not equals: one is the shape
+          of the campaign, the other is a footnote to it. */}
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1.65fr_1fr]">
       <motion.div
-        className="glass glass-lip relative mt-6 overflow-hidden rounded-2xl p-6"
+        className="glass glass-lip relative overflow-hidden rounded-2xl bg-[var(--admin-card)] p-6"
         variants={depthIn}
         custom={4}
         initial="hidden"
         animate="show"
       >
-        <h2 className={`${TEXT.label} font-semibold uppercase tracking-[0.1em] text-[#E4EAE7]/85`}>
+        <h2 className={`${TEXT.body} font-semibold tracking-tight text-white`}>
+          Signups per day
+        </h2>
+        <div className="mt-5">
+          <TrendChart data={stats.daily} />
+        </div>
+      </motion.div>
+
+      <motion.div
+        className="glass glass-lip relative overflow-hidden rounded-2xl bg-[var(--admin-card)] p-6"
+        variants={depthIn}
+        custom={5}
+        initial="hidden"
+        animate="show"
+      >
+        <h2 className={`${TEXT.body} font-semibold tracking-tight text-white`}>
           Where the entrants are
         </h2>
 
-        <ul className="mt-5 space-y-3.5">
+        <ul className="mt-5 space-y-4">
           {stats.top_countries.map((c, i) => (
             <motion.li
               key={c.country}
-              className="flex items-center gap-4"
               initial={{ opacity: 0, x: -12 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, ease: EASE, delay: 0.5 + i * 0.07 }}
             >
-              <span className={`${TEXT.body} flex w-64 shrink-0 items-center gap-2.5`}>
+              <span className={`${TEXT.body} flex items-center gap-2.5`}>
                 <span aria-hidden>{flagFor(c.country)}</span>
                 <span className="truncate text-[#E4EAE7]">
                   {nameFor(c.country)}
                 </span>
+                <span className="tabular ml-auto shrink-0 font-semibold text-white">
+                  {c.entries}
+                </span>
+                <span className={`${TEXT.label} tabular w-12 shrink-0 text-right text-[var(--admin-muted)]`}>
+                  {Math.round((c.entries / total) * 100)}%
+                </span>
               </span>
 
-              {/* Widths are relative to the biggest row, not to the total: it
-                  is a ranking, and scaling to the total would flatten every
-                  bar into a stub once the list is long. */}
-              <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/[0.05]">
+              {/* Bar widths are relative to the biggest row, not to the total:
+                  it is a ranking, and scaling to the total would flatten every
+                  bar into a stub once the list is long. The percentage above
+                  is the share, and says so. */}
+              <span className="mt-2 block h-2.5 overflow-hidden rounded-full bg-white/[0.05]">
                 <motion.span
                   className="block h-full rounded-full bg-[linear-gradient(90deg,#00c853,#00FF87)] shadow-[0_0_18px_-2px_rgba(0,255,135,0.7)]"
+                  style={{ minWidth: 4 }}
                   initial={{ width: 0 }}
                   animate={{ width: `${(c.entries / busiest) * 100}%` }}
                   transition={{ duration: 1, ease: EASE, delay: 0.6 + i * 0.07 }}
                 />
               </span>
-
-              <span className={`${TEXT.body} tabular w-16 shrink-0 text-right font-semibold text-white`}>
-                {c.entries}
-              </span>
             </motion.li>
           ))}
         </ul>
       </motion.div>
+      </div>
     </section>
   )
 }

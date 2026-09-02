@@ -342,6 +342,25 @@ def admin_stats(_: int = Depends(require_admin)) -> dict:
         )
         totals["top_countries"] = cur.fetchall()
 
+        # generate_series rather than group-by-date: a day with no signups has
+        # to appear as a zero, or the chart quietly closes the gap and draws a
+        # line through a day that never happened.
+        cur.execute(
+            """
+            select
+              d::date as day,
+              (select count(*) from registration r
+                 where r.created_at >= d and r.created_at < d + interval '1 day')        as demo,
+              (select count(*) from real_account_request a
+                 where a.created_at >= d and a.created_at < d + interval '1 day')        as real_requests
+            from generate_series(
+              current_date - interval '13 days', current_date, interval '1 day'
+            ) d
+            order by day
+            """
+        )
+        totals["daily"] = cur.fetchall()
+
     return totals
 
 

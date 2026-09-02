@@ -2,6 +2,8 @@
 
 export type Me = { email: string; role: string }
 
+export type DayPoint = { day: string; demo: number; real_requests: number }
+
 export type Stats = {
   demo_total: number
   demo_today: number
@@ -11,6 +13,7 @@ export type Stats = {
   real_week: number
   countries: number
   top_countries: { country: string; entries: number }[]
+  daily: DayPoint[]
 }
 
 export type DemoUser = {

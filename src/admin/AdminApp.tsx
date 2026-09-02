@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
-import { LayoutDashboard, LogOut, Users, UserCheck } from 'lucide-react'
+import { Check, LayoutDashboard, LogOut, Users, UserCheck, X } from 'lucide-react'
 import { Dashboard } from './Dashboard'
 import { DemoUsers, RealUsers } from './UserList'
 import { getMe, logout, Unauthorized, type Me } from './api'
 import { EASE } from '../lib/motion'
 import { TEXT } from './type'
 import { PanelSkeleton, useDelayed } from './Skeleton'
+import { PALETTE } from './palette'
 
 const ROUTES = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard, view: Dashboard },
@@ -41,7 +42,7 @@ function usePath() {
  *  does not scroll away underneath a long table. */
 function Backdrop() {
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
+    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-[var(--admin-bg)]">
       <img
         src="/img/admin-plate.webp"
         alt=""
@@ -63,6 +64,9 @@ export default function AdminApp() {
   // A warm session answers /me in well under 400ms. Showing nothing until
   // then means the common case never flashes a loader at all.
   const showSkeleton = useDelayed()
+  // Two-step rather than a modal: signing out is reversible in three seconds,
+  // and a dialog over the whole panel would be heavier than the action.
+  const [confirmingOut, setConfirmingOut] = useState(false)
 
   // The cookie is the session, so the guard is "does /me answer". A rejected
   // call is the only reliable signal -- the cookie is HttpOnly and JS cannot
@@ -83,10 +87,13 @@ export default function AdminApp() {
 
   if (checking || !me) {
     return (
-      <>
+      <div
+        className="relative isolate min-h-dvh bg-[var(--admin-bg)]"
+        style={PALETTE}
+      >
         <Backdrop />
         {showSkeleton && <PanelSkeleton />}
-      </>
+      </div>
     )
   }
 
@@ -98,11 +105,14 @@ export default function AdminApp() {
     // transform animation below collapses to an opacity change when the OS
     // asks for it, so no component has to check the preference itself.
     <MotionConfig reducedMotion="user">
-      <div className="relative isolate min-h-dvh md:flex">
+      <div
+        className="relative isolate min-h-dvh bg-[var(--admin-bg)] md:flex"
+        style={PALETTE}
+      >
         <Backdrop />
 
         <motion.nav
-          className="glass relative isolate overflow-hidden border-b border-white/8 p-4 md:sticky md:top-0 md:h-dvh md:w-[19.5rem] md:shrink-0 md:border-b-0 md:border-r md:p-6"
+          className="glass relative isolate overflow-hidden border-b border-white/8 bg-[var(--admin-card)] p-4 md:sticky md:top-0 md:h-dvh md:w-[19.5rem] md:shrink-0 md:border-b-0 md:border-r md:p-6"
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.7, ease: EASE }}
@@ -120,7 +130,7 @@ export default function AdminApp() {
           <span className="flex items-center gap-2.5">
             <span
               aria-hidden
-              className={`${TEXT.label} grid size-11 shrink-0 place-items-center rounded-xl border border-[rgba(0,255,135,0.3)] bg-[rgba(0,255,135,0.07)] font-bold text-[#00FF87] shadow-[0_0_26px_-8px_rgba(0,255,135,0.8),inset_0_1px_0_0_rgba(255,255,255,0.08)]`}
+              className={`${TEXT.label} grid size-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] font-bold text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]`}
             >
               GML
             </span>
@@ -128,7 +138,7 @@ export default function AdminApp() {
               <span className={`${TEXT.body} block font-[family-name:var(--font-display)] font-bold tracking-tight`}>
                 Global Market League
               </span>
-              <span className={`${TEXT.label} mt-1.5 block uppercase tracking-[0.14em] text-[#E4EAE7]/65`}>
+              <span className={`${TEXT.label} mt-1.5 block uppercase tracking-[0.14em] text-[var(--admin-muted)]`}>
                 Admin panel
               </span>
             </span>
@@ -167,10 +177,10 @@ export default function AdminApp() {
                       go(r.path)
                     }}
                     aria-current={on ? 'page' : undefined}
-                    className={`${TEXT.body} relative flex items-center gap-2.5 whitespace-nowrap rounded-xl px-3.5 py-3 transition-colors duration-300 ${
+                    className={`${TEXT.body} relative flex cursor-pointer items-center gap-2.5 whitespace-nowrap rounded-xl px-3.5 py-3 transition-colors duration-300 ${
                       on
                         ? 'font-semibold text-[#00FF87]'
-                        : 'text-[#E4EAE7]/80 hover:bg-white/[0.04] hover:text-white'
+                        : 'text-[#E4EAE7] hover:bg-white/[0.04] hover:text-white'
                     }`}
                   >
                     <Icon className="size-[18px] shrink-0" />
@@ -182,28 +192,70 @@ export default function AdminApp() {
           </ul>
 
           <div className="mt-6 border-t border-white/8 pt-4 md:absolute md:inset-x-6 md:bottom-6 md:mt-0">
-            <p className={`${TEXT.label} truncate text-[#E4EAE7]/70`}>{me.email}</p>
-            <button
-              type="button"
-              onClick={signOut}
-              className={`${TEXT.body} group mt-2 inline-flex items-center gap-2 rounded-lg px-2 py-2 text-[#E4EAE7]/80 transition-colors duration-300 hover:text-white`}
-            >
-              <LogOut className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
-              Sign out
-            </button>
+            <p className={`${TEXT.label} truncate text-[var(--admin-muted)]`}>{me.email}</p>
+
+            <AnimatePresence mode="wait" initial={false}>
+              {confirmingOut ? (
+                <motion.div
+                  key="confirm"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.22, ease: EASE }}
+                  className="mt-2"
+                >
+                  <p className={`${TEXT.label} text-[var(--admin-muted)]`}>
+                    Sign out of the panel?
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={signOut}
+                      autoFocus
+                      className={`${TEXT.label} inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[rgba(0,255,135,0.35)] bg-[rgba(0,255,135,0.12)] px-3 py-2 font-semibold text-[#00FF87] transition-colors duration-200 hover:bg-[rgba(0,255,135,0.2)]`}
+                    >
+                      <Check className="size-4" />
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingOut(false)}
+                      className={`${TEXT.label} inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-[#E4EAE7]/75 transition-colors duration-200 hover:text-white`}
+                    >
+                      <X className="size-4" />
+                      Cancel
+                    </button>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.button
+                  key="idle"
+                  type="button"
+                  onClick={() => setConfirmingOut(true)}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className={`${TEXT.body} group mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-[#E4EAE7] transition-colors duration-300 hover:text-white`}
+                >
+                  <LogOut className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+                  Sign out
+                </motion.button>
+              )}
+            </AnimatePresence>
           </div>
         </motion.nav>
 
-        <main className="min-w-0 flex-1 p-5 sm:p-8 xl:p-12">
+        <main className="min-w-0 flex-1 p-5 sm:p-6 xl:p-8">
           {/* Keyed on the route so the old screen leaves before the new one
               arrives, rather than both occupying the same cell mid-swap. */}
           <AnimatePresence mode="wait">
             <motion.div
               key={active.path}
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.45, ease: EASE }}
+              initial={{ opacity: 0, y: 18, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
+              transition={{ duration: 0.5, ease: EASE }}
             >
               <View />
             </motion.div>
