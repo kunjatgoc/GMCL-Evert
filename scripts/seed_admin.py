@@ -7,7 +7,7 @@ shell history, out of `ps`, and out of this repository.
     .venv/bin/python scripts/seed_admin.py kunj.goc@gmail.com
 
 Requires DATABASE_URL in the environment (or `set -a; . ./.env; set +a`) and
-db/admin_schema.sql already applied.
+db/app_schema.sql already applied.
 """
 
 import getpass

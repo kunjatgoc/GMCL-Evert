@@ -10,9 +10,9 @@ sees the original path.
 
     python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
     psql "$DATABASE_URL" -f db/schema.sql
+    psql "$DATABASE_URL" -f db/app_schema.sql
     for f in db/procedures/*.sql; do psql "$DATABASE_URL" -f "$f"; done
     psql "$DATABASE_URL" -f db/grants.sql
-    psql "$DATABASE_URL" -f db/admin_schema.sql
     .venv/bin/python scripts/seed_admin.py you@example.com
 
     .venv/bin/uvicorn --env-file .env api.index:app --reload --port 8000

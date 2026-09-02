@@ -49,3 +49,49 @@ grant execute on procedure sp_request_real_account(text, bigint)
     to gmcl_api;
 
 revoke all on table real_account_request from gmcl_api;
+
+-- The accounts procedures get the same treatment: gmcl_api may call them and
+-- may not touch the tables underneath, so a leaked password cannot read a
+-- password hash, a live OTP or the MetaID queue back out.
+--
+-- Reads are the gap. The admin panel and the end-user views select from these
+-- tables directly, and gmcl_api has no SELECT, so those paths need either a
+-- second role with read rights or a grant added here. Today DATABASE_URL holds
+-- the owning role and the distinction is theoretical -- worth closing before
+-- it stops being.
+
+alter procedure sp_signup(text, text, text, text, bigint)
+    security definer set search_path = public, pg_temp;
+revoke all on procedure sp_signup(text, text, text, text, bigint) from public;
+grant execute on procedure sp_signup(text, text, text, text, bigint) to gmcl_api;
+
+alter procedure sp_issue_auth_token(bigint, text, text, integer, bigint)
+    security definer set search_path = public, pg_temp;
+revoke all on procedure sp_issue_auth_token(bigint, text, text, integer, bigint)
+    from public;
+grant execute on procedure sp_issue_auth_token(bigint, text, text, integer, bigint)
+    to gmcl_api;
+
+alter procedure sp_verify_signup_otp(text, text, bigint)
+    security definer set search_path = public, pg_temp;
+revoke all on procedure sp_verify_signup_otp(text, text, bigint) from public;
+grant execute on procedure sp_verify_signup_otp(text, text, bigint) to gmcl_api;
+
+alter procedure sp_reset_password(bigint, text, text, boolean)
+    security definer set search_path = public, pg_temp;
+revoke all on procedure sp_reset_password(bigint, text, text, boolean) from public;
+grant execute on procedure sp_reset_password(bigint, text, text, boolean) to gmcl_api;
+
+alter procedure sp_request_metaid(bigint, text, text, bigint)
+    security definer set search_path = public, pg_temp;
+revoke all on procedure sp_request_metaid(bigint, text, text, bigint) from public;
+grant execute on procedure sp_request_metaid(bigint, text, text, bigint) to gmcl_api;
+
+alter procedure sp_decide_metaid(bigint, bigint, text, text, boolean)
+    security definer set search_path = public, pg_temp;
+revoke all on procedure sp_decide_metaid(bigint, bigint, text, text, boolean)
+    from public;
+grant execute on procedure sp_decide_metaid(bigint, bigint, text, text, boolean)
+    to gmcl_api;
+
+revoke all on table users, user_roles, auth_token, metaid_request from gmcl_api;
