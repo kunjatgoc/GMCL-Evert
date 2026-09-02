@@ -9,9 +9,9 @@ path; vercel.json rewrites every /api/* request onto it and FastAPI still
 sees the original path.
 
     python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-    psql "$DATABASE_URL" -f api/schema.sql
-    for f in api/procedures/*.sql; do psql "$DATABASE_URL" -f "$f"; done
-    psql "$DATABASE_URL" -f api/grants.sql
+    psql "$DATABASE_URL" -f db/schema.sql
+    for f in db/procedures/*.sql; do psql "$DATABASE_URL" -f "$f"; done
+    psql "$DATABASE_URL" -f db/grants.sql
 
     .venv/bin/uvicorn --env-file .env api.index:app --reload --port 8000
     .venv/bin/python api/index.py    # validation self-check, no database needed

@@ -1,11 +1,19 @@
+# Dependencies
 node_modules/
-dist/
 .venv/
 __pycache__/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Secrets. The negation has to come last, or the .env* glob above swallows it.
 .env
 .env.*
 !.env.example
-.DS_Store
-*.tsbuildinfo
+
+# Tooling
+.vercel
 .impeccable/
+.DS_Store
 *.zip

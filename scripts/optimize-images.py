@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Turn raw generated art in assets-src/ into web-ready files in public/img/.
+Turn raw generated art in design/assets-src/ into web-ready files in public/img/.
 
-Drop new generations into assets-src/ using the filenames from
-IMAGE-PROMPTS.md, then run:  python3 scripts/optimize-images.py
+Drop new generations into design/assets-src/ using the filenames from
+design/prompts.md, then run:  python3 scripts/optimize-images.py
 
 Generators hand back 1-1.5 MB PNGs at whatever aspect they feel like. This
 trims the dead transparent margin, resizes to what the page actually displays,
@@ -18,7 +18,7 @@ try:
 except ImportError:
     sys.exit("Pillow is required:  pip3 install pillow")
 
-SRC = pathlib.Path("assets-src")
+SRC = pathlib.Path("design/assets-src")
 OUT = pathlib.Path("public/img")
 
 # stem -> (max_width, max_height, keep_alpha, quality)

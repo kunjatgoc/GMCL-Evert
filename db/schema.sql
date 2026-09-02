@@ -1,8 +1,8 @@
 -- Global Market League -- tables and indexes.
--- Procedures live one-per-file in api/procedures/ and are applied after this.
+-- Procedures live one-per-file in db/procedures/ and are applied after this.
 --
---     psql "$DATABASE_URL" -f api/schema.sql
---     for f in api/procedures/*.sql; do psql "$DATABASE_URL" -f "$f"; done
+--     psql "$DATABASE_URL" -f db/schema.sql
+--     for f in db/procedures/*.sql; do psql "$DATABASE_URL" -f "$f"; done
 --
 -- Re-running either step is safe; every statement is idempotent.
 

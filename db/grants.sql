@@ -9,7 +9,7 @@
 -- Run as the owner of the registration table, after schema.sql and the
 -- procedures. Every statement is idempotent.
 --
---     psql "$ADMIN_DATABASE_URL" -f api/grants.sql
+--     psql "$ADMIN_DATABASE_URL" -f db/grants.sql
 --     psql "$ADMIN_DATABASE_URL" -c "alter role gmcl_api password '…'"
 
 do $$
