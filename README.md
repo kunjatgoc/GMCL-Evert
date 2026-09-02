@@ -28,33 +28,60 @@ CORS never enters local development.
 |---|---|
 | `src/` | React app. `components/` are sections, `components/ui/` are primitives, `lib/` is validation, motion and the API seam, `admin/` is the panel |
 | `api/` | FastAPI serverless function. Vercel routes every `/api/*` here by path, so the file must stay `api/index.py` |
-| `db/` | Schema, stored procedures, grants. Applied by hand, in the order below |
+| `db/` | Schema, stored procedures, grants, and a roll-back-only test. Applied by hand, in the order below |
 | `public/` | Served verbatim. `img/` is generated -- do not hand-edit |
 | `design/` | Image prompts and the raw generated PNGs they produce |
-| `docs/` | `requirements.md`, the section-by-section spec the page is built against |
+| `docs/` | `requirements.md`, the spec the page is built against, and `database-open-items.md` |
 | `scripts/` | `optimize-images.py` (assets) and `seed_admin.py` (the one admin account) |
 | `test/` | Vitest suites |
 
 ## Database
 
-Procedures live one per file and are applied after the schema:
+Two schema files and one procedure per file, applied in this order:
 
 ```bash
 psql "$DATABASE_URL" -f db/schema.sql
+psql "$DATABASE_URL" -f db/app_schema.sql
 for f in db/procedures/*.sql; do psql "$DATABASE_URL" -f "$f"; done
 psql "$ADMIN_DATABASE_URL" -f db/grants.sql
-psql "$DATABASE_URL" -f db/admin_schema.sql
+psql "$DATABASE_URL" -f db/tests.sql        # asserts the rules, rolls back
 ```
 
-`registration` and `real_account_request` hold the entrants. `users` and
-`user_roles` hold the people who sign in: one row per account, one role per
-row, `admin` and `staff` seeded. It is the accounts table rather than an
-admins table, so end-user signup later is a row with a different role, not a
-second login path.
+`grants.sql` runs last because it alters procedures that have to exist first.
+Every file is idempotent, so re-running the lot is safe.
+
+| Table | Holds |
+|---|---|
+| `registration` | Demo ID entrants, written by the public form. Untouched by anything below |
+| `real_account_request` | Real ID interest, written by the card under the form. Likewise untouched |
+| `user_roles` | `admin`, `end_user`, `gml_staff`, `newera_staff` |
+| `users` | Everyone who signs in, one row per account, one role per row |
+| `auth_token` | Signup OTPs and password-reset links -- one shape, told apart by `purpose` |
+| `metaid_request` | A Demo or Real MetaID asked for, and the answer |
+
+`users` is the accounts table rather than an admins table, so an end user is a
+row with a different role and not a second login path. Email is unique
+case-insensitively and phone is unique outright; both index names reach the API
+through `diag.constraint_name`, so a taken email and a taken number can be
+worded differently without a prior SELECT. `full_name`, `phone` and
+`email_verified_at` are nullable because the admin row predates them.
+
+`auth_token` stores a keyed hash the API computes, never the code or the link
+itself, and counts wrong answers: five misses kill a token. Issuing a new one
+retires the old one in the same transaction, so "resend" cannot widen the
+target.
+
+A MetaID request opens as `pending` and only `admin` or `newera_staff` can
+settle it -- that rule is in `sp_decide_metaid`, not only in the API. A partial
+unique index allows one open request per person per type; a settled one leaves
+the way clear to ask again. The user never supplies a MetaID, only the address
+one should be issued against. External validation of a Real address is a future
+step in front of `sp_request_metaid`; the API for it does not exist yet.
 
 Pydantic owns the request shape -- types, email format, phone validity for the
-chosen country. The procedures own the write and the duplicate rule. `api/index.py`
-writes no SQL beyond the `CALL`.
+chosen country. The procedures own the write, the duplicate rules and the
+races. `api/index.py` writes no SQL beyond the `CALL`, except for the admin
+panel's dynamic list filters.
 
 Validate the models without a database:
 
@@ -62,15 +89,25 @@ Validate the models without a database:
 .venv/bin/python api/index.py
 ```
 
-## Where the form data goes
+What is still missing -- the API connecting as the table owner, `sslmode`, the
+pool ceiling, mail delivery -- is written down in
+[`docs/database-open-items.md`](docs/database-open-items.md).
 
-`src/lib/submit.ts` is the only seam between the form and the API -- two
-functions, `submitRegistration()` and `submitRealAccount()`. Both POST
-same-origin by default; `VITE_REGISTER_URL` and `VITE_REAL_ACCOUNT_URL`
-override that when the API is deployed elsewhere.
+## Entry, and where the form went
 
-A 409 is a duplicate, not a failure, and is worded as reassurance. A thrown
-fetch is offline / DNS / CORS / server-down and is worded as retryable.
+The landing page no longer collects name, email and phone. It ends in two
+calls to action -- **Create Now** to `/signup` and **Join The League Now** to
+`/login` -- because entry now runs through an account: sign up, sign in, and
+ask for a Demo or a Real MetaID from the dashboard. The section keeps the id
+`#register`, so the hero button and the nav still land on it.
+
+`/signup` has no screen yet. Until it does, that link 404s.
+
+`src/lib/submit.ts` and `src/lib/schema.ts` are still here and still tested.
+Nothing on the landing page calls them, so Vite leaves them out of the bundle,
+but the signup form wants exactly the same name, email and country-aware phone
+rules and the same 409-is-a-duplicate wording. `/api/register` and
+`/api/real-account` are untouched and still answer.
 
 ## Admin panel
 
@@ -79,7 +116,7 @@ fetch is offline / DNS / CORS / server-down and is worded as retryable.
 session, so the panel is a separate lazy chunk the marketing page never loads.
 
 ```bash
-psql "$DATABASE_URL" -f db/admin_schema.sql
+psql "$DATABASE_URL" -f db/app_schema.sql
 .venv/bin/python scripts/seed_admin.py you@example.com   # prompts for the password
 ```
 
@@ -92,7 +129,8 @@ seed script and the login endpoint can never disagree on the format.
 Set `COOKIE_SECURE=0` locally, since dev is plain http and a Secure cookie
 would be dropped.
 
-Only `admin` can sign in today. Staff permissions are not implemented.
+The database carries four roles, but the sign-in endpoint still admits only
+`admin`. Staff and end-user login are not built yet; the tables they need are.
 
 ## Images
 

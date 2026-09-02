@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { useEffect } from 'react'
 import Lenis from 'lenis'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -7,21 +7,9 @@ import { Hero } from './components/Hero'
 import { TrustBar } from './components/TrustBar'
 import { AboutLeague } from './components/AboutLeague'
 import { Prizes } from './components/Prizes'
+import { JoinCta } from './components/JoinCta'
 import { prefersReducedMotion } from './lib/motionPreference'
 import { setScroller } from './lib/scroll'
-
-// The form drags in zod, react-hook-form and libphonenumber's metadata 
-// none of which the hero needs to paint. Split it out, then warm it during
-// the first idle window so it is already cached by the time anyone scrolls.
-const RegistrationForm = lazy(() =>
-  import('./components/RegistrationForm').then((m) => ({
-    default: m.RegistrationForm,
-  }))
-)
-
-function prefetchForm() {
-  import('./components/RegistrationForm')
-}
 
 export default function App() {
   useEffect(() => {
@@ -59,16 +47,6 @@ export default function App() {
     }
   }, [])
 
-  useEffect(() => {
-    const ric = window.requestIdleCallback
-    if (ric) {
-      const id = ric(prefetchForm, { timeout: 3000 })
-      return () => window.cancelIdleCallback?.(id)
-    }
-    const t = setTimeout(prefetchForm, 2000)
-    return () => clearTimeout(t)
-  }, [])
-
   return (
     <>
       <Nav />
@@ -78,11 +56,7 @@ export default function App() {
         <TrustBar />
         <AboutLeague />
         <Prizes />
-        <Suspense
-          fallback={<div id="register" className="min-h-[70vh] scroll-mt-8" />}
-        >
-          <RegistrationForm />
-        </Suspense>
+        <JoinCta />
       </main>
 
       <footer className="border-t border-white/5 px-6 py-8 text-center text-[13.5px] text-[#E4EAE7]/70">

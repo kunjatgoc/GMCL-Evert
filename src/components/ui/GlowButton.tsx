@@ -1,4 +1,9 @@
-import { useRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import {
+  useRef,
+  type AnchorHTMLAttributes,
+  type ButtonHTMLAttributes,
+  type ReactNode,
+} from 'react'
 import { prefersReducedMotion } from '../../lib/motionPreference'
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -6,6 +11,12 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   /** Cursor pulls the button toward it within this radius, in px. */
   magnetic?: boolean
   variant?: 'solid' | 'ghost'
+  /**
+   * Renders an <a> instead of a <button>. A control that changes the URL is a
+   * link, and a link is what gives it middle-click, open-in-new-tab and the
+   * right role read aloud -- none of which an onClick handler brings back.
+   */
+  href?: string
 }
 
 export function GlowButton({
@@ -13,11 +24,12 @@ export function GlowButton({
   magnetic = true,
   variant = 'solid',
   className = '',
+  href,
   ...rest
 }: Props) {
-  const ref = useRef<HTMLButtonElement>(null)
+  const ref = useRef<HTMLElement>(null)
 
-  const onMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const onMove = (e: React.MouseEvent<HTMLElement>) => {
     if (!magnetic || prefersReducedMotion()) return
     const el = ref.current
     if (!el) return
@@ -41,23 +53,23 @@ export function GlowButton({
     'text-white bg-white/[0.03] border border-[rgba(0,255,135,0.28)] ' +
     'hover:bg-white/[0.07] hover:border-[rgba(0,255,135,0.5)]'
 
-  return (
-    <button
-      ref={ref}
-      onMouseMove={onMove}
-      onMouseLeave={reset}
-      onBlur={reset}
-      className={[
-        'group relative isolate inline-flex items-center justify-center gap-2',
-        'rounded-full px-8 py-4 text-[16px] font-semibold tracking-tight',
-        'transition-[transform,filter,background-color,border-color] duration-300',
-        'will-change-transform disabled:pointer-events-none disabled:opacity-55',
-        variant === 'solid' ? solid : ghost,
-        className,
-      ].join(' ')}
-      style={{ transitionTimingFunction: 'cubic-bezier(0.16,1,0.3,1)' }}
-      {...rest}
-    >
+  const shared = {
+    onMouseMove: onMove,
+    onMouseLeave: reset,
+    onBlur: reset,
+    className: [
+      'group relative isolate inline-flex items-center justify-center gap-2',
+      'rounded-full px-8 py-4 text-[16px] font-semibold tracking-tight',
+      'transition-[transform,filter,background-color,border-color] duration-300',
+      'will-change-transform disabled:pointer-events-none disabled:opacity-55',
+      variant === 'solid' ? solid : ghost,
+      className,
+    ].join(' '),
+    style: { transitionTimingFunction: 'cubic-bezier(0.16,1,0.3,1)' },
+  }
+
+  const face = (
+    <>
       {/* Specular sweep that crosses the face on hover. */}
       {variant === 'solid' && (
         <span
@@ -68,6 +80,28 @@ export function GlowButton({
         </span>
       )}
       {children}
+    </>
+  )
+
+  // The props are typed for a button because that is what almost every caller
+  // wants; the cast is the price of one component covering both, and it is
+  // cheaper than a second component that would drift from this one.
+  if (href) {
+    return (
+      <a
+        href={href}
+        ref={ref as React.Ref<HTMLAnchorElement>}
+        {...shared}
+        {...(rest as AnchorHTMLAttributes<HTMLAnchorElement>)}
+      >
+        {face}
+      </a>
+    )
+  }
+
+  return (
+    <button ref={ref as React.Ref<HTMLButtonElement>} {...shared} {...rest}>
+      {face}
     </button>
   )
 }

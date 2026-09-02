@@ -6,7 +6,7 @@ import { fadeIn, viewportOnce } from '../lib/motion'
 export function TrustBar() {
   return (
     <motion.section
-      aria-label="Associated with newera Broker"
+      aria-label="What entering the league costs"
       variants={fadeIn}
       initial="hidden"
       whileInView="show"
@@ -20,24 +20,26 @@ export function TrustBar() {
       />
 
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-5 text-center sm:flex-row sm:text-left">
-        {/* The supplied logo is a wordmark, so it carries the brand name
-            itself -- setting "newera Broker" beside it would print the name
-            twice. IconArt renders its image aria-hidden, hence the sr-only
-            name so the credit still reads correctly aloud. */}
-        <p className="inline-flex items-center gap-2.5 text-[15px] font-medium tracking-tight text-white">
-          Associated with
-          <IconArt
-            src="/img/newera-mark.webp"
-            fallback={BadgeCheck}
-            className="h-5 w-auto shrink-0 drop-shadow-[0_0_14px_rgba(0,255,135,0.35)]"
-          />
-          <span className="sr-only">newera Broker</span>
-        </p>
-
         <p className="text-[15px] text-[#E4EAE7]">
           Free to enter. A{' '}
           <span className="font-medium text-white">$10,000 demo account</span>,
           no deposit, and no risk to money you already have.
+        </p>
+
+        {/* A credit, not the offer: smaller, unlit and second in the row, so
+            the bar leads with what the visitor gets. The supplied logo is a
+            wordmark and carries the brand name itself, so setting "newera
+            Broker" beside it would print the name twice; IconArt renders its
+            image aria-hidden, hence the sr-only name so the line still reads
+            correctly aloud. */}
+        <p className="inline-flex shrink-0 items-center gap-2 text-[13px] text-[#E4EAE7]/60">
+          Associated with
+          <IconArt
+            src="/img/newera-mark.webp"
+            fallback={BadgeCheck}
+            className="h-4 w-auto shrink-0 opacity-80"
+          />
+          <span className="sr-only">newera Broker</span>
         </p>
       </div>
     </motion.section>
