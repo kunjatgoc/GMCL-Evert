@@ -6,13 +6,29 @@ import { IconArt } from './ui/IconArt'
 import { depthIn, viewportOnce } from '../lib/motion'
 
 // DOM order is 1-2-3-4: that is the reading order on mobile and for screen
-// readers. Only desktop reorders it into a podium, via `order`.
+// readers. Only desktop reorders it into a podium, via `md:col-start-*`.
+//
+// The desktop grid tiles podium-4tier.webp (1620x452) in image pixels, so a
+// card's column centre IS its platform's centre. Measured from the art:
+// platforms span 41-351, 382-699, 732-1031, 1045-1595, i.e. centres at
+// 196 / 540.5 / 881.5 / 1320. Columns 36|320|369|313|564|18 reproduce those
+// four centres exactly and still sum to 1620. The grid therefore runs at
+// gap-0 -- a gap would take width the podium art has not got, which is what
+// pushed every card left of its platform. Gutters come from `cell` padding
+// instead: padding sits inside the column, so it cannot move the centre.
+// `md:row-start-1` is not decoration: a definite column with an auto row makes
+// the placement cursor wrap, and the champion would sit alone on row 1 with
+// the rest below it.
+//
+// Card padding tightens below xl on purpose. An `fr` column cannot shrink
+// under its item's min-content width, and a roomy "$1,000" floors the
+// champion column; once one column is floored the rest lose the ratio and
+// every card slides off its platform again.
 //
 // `drop` is how far below the champion each card sits. A percentage margin on
-// a grid item resolves against ITS OWN grid area, not the container, so each
-// value is the platform's top offset in podium-4tier.webp (1620x452) divided
-// by that column's share of the row. Both scale with width, so the ratio holds
-// at every breakpoint. Platform tops: 2nd +128px, 3rd +167px, 4th +251px.
+// a grid item resolves against ITS OWN grid area, so each value is the
+// platform's top offset divided by that column's width, both in image pixels
+// -- the ratio holds at every breakpoint. Tops: 2nd +128, 3rd +167, 4th +251.
 const PRIZES = [
   {
     place: '1st',
@@ -20,7 +36,9 @@ const PRIZES = [
     amount: 1000,
     icon: Trophy,
     img: '/img/trophy-1.webp',
-    order: 'md:order-2',
+    // Wider padding than the rest: this column is the widest, and
+    // md:scale-[1.06] widens the card again. It keeps it inside its platform.
+    cell: 'md:col-start-3 md:row-start-1 md:px-3 xl:px-5',
     drop: '',
     pad: 'pt-14 pb-10',
     art: 'h-32',
@@ -35,8 +53,8 @@ const PRIZES = [
     amount: 500,
     icon: Medal,
     img: '/img/trophy-2.webp',
-    order: 'md:order-1',
-    drop: 'md:mb-[-43.6%]',
+    cell: 'md:col-start-2 md:row-start-1 md:px-2 xl:px-3',
+    drop: 'md:mb-[-40%]',
     pad: 'pt-10 pb-8',
     art: 'h-20',
     plinth: 'h-6',
@@ -50,8 +68,8 @@ const PRIZES = [
     amount: 250,
     icon: Award,
     img: '/img/trophy-3.webp',
-    order: 'md:order-3',
-    drop: 'md:mb-[-57.6%]',
+    cell: 'md:col-start-4 md:row-start-1 md:px-2 xl:px-3',
+    drop: 'md:mb-[-53.4%]',
     pad: 'pt-10 pb-8',
     art: 'h-20',
     plinth: 'h-6',
@@ -69,8 +87,8 @@ const PRIZES = [
     amount: 50,
     icon: Users,
     img: '/img/trophy-4.webp',
-    order: 'md:order-4',
-    drop: 'md:mb-[-44.9%]',
+    cell: 'md:col-start-5 md:row-start-1 md:px-2 xl:px-3',
+    drop: 'md:mb-[-44.5%]',
     pad: 'pt-10 pb-8',
     art: 'h-16',
     plinth: 'h-6',
@@ -130,14 +148,14 @@ export function Prizes() {
             onError={(e) => (e.currentTarget.style.display = 'none')}
           />
 
-          <div className="relative z-10 grid gap-6 md:grid-cols-[298fr_308fr_294fr_568fr] md:items-end md:gap-7">
+          <div className="relative z-10 grid gap-6 md:grid-cols-[36fr_320fr_369fr_313fr_564fr_18fr] md:items-end md:gap-0">
           {PRIZES.map((p, i) => {
             const first = p.place === '1st'
             const Icon = p.icon
             return (
               <motion.div
                 key={p.place}
-                className={`relative ${p.order} ${p.drop} ${p.scale}`}
+                className={`relative ${p.cell} ${p.drop} ${p.scale}`}
                 variants={depthIn}
                 custom={i}
                 initial="hidden"
@@ -154,7 +172,7 @@ export function Prizes() {
 
                 <GlassCard
                   tilt={first ? 9 : 6}
-                  className={`group relative flex flex-col items-center border ${p.ring} px-7 ${p.pad} text-center`}
+                  className={`group relative flex flex-col items-center border ${p.ring} px-4 xl:px-7 ${p.pad} text-center`}
                 >
                   {/* Carbon/mesh surface, kept faint so the type stays the
                       brightest thing on the card. */}
