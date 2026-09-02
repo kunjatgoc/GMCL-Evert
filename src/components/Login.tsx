@@ -60,13 +60,6 @@ export function Login() {
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%] [animation:horizon-glow_9s_ease-in-out_infinite] [background:radial-gradient(60%_55%_at_50%_95%,rgba(0,255,135,0.16),transparent_70%)]" />
       </div>
 
-      {/* Legibility scrim, tight around the card rather than across the frame:
-          the plate is nearly black already, and washing the whole thing would
-          erase the one thing in it. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 [background:radial-gradient(42%_42%_at_50%_52%,rgba(10,10,10,0.88)_0%,rgba(10,10,10,0.55)_62%,transparent_100%)]"
-      />
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-40 bg-gradient-to-b from-[#0a0a0a] to-transparent"
@@ -99,6 +92,16 @@ export function Login() {
 
       {/* depthIn rotates on X, which is inert without a perspective ancestor. */}
       <div className="relative z-10 w-full max-w-md [perspective:1200px]">
+        {/* Legibility scrim anchored to the content, not to the frame. The
+            plate's brightest ripple lands around a third of the way down, which
+            is exactly where the lockup and eyebrow sit -- a frame-centred
+            gradient darkens the middle and leaves that header on lit water.
+            Pinned to this column, it travels with the type at every height. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -inset-x-14 -inset-y-20 -z-10 [background:radial-gradient(58%_52%_at_50%_50%,rgba(6,9,8,0.95)_0%,rgba(6,9,8,0.86)_45%,rgba(6,9,8,0.5)_72%,transparent_100%)]"
+        />
+
         <header className="text-center">
           {/* Lockup, not a link: the back control above already owns the trip
               home, and two routes to the same place is one too many. */}
@@ -119,7 +122,7 @@ export function Login() {
                 Global Market League
               </span>
               {/* Same credit the footer carries, so the two agree. */}
-              <span className="mt-1.5 block text-[10px] uppercase tracking-[0.2em] text-[#E4EAE7]/55">
+              <span className="mt-1.5 block text-[10px] uppercase tracking-[0.2em] text-[#E4EAE7]/75">
                 Associated with newera
               </span>
             </span>
