@@ -96,10 +96,16 @@ export function Login() {
             plate's brightest ripple lands around a third of the way down, which
             is exactly where the lockup and eyebrow sit -- a frame-centred
             gradient darkens the middle and leaves that header on lit water.
-            Pinned to this column, it travels with the type at every height. */}
+            Pinned to this column, it travels with the type at every height.
+
+            Full-bleed rather than column-width: the ripple runs the whole way
+            across, so a scrim that stops at the card's edge leaves a lit band
+            either side of the lockup and the header still reads as floating on
+            water. It stays soft-edged and lets the pool below the card through,
+            which is the part of the plate worth keeping. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute -inset-x-14 -inset-y-20 -z-10 [background:radial-gradient(58%_52%_at_50%_50%,rgba(6,9,8,0.95)_0%,rgba(6,9,8,0.86)_45%,rgba(6,9,8,0.5)_72%,transparent_100%)]"
+          className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[calc(100%+16rem)] w-screen -translate-x-1/2 -translate-y-1/2 [background:radial-gradient(46%_50%_at_50%_50%,rgba(6,9,8,0.97)_0%,rgba(6,9,8,0.93)_42%,rgba(6,9,8,0.7)_70%,transparent_100%)]"
         />
 
         <header className="text-center">
