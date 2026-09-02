@@ -26,13 +26,13 @@ CORS never enters local development.
 
 | Path | What lives here |
 |---|---|
-| `src/` | React app. `components/` are sections, `components/ui/` are primitives, `lib/` is validation, motion and the API seam |
+| `src/` | React app. `components/` are sections, `components/ui/` are primitives, `lib/` is validation, motion and the API seam, `admin/` is the panel |
 | `api/` | FastAPI serverless function. Vercel routes every `/api/*` here by path, so the file must stay `api/index.py` |
 | `db/` | Schema, stored procedures, grants. Applied by hand, in the order below |
 | `public/` | Served verbatim. `img/` is generated -- do not hand-edit |
 | `design/` | Image prompts and the raw generated PNGs they produce |
 | `docs/` | `requirements.md`, the section-by-section spec the page is built against |
-| `scripts/` | `optimize-images.py`, which turns `design/assets-src/` into `public/img/` |
+| `scripts/` | `optimize-images.py` (assets) and `seed_admin.py` (the one admin account) |
 | `test/` | Vitest suites |
 
 ## Database
@@ -43,7 +43,14 @@ Procedures live one per file and are applied after the schema:
 psql "$DATABASE_URL" -f db/schema.sql
 for f in db/procedures/*.sql; do psql "$DATABASE_URL" -f "$f"; done
 psql "$ADMIN_DATABASE_URL" -f db/grants.sql
+psql "$DATABASE_URL" -f db/admin_schema.sql
 ```
+
+`registration` and `real_account_request` hold the entrants. `users` and
+`user_roles` hold the people who sign in: one row per account, one role per
+row, `admin` and `staff` seeded. It is the accounts table rather than an
+admins table, so end-user signup later is a row with a different role, not a
+second login path.
 
 Pydantic owns the request shape -- types, email format, phone validity for the
 chosen country. The procedures own the write and the duplicate rule. `api/index.py`
@@ -64,6 +71,28 @@ override that when the API is deployed elsewhere.
 
 A 409 is a duplicate, not a failure, and is worded as reassurance. A thrown
 fetch is offline / DNS / CORS / server-down and is worded as retryable.
+
+## Admin panel
+
+`/login` signs in, `/admin` is the dashboard, `/admin/demo-users` and
+`/admin/real-users` are the two lists. Everything behind `/admin` needs a
+session, so the panel is a separate lazy chunk the marketing page never loads.
+
+```bash
+psql "$DATABASE_URL" -f db/admin_schema.sql
+.venv/bin/python scripts/seed_admin.py you@example.com   # prompts for the password
+```
+
+`SESSION_SECRET` must be set for sign-in to work at all -- without it the
+endpoint answers 503 rather than issuing a cookie nobody can verify. The
+session is a signed cookie, HttpOnly, eight hours, nothing kept in JS.
+Passwords are pbkdf2-sha256 at 600k rounds, hashed by `api/index.py` so the
+seed script and the login endpoint can never disagree on the format.
+
+Set `COOKIE_SECURE=0` locally, since dev is plain http and a Secure cookie
+would be dropped.
+
+Only `admin` can sign in today. Staff permissions are not implemented.
 
 ## Images
 
@@ -88,6 +117,11 @@ to under 1 MB. `og` is special-cased to a 1200x630 JPEG.
 | `card-texture` | Prize card surface | plain glass gradient |
 | `streak` | Light-leak above the Prizes heading | nothing, decorative |
 | `podium` / `podium-4tier` | Prize section base (desktop only) | per-card hairline rim |
+| `admin-plate` | Admin panel backdrop | `particles.webp` + radial bloom |
+| `data-texture` | Dashboard card surface | `card-texture.webp` |
+| `admin-rail` | Sidebar plate | `.glass` gradient |
+| `empty-state` | "Nothing matches those filters" | the sentence alone |
+| `login-plate` | Login backdrop | `hero-plate.webp` |
 | `particles` | Registration section ambience | plain radial glow |
 | `newera-mark` | Trust bar | lucide `BadgeCheck` |
 | `og` | `og:image` meta | -- |

@@ -60,13 +60,13 @@ export async function submitRealAccount(email: string): Promise<SubmitResult> {
   }
 }
 
-const LOGIN_ENDPOINT = import.meta.env.VITE_LOGIN_URL ?? '/api/login'
+const LOGIN_ENDPOINT = import.meta.env.VITE_LOGIN_URL ?? '/api/admin/login'
 
 /**
- * The seam for the login screen. Same contract as the two above.
+ * The seam for the admin login screen. Same contract as the two above.
  *
- * ponytail: no /api/login exists yet -- the screen ships against this seam so
- * the endpoint can land without touching the component.
+ * The server replies with a Set-Cookie; nothing about the session is kept in
+ * JS, so there is nothing to return but success.
  */
 export async function submitLogin(
   email: string,

@@ -8,14 +8,14 @@ import { submitLogin } from '../lib/submit'
 import { EASE, depthIn } from '../lib/motion'
 
 /**
- * Member sign-in.
+ * Admin sign-in.
  *
  * Wears the hero's backdrop -- same skyline plate, same drift, same horizon
  * bloom -- so the screen reads as part of the event rather than a bolted-on
  * auth page. Nothing new was generated for it.
  *
- * Deliberately has no nav, no marquee and no route out to registration: this
- * screen does one thing. Validation is the browser's -- `required` plus
+ * Deliberately has no nav, no marquee and no way to create an account: the one
+ * admin is seeded by scripts/seed_admin.py. Validation is the browser's -- `required` plus
  * `type="email"` covers every rule a client is entitled to have an opinion
  * about, and the only other verdict (do these credentials match) belongs to
  * the server. So no zod schema and no form library here.
@@ -38,37 +38,34 @@ export function Login() {
     )
     setBusy(false)
 
-    // ponytail: no gated area exists yet, so success lands back on the event
-    // page. One string to change when there is somewhere to go.
-    if (res.ok) window.location.href = '/'
+    // Full navigation rather than a client-side swap: the admin bundle is a
+    // separate chunk and the session cookie has just changed.
+    if (res.ok) window.location.href = '/admin'
     else setError(res.error)
   }
 
   return (
     <main className="grain relative isolate flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 py-16">
-      {/* The hero's plate, unchanged. Portrait crop on phones for the same
-          reason it exists there: cover-cropping the landscape frame pushes the
-          towers off the canvas. */}
+      {/* This screen's own plate: one shaft of light landing in a dark pool.
+          Deliberately still -- the hero drifts because it is selling motion,
+          and a door should not. */}
       <div aria-hidden className="absolute inset-0 -z-20">
-        <picture className="block h-full w-full [animation:hero-drift_30s_ease-in-out_infinite_alternate]">
-          <source media="(max-width: 768px)" srcSet="/img/hero-plate-mobile.webp" />
-          <img
-            src="/img/hero-plate.webp"
-            alt=""
-            fetchPriority="high"
-            className="h-full w-full object-cover object-center opacity-90"
-          />
-        </picture>
+        <img
+          src="/img/login-plate.webp"
+          alt=""
+          fetchPriority="high"
+          className="h-full w-full object-cover object-bottom opacity-95"
+        />
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%] [animation:horizon-glow_9s_ease-in-out_infinite] [background:radial-gradient(70%_60%_at_50%_92%,rgba(0,255,135,0.2),transparent_68%)]" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%] [animation:horizon-glow_9s_ease-in-out_infinite] [background:radial-gradient(60%_55%_at_50%_95%,rgba(0,255,135,0.16),transparent_70%)]" />
       </div>
 
-      {/* Legibility scrim. Centred rather than left-anchored like the hero's,
-          because the card sits in the middle: darkest exactly under the
-          inputs, thinning outward so the skyline still reads at the edges. */}
+      {/* Legibility scrim, tight around the card rather than across the frame:
+          the plate is nearly black already, and washing the whole thing would
+          erase the one thing in it. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 [background:radial-gradient(58%_52%_at_50%_50%,rgba(10,10,10,0.95)_0%,rgba(10,10,10,0.82)_58%,rgba(10,10,10,0.42)_100%)]"
+        className="pointer-events-none absolute inset-0 -z-10 [background:radial-gradient(42%_42%_at_50%_52%,rgba(10,10,10,0.88)_0%,rgba(10,10,10,0.55)_62%,transparent_100%)]"
       />
       <div
         aria-hidden
@@ -134,7 +131,7 @@ export function Login() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: EASE, delay: 0.1 }}
           >
-            <Eyebrow>Registered traders</Eyebrow>
+            <Eyebrow>Admin access</Eyebrow>
           </motion.div>
 
           {/* The hero's masked reveal: the line rises out from behind a hard
@@ -190,19 +187,18 @@ export function Login() {
             </div>
 
             <div>
-              <label className={label} htmlFor="password">
+              <label className={label} htmlFor="current-password">
                 Password
               </label>
               {/* The toggle sits inside the field's box, so the padding-right
                   keeps typed text from running under it. */}
               <div className="relative">
                 <input
-                  id="password"
+                  id="current-password"
                   name="password"
                   type={reveal ? 'text' : 'password'}
                   required
                   autoComplete="current-password"
-                  placeholder="••••••••"
                   className={`${field} w-full pr-12`}
                 />
                 <button
@@ -256,7 +252,7 @@ export function Login() {
           transition={{ duration: 0.9, ease: EASE, delay: 0.9 }}
         >
           <ShieldCheck className="mr-1.5 inline size-4 -translate-y-px text-[#00FF87]" />
-          Demo accounts only · No real capital is traded
+          Authorised staff only · All sign-ins are recorded
         </motion.p>
       </div>
     </main>

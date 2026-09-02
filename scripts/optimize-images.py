@@ -42,6 +42,13 @@ TARGETS = {
     "icon-dates":        ( 360,  360, True,  90),
     "icon-capital":      ( 360,  360, True,  90),
     "icon-win":          ( 360,  360, True,  90),
+    # Admin panel. The plate and the rail are pure atmosphere, so they take a
+    # lower quality than the hero without anyone noticing.
+    "admin-plate":       (2000, 1150, False, 74),
+    "data-texture":      (1000,  700, False, 74),
+    "admin-rail":        ( 700, 1600, False, 76),
+    "login-plate":       (1400, 2100, False, 80),
+    "empty-state":       ( 900,  700, True,  88),
 }
 
 # Open Graph must be exactly 1200x630 and opaque, so it gets cropped to fill

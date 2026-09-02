@@ -318,6 +318,109 @@ pattern or repetition, no clumping. Photographic 35mm grain character.
 
 ---
 
+---
+
+# Admin panel
+
+The panel currently borrows the marketing page's plates -- `particles.webp` and
+`card-texture.webp`. They work, but they were art-directed for a hero and a
+prize card: a scatter meant to surround a form reads as noise behind a table of
+618 names, and a celebratory carbon weave is the wrong feeling under a count.
+
+Each prompt below names the feeling it is reaching for, because that is the
+thing being chosen -- the marketing page sells *anticipation*, the panel should
+feel like *quiet command*. Same palette, lower pulse.
+
+Every one is optional; the named fallback is what ships today.
+
+## 17. Admin ambient plate
+
+**Feeling:** quiet command. A trading floor at 3am after everyone has gone home
+-- the screens still on, nobody shouting. Calm, wide, unhurried. The opposite
+of the hero, which is trying to excite you.
+
+**Path:** `public/img/admin-plate.webp` **Size:** 2560 × 1440 (16:9)
+**Fallback if skipped:** `particles.webp` masked + radial bloom (shipping now)
+
+```
+[PROMPT]
+A vast dark room seen from far back, almost empty. Faint horizontal bands of
+spring green light lie flat across the lower third like data on a distant
+screen, heavily out of focus and very dim. Enormous negative space above them,
+fading to near black. A single soft green glow low on the left, like one
+monitor still awake. Extremely low contrast, restrained, atmospheric. No
+detail in the centre -- the frame is a stage for content to sit on, not a
+subject.
+```
+
+## 18. Data-surface texture (dashboard cards)
+
+**Feeling:** precision. Engraved instrument, not decoration. It should read as
+*measured* -- the surface of something calibrated.
+
+**Path:** `public/img/data-texture.webp` **Size:** 1200 × 1600
+**Fallback if skipped:** `card-texture.webp` at 12% (shipping now)
+
+```
+[PROMPT]
+Extreme close-up of dark polished glass etched with a very fine engineering
+grid -- thin ruled lines, a few slightly brighter every tenth, like graph paper
+under a lens. Spring green light catches only the etched lines, faintly and
+unevenly, brightest in one corner and vanishing across the rest. Almost black
+overall. Flat, seamless, no perspective, no focal point.
+```
+
+## 19. Sidebar rail plate
+
+**Feeling:** solidity. The edge of the room. It should make the navigation feel
+attached to something rather than floating.
+
+**Path:** `public/img/admin-rail.webp` **Size:** 600 × 2000 (tall)
+**Fallback if skipped:** `.glass` gradient + 1px rim (shipping now)
+
+```
+[PROMPT]
+A tall narrow vertical slab of dark brushed metal seen straight on, lit from
+the top left so a soft spring green sheen runs down the left edge and dies out
+before the bottom. Very subtle vertical brushing texture. Nearly black, matte,
+heavy. Uniform along its length so it can be repeated without a visible seam.
+```
+
+## 20. Empty state
+
+**Feeling:** calm, not failure. "Nothing matched" is the one moment in the
+panel where a person might think they broke something. The picture's whole job
+is to say *nothing is wrong, the net just came back empty*.
+
+**Path:** `public/img/empty-state.webp` **Size:** 900 × 700, **transparent PNG
+exported to WebP** **Fallback if skipped:** the plain sentence (shipping now)
+
+```
+[PROMPT]
+A single thin spring green line traces a flat horizon across the middle of a
+fully transparent frame, with one small soft dot of green light resting on it,
+alone. Enormous empty space above and below. Minimal, quiet, almost nothing
+there -- an unfinished chart with no data, drawn in one confident stroke. No
+grid, no axes, no objects.
+```
+
+## 21. Login threshold plate
+
+**Feeling:** arrival. Standing outside a door you have the key to. Stiller and
+deeper than the hero -- one light, a long way off, and space to walk toward it.
+
+**Path:** `public/img/login-plate.webp` **Size:** 2560 × 1440 (16:9)
+**Fallback if skipped:** `hero-plate.webp` + drift (shipping now)
+
+```
+[PROMPT]
+A single narrow shaft of spring green light descends from far above into a
+dark reflective floor, meeting it in a soft pool with faint concentric ripples
+spreading outward. Deep haze, enormous darkness on every side, the light source
+itself out of frame. Perfectly centred, symmetrical, still. Cathedral-quiet.
+Nothing else in the frame.
+```
+
 ## Format notes
 
 - **Transparent PNG matters** for items 3–7, 10, 11, 14, 15  they composite over live WebGL and CSS glow. A baked black background will show as an ugly rectangle. If your generator can't do alpha, generate on pure black `#000000` and tell me  I'll key it out.
