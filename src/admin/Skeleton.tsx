@@ -33,7 +33,7 @@ export function Shimmer({ className = '' }: { className?: string }) {
     >
       <motion.span
         aria-hidden
-        className="absolute inset-y-0 -left-full block w-full bg-[linear-gradient(90deg,transparent,rgba(0,255,135,0.16),transparent)]"
+        className="absolute inset-y-0 -left-full block w-full bg-[linear-gradient(90deg,transparent,rgba(62,230,138,0.16),transparent)]"
         animate={{ x: ['0%', '300%'] }}
         transition={{ duration: 1.5, ease: 'linear', repeat: Infinity }}
       />
@@ -69,10 +69,13 @@ export function StatsSkeleton() {
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.65fr_1fr]">
         <div className="glass glass-lip relative overflow-hidden rounded-2xl bg-[var(--admin-card)] p-6">
           <Shimmer className="h-5 w-40" />
-          <Shimmer className="mt-9 h-56 w-full rounded-xl" />
-          <div className="mt-2 flex justify-between">
-            <Shimmer className="h-3 w-16" />
-            <Shimmer className="h-3 w-16" />
+          <div className="mt-9 flex gap-3">
+            <Shimmer className="h-56 w-11 shrink-0 rounded-lg" />
+            <Shimmer className="h-56 flex-1 rounded-xl" />
+          </div>
+          <div className="flex gap-3">
+            <span aria-hidden className="w-11 shrink-0" />
+            <Shimmer className="mt-1 h-3.5 flex-1" />
           </div>
         </div>
 

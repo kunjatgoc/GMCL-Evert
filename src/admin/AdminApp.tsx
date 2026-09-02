@@ -51,7 +51,7 @@ function Backdrop() {
       />
       {/* Breathes on a slow cycle so the room is not perfectly still. The
           plate already carries the light; this only makes it move. */}
-      <div className="absolute inset-x-0 bottom-0 h-[30rem] [animation:horizon-glow_13s_ease-in-out_infinite] [background:radial-gradient(55%_60%_at_25%_100%,rgba(0,255,135,0.1),transparent_72%)]" />
+      <div className="absolute inset-x-0 bottom-0 h-[30rem] [animation:horizon-glow_13s_ease-in-out_infinite] [background:radial-gradient(55%_60%_at_25%_100%,rgba(62,230,138,0.1),transparent_72%)]" />
       <div className="grain absolute inset-0" />
     </div>
   )
@@ -163,7 +163,7 @@ export default function AdminApp() {
                     <motion.span
                       layoutId="nav-active"
                       aria-hidden
-                      className="absolute inset-0 rounded-xl border border-[rgba(0,255,135,0.25)] bg-[rgba(0,255,135,0.09)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
+                      className="absolute inset-0 rounded-xl border border-[rgba(62,230,138,0.25)] bg-[rgba(62,230,138,0.09)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
                       transition={{ duration: 0.45, ease: EASE }}
                     />
                   )}
@@ -179,7 +179,7 @@ export default function AdminApp() {
                     aria-current={on ? 'page' : undefined}
                     className={`${TEXT.body} relative flex cursor-pointer items-center gap-2.5 whitespace-nowrap rounded-xl px-3.5 py-3 transition-colors duration-300 ${
                       on
-                        ? 'font-semibold text-[#00FF87]'
+                        ? 'font-semibold text-[#3EE68A]'
                         : 'text-[#E4EAE7] hover:bg-white/[0.04] hover:text-white'
                     }`}
                   >
@@ -212,7 +212,7 @@ export default function AdminApp() {
                       type="button"
                       onClick={signOut}
                       autoFocus
-                      className={`${TEXT.label} inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[rgba(0,255,135,0.35)] bg-[rgba(0,255,135,0.12)] px-3 py-2 font-semibold text-[#00FF87] transition-colors duration-200 hover:bg-[rgba(0,255,135,0.2)]`}
+                      className={`${TEXT.label} inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[rgba(62,230,138,0.35)] bg-[rgba(62,230,138,0.12)] px-3 py-2 font-semibold text-[#3EE68A] transition-colors duration-200 hover:bg-[rgba(62,230,138,0.2)]`}
                     >
                       <Check className="size-4" />
                       Yes

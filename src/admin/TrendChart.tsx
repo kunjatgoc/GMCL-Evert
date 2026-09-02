@@ -1,14 +1,21 @@
 import { useRef, useState, useId } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import {
+  AnimatePresence,
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+} from 'motion/react'
 import { EASE } from '../lib/motion'
 import { TEXT } from './type'
 
 export type DayPoint = { day: string; demo: number; real_requests: number }
 
 const W = 720
-const H = 230
-const PAD_T = 14
-const PAD_B = 26
+const H = 200
+
+/** Gridlines, and the values written beside them. */
+const TICKS = [1, 0.75, 0.5, 0.25, 0] as const
 
 type Series = { key: 'demo' | 'real_requests'; label: string; color: string }
 
@@ -16,7 +23,7 @@ type Series = { key: 'demo' | 'real_requests'; label: string; color: string }
 // exactly what this was, and on a green canvas the second one read as the
 // first one faded rather than as its own series. Gold sits opposite green on
 // the wheel, so it separates at a glance and at any size.
-const SIGNAL = '#00FF87'
+const SIGNAL = '#3EE68A'
 const GOLD = '#D9B45F'
 
 const SERIES: Series[] = [
@@ -53,12 +60,36 @@ export function TrendChart({ data }: { data: DayPoint[] }) {
   const frame = useRef<HTMLDivElement>(null)
   const [hover, setHover] = useState<number | null>(null)
 
+  // The readout switches the instant the cursor crosses into a new day, but
+  // the marks travel there. Snapping them was correct about the numbers and
+  // wrong about the feel -- the value is already right before the line
+  // arrives, so nothing is ever misread.
+  const SPRING = { stiffness: 520, damping: 38, mass: 0.55 }
+  const rawX = useMotionValue(0)
+  const rawDemoY = useMotionValue(0)
+  const rawRealY = useMotionValue(0)
+  const x = useSpring(rawX, SPRING)
+  const demoY = useSpring(rawDemoY, SPRING)
+  const realY = useSpring(rawRealY, SPRING)
+  const tipLeft = useTransform(
+    x,
+    (v) => `clamp(4.5rem, ${(v / W) * 100}%, calc(100% - 4.5rem))`
+  )
+
   // A flat run of zeros before launch would divide by nothing, so the floor is
   // 1 -- the line sits on the baseline instead of vanishing.
   const peak = Math.max(1, ...data.flatMap((d) => [d.demo, d.real_requests]))
   const last = Math.max(1, data.length - 1)
   const step = W / last
-  const y = (v: number) => PAD_T + (1 - v / peak) * (H - PAD_T - PAD_B)
+  const y = (v: number) => (1 - v / peak) * H
+
+  // Roughly five labels, counted back from the last day rather than forward
+  // from the first. Counting forward and then bolting the last day on lands it
+  // next to a regular tick whenever the length is not a multiple of the step,
+  // and the two labels overlap.
+  const tickEvery = Math.max(1, Math.ceil(data.length / 5))
+  const xTicks: number[] = []
+  for (let i = last; i >= 0; i -= tickEvery) xTicks.unshift(i)
 
   /** The chart is drawn in viewBox units but hit-tested in CSS pixels, so the
    *  cursor is converted to a ratio first and only then to an index. */
@@ -66,11 +97,22 @@ export function TrendChart({ data }: { data: DayPoint[] }) {
     const box = frame.current?.getBoundingClientRect()
     if (!box) return
     const ratio = clamp((e.clientX - box.left) / box.width, 0, 1)
-    setHover(Math.round(ratio * last))
+    const i = Math.round(ratio * last)
+    if (i === hover) return
+
+    // Entering the plate places the marks; moving within it slides them.
+    // Without the jump the first hover would sweep in from wherever the
+    // springs were left, which reads as a glitch rather than a response.
+    const target = [i * step, y(data[i].demo), y(data[i].real_requests)]
+    const values = [rawX, rawDemoY, rawRealY]
+    values.forEach((v, n) => {
+      if (hover === null) [x, demoY, realY][n].jump(target[n])
+      v.set(target[n])
+    })
+    setHover(i)
   }
 
   const active = hover === null ? null : data[hover]
-  const activeX = hover === null ? 0 : (hover / last) * 100
 
   return (
     <div>
@@ -90,12 +132,28 @@ export function TrendChart({ data }: { data: DayPoint[] }) {
         </span>
       </div>
 
-      <div
-        ref={frame}
-        className="relative cursor-crosshair"
-        onPointerMove={track}
-        onPointerLeave={() => setHover(null)}
-      >
+      <div className="flex gap-3">
+        {/* Y axis. DOM text, not SVG text: the viewBox is stretched
+            non-uniformly to fill the card, and anything inside it stretches
+            with it. */}
+        <div className="relative h-56 w-11 shrink-0">
+          {TICKS.map((t) => (
+            <span
+              key={t}
+              className={`${TEXT.label} tabular absolute right-0 -translate-y-1/2 text-[var(--admin-muted)]`}
+              style={{ top: `${(1 - t) * 100}%` }}
+            >
+              {Math.round(peak * t).toLocaleString('en-US')}
+            </span>
+          ))}
+        </div>
+
+        <div
+          ref={frame}
+          className="relative flex-1 cursor-crosshair"
+          onPointerMove={track}
+          onPointerLeave={() => setHover(null)}
+        >
         <svg
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="none"
@@ -121,36 +179,40 @@ export function TrendChart({ data }: { data: DayPoint[] }) {
 
           {/* Four gridlines, not graph paper: enough to read a height against,
               not enough to compete with the lines themselves. */}
-          {[0, 0.25, 0.5, 0.75, 1].map((t) => (
+          {TICKS.map((t) => (
             <line
               key={t}
               x1="0"
               x2={W}
               y1={y(peak * t)}
               y2={y(peak * t)}
-              stroke="rgba(255,255,255,0.06)"
+              // The baseline is the axis, so it is drawn brighter than the
+              // gridlines above it.
+              stroke={t === 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)'}
               strokeWidth="1"
               vectorEffect="non-scaling-stroke"
             />
           ))}
 
           {hover !== null && (
-            <motion.line
-              x1={hover * step}
-              x2={hover * step}
-              y1={PAD_T - 6}
-              y2={H - PAD_B}
-              stroke="rgba(255,255,255,0.28)"
-              strokeWidth="1"
-              strokeDasharray="3 4"
-              vectorEffect="non-scaling-stroke"
+            <motion.g
+              style={{ x }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              // No layout spring on x: the line snaps to the day under the
-              // cursor, and easing it there would show a value for a day the
-              // cursor has already left.
-              transition={{ duration: 0.15 }}
-            />
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+            >
+              <line
+                x1={0}
+                x2={0}
+                y1={0}
+                y2={H}
+                stroke="rgba(255,255,255,0.28)"
+                strokeWidth="1"
+                strokeDasharray="3 4"
+                vectorEffect="non-scaling-stroke"
+              />
+            </motion.g>
           )}
 
           {SERIES.map((s, si) => {
@@ -189,17 +251,17 @@ export function TrendChart({ data }: { data: DayPoint[] }) {
 
                 {hover !== null && (
                   <motion.circle
-                    cx={hover * step}
-                    cy={y(data[hover][s.key])}
+                    cx={0}
+                    cy={0}
                     r="4"
                     fill="var(--admin-bg)"
                     stroke={s.color}
                     strokeWidth="2.5"
                     vectorEffect="non-scaling-stroke"
-                    initial={{ scale: 0.4, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: 'spring', stiffness: 480, damping: 26 }}
-                    style={{ transformOrigin: `${hover * step}px ${y(data[hover][s.key])}px` }}
+                    style={{ x, y: s.key === 'demo' ? demoY : realY }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.18 }}
                   />
                 )}
               </g>
@@ -214,7 +276,7 @@ export function TrendChart({ data }: { data: DayPoint[] }) {
             <motion.div
               key="tip"
               className="glass pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-xl bg-[var(--admin-card)] px-3.5 py-2.5 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.9)]"
-              style={{ left: `clamp(4.5rem, ${activeX}%, calc(100% - 4.5rem))` }}
+              style={{ left: tipLeft }}
               initial={{ opacity: 0, y: -6, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4, scale: 0.97 }}
@@ -241,12 +303,35 @@ export function TrendChart({ data }: { data: DayPoint[] }) {
               ))}
             </motion.div>
           )}
-        </AnimatePresence>
+          </AnimatePresence>
+        </div>
       </div>
 
-      <div className={`${TEXT.label} mt-2 flex justify-between text-[var(--admin-muted)]`}>
-        <span>{dayLabel(data[0]?.day ?? '')}</span>
-        <span>{dayLabel(data[data.length - 1]?.day ?? '')}</span>
+      {/* X axis, offset by the y-axis gutter so the ticks line up with their
+          own columns rather than with the card edge. */}
+      <div className="flex gap-3">
+        <span aria-hidden className="w-11 shrink-0" />
+        <div className="relative h-5 flex-1">
+          {xTicks.map((i) => (
+            <span
+              key={i}
+              className={`${TEXT.label} absolute top-1 whitespace-nowrap text-[var(--admin-muted)]`}
+              style={{
+                left: `${(i / last) * 100}%`,
+                // The first and last ticks hug their ends instead of hanging
+                // off the plot.
+                transform:
+                  i === 0
+                    ? 'none'
+                    : i === last
+                      ? 'translateX(-100%)'
+                      : 'translateX(-50%)',
+              }}
+            >
+              {dayLabel(data[i].day)}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   )

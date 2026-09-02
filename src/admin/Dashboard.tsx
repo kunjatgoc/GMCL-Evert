@@ -20,12 +20,16 @@ function Card({
   sub,
   icon: Icon,
   index,
+  accent = false,
 }: {
   label: string
   value: number
   sub: string
   icon: typeof Users
   index: number
+  /** The one card whose number is green. Rule 2: one green accent per view --
+   *  four identical green numbers is four accents, which is none. */
+  accent?: boolean
 }) {
   return (
     <motion.div
@@ -65,7 +69,9 @@ function Card({
 
       <Counter
         to={value}
-        className={`${TEXT.display} relative mt-5 block font-bold leading-none text-[var(--admin-primary)]`}
+        className={`${TEXT.display} relative mt-5 block font-bold leading-none ${
+          accent ? 'text-[var(--admin-primary)]' : 'text-white'
+        }`}
       />
       <p className={`${TEXT.label} relative mt-2.5 text-[var(--admin-muted)]`}>{sub}</p>
     </motion.div>
@@ -111,8 +117,10 @@ export function Dashboard() {
       </header>
 
       <div className="mt-6 grid gap-4 [perspective:1400px] sm:grid-cols-2 xl:grid-cols-4">
+        {/* The league's headline number, and the only green one. */}
         <Card
           index={0}
+          accent
           label="Demo ID users"
           value={stats.demo_total}
           sub={`${stats.demo_today} today · ${stats.demo_week} this week`}
@@ -197,7 +205,7 @@ export function Dashboard() {
                   is the share, and says so. */}
               <span className="mt-2 block h-2.5 overflow-hidden rounded-full bg-white/[0.05]">
                 <motion.span
-                  className="block h-full rounded-full bg-[linear-gradient(90deg,#00c853,#00FF87)] shadow-[0_0_18px_-2px_rgba(0,255,135,0.7)]"
+                  className="block h-full rounded-full bg-[linear-gradient(90deg,#22A968,#3EE68A)] shadow-[0_0_18px_-2px_rgba(62,230,138,0.7)]"
                   style={{ minWidth: 4 }}
                   initial={{ width: 0 }}
                   animate={{ width: `${(c.entries / busiest) * 100}%` }}

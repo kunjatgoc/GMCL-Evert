@@ -16,15 +16,15 @@ import type { CSSProperties } from 'react'
  *      state only.
  *   5. Charts use the primary green and Ledger Gold. Never two greens.
  *
- * One deliberate deviation: --admin-primary stays #00FF87 rather than the
- * system's #3EE68A. That green is live on playgml.com, and an admin panel a
- * half-shade off the product it administers looks like a bug, not a system.
- * Rule 3 is what makes the brighter green safe here.
+ * The panel runs the system's Signal Green, not the marketing page's #00FF87.
+ * That neon is built to survive a hero image behind it; on a 46px number over
+ * a Slate Panel it vibrates. The two surfaces are allowed to differ -- this
+ * palette is titled "Global Market League - Admin" for that reason.
  */
 export const PALETTE = {
   '--admin-bg': '#0D1512', // Carbon Green -- canvas
   '--admin-card': '#18211D', // Slate Panel -- cards, rows, filter bar
-  '--admin-primary': '#00FF87', // Signal Green -- numbers, actions, active
+  '--admin-primary': '#3EE68A', // Signal Green -- numbers, actions, active
   '--admin-primary-deep': '#1F5C41', // Deep Forest -- fills, hovers
   '--admin-primary-glow': '#7DF7B8', // Mint Glow -- focus rings, highlights
   '--admin-gold': '#D9B45F', // Ledger Gold -- secondary chart series

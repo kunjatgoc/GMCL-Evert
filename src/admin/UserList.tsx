@@ -24,8 +24,8 @@ const ROW_STAGGER = 0.022
 const control =
   `${TEXT.body} rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-white ` +
   'placeholder:text-white/30 outline-none transition-all duration-300 ' +
-  'focus:border-[rgba(0,255,135,0.5)] focus:bg-white/[0.05] ' +
-  'focus:shadow-[0_0_0_3px_rgba(0,255,135,0.1)]'
+  'focus:border-[rgba(62,230,138,0.5)] focus:bg-white/[0.05] ' +
+  'focus:shadow-[0_0_0_3px_rgba(62,230,138,0.1)]'
 
 const fieldLabel = `${TEXT.label} font-semibold uppercase tracking-[0.12em] text-[var(--admin-muted)]`
 
@@ -199,7 +199,7 @@ function UserList<T extends { id: number }>({
         <div className="flex items-center gap-2">
         <button
           type="submit"
-          className={`${TEXT.body} group relative inline-flex items-center gap-2 overflow-hidden cursor-pointer rounded-xl bg-[linear-gradient(180deg,#5cffb4_0%,#00ff87_38%,#00c853_100%)] px-4 py-2.5 font-semibold text-black shadow-[0_8px_28px_-8px_rgba(0,255,135,0.55)] transition-[filter] duration-300 hover:brightness-110`}
+          className={`${TEXT.body} group relative inline-flex items-center gap-2 overflow-hidden cursor-pointer rounded-xl bg-[linear-gradient(180deg,#7DF7B8_0%,#3EE68A_38%,#22A968_100%)] px-4 py-2.5 font-semibold text-black shadow-[0_8px_28px_-8px_rgba(62,230,138,0.55)] transition-[filter] duration-300 hover:brightness-110`}
         >
           {/* The GlowButton sweep, kept inline: this is a rectangle, not a
               pill, and the shared component bakes its own radius in. */}
@@ -318,7 +318,7 @@ function UserList<T extends { id: number }>({
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1 || loading}
             aria-label="Previous page"
-            className="grid size-10 cursor-pointer place-items-center rounded-xl border border-white/10 bg-white/[0.03] transition-colors duration-300 hover:border-[rgba(0,255,135,0.4)] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-white/10"
+            className="grid size-10 cursor-pointer place-items-center rounded-xl border border-white/10 bg-white/[0.03] transition-colors duration-300 hover:border-[rgba(62,230,138,0.4)] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-white/10"
           >
             <ChevronLeft className="size-4" />
           </button>
@@ -330,7 +330,7 @@ function UserList<T extends { id: number }>({
             onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
             disabled={page >= lastPage || loading}
             aria-label="Next page"
-            className="grid size-10 cursor-pointer place-items-center rounded-xl border border-white/10 bg-white/[0.03] transition-colors duration-300 hover:border-[rgba(0,255,135,0.4)] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-white/10"
+            className="grid size-10 cursor-pointer place-items-center rounded-xl border border-white/10 bg-white/[0.03] transition-colors duration-300 hover:border-[rgba(62,230,138,0.4)] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-white/10"
           >
             <ChevronRight className="size-4" />
           </button>
