@@ -4,6 +4,7 @@ import { Check, LogOut, X, type LucideIcon } from 'lucide-react'
 import { getMe, homeFor, logout, Unauthorized, type Me } from '../lib/api'
 import { EASE } from '../lib/motion'
 import { PALETTE } from './palette'
+import { Lockup } from '../components/ui/Lockup'
 import { TEXT, btnGhost, btnSecondary } from './type'
 import { PanelSkeleton, useDelayed } from './Skeleton'
 
@@ -156,22 +157,7 @@ export function PanelShell({ views }: Props) {
             onError={(e) => (e.currentTarget.style.display = 'none')}
           />
 
-          <span className="flex items-center gap-2.5">
-            <span
-              aria-hidden
-              className={`${TEXT.label} grid size-12 shrink-0 place-items-center rounded-2xl border border-[rgba(62,230,138,0.45)] bg-[rgba(62,230,138,0.1)] font-extrabold text-[#3EE68A] shadow-[0_0_36px_-10px_rgba(62,230,138,0.8),inset_0_1px_0_0_rgba(255,255,255,0.1)]`}
-            >
-              GML
-            </span>
-            <span className="leading-none">
-              <span className={`${TEXT.body} block font-[family-name:var(--font-display)] font-bold tracking-tight`}>
-                Global Market League
-              </span>
-              <span className={`${TEXT.label} mt-1.5 block uppercase tracking-[0.14em] text-[var(--admin-muted)]`}>
-                {view.subtitle}
-              </span>
-            </span>
-          </span>
+          <Lockup tone="panel" subtitle={view.subtitle} />
 
           <ul className="mt-5 flex gap-1.5 overflow-x-auto md:mt-9 md:flex-col md:overflow-visible">
             {view.routes.map((r, i) => {

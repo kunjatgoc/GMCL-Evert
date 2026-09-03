@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react'
 import { motion } from 'motion/react'
+import { Lockup } from '../ui/Lockup'
+
+export { Lockup }
 import { Eyebrow } from '../ui/Eyebrow'
 import { EASE, depthIn } from '../../lib/motion'
 
@@ -38,28 +41,6 @@ export function AuthBackdrop() {
 }
 
 
-/** Lockup, not a link: wherever it appears, something else already owns the
- *  trip home, and two routes to the same place is one too many. */
-export function Lockup() {
-  return (
-    <motion.div
-      className="inline-flex items-center gap-3"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.7, ease: EASE }}
-    >
-      <span
-        aria-hidden
-        className="grid size-12 shrink-0 place-items-center rounded-2xl border border-[rgba(0,255,135,0.45)] bg-[rgba(0,255,135,0.1)] text-[15px] font-extrabold tracking-tight text-[#00FF87] shadow-[0_0_44px_-8px_rgba(0,255,135,0.9),inset_0_1px_0_0_rgba(255,255,255,0.12)]"
-      >
-        GML
-      </span>
-      <span className="font-[family-name:var(--font-display)] text-[19px] font-bold leading-none tracking-tight text-white">
-        Global Market League
-      </span>
-    </motion.div>
-  )
-}
 
 type Props = {
   eyebrow: string

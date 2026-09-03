@@ -1,3 +1,4 @@
+import { Lockup } from './ui/Lockup'
 
 // Illustrative only. These are the instrument classes the league trades, not
 // a quote feed  the strip is labelled as such so nobody reads it as live
@@ -51,17 +52,9 @@ export function Nav() {
         <a
           href="#top"
           aria-label="Global Market League"
-          className="flex shrink-0 items-center gap-2.5 outline-none focus-visible:ring-2 focus-visible:ring-[#00FF87]/60"
+          className="shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[#00FF87]/60"
         >
-          <span
-            aria-hidden
-            className="grid size-9 shrink-0 place-items-center rounded-xl border border-[rgba(0,255,135,0.45)] bg-[rgba(0,255,135,0.1)] text-[12px] font-extrabold tracking-tight text-[#00FF87] shadow-[0_0_30px_-8px_rgba(0,255,135,0.85)]"
-          >
-            GML
-          </span>
-          <span className="hidden font-[family-name:var(--font-display)] text-[15px] font-bold tracking-tight text-white sm:block">
-            Global Market League
-          </span>
+          <Lockup compact />
         </a>
 
         {/* The strip is the only element allowed to grow: the brand and the
