@@ -36,7 +36,7 @@ const ROUTES: readonly PanelRoute[] = [
 ]
 
 export default function UserDashboard() {
-  return <PanelShell routes={ROUTES} subtitle="Your account" role="end_user" />
+  return <PanelShell views={{ end_user: { subtitle: 'Your account', routes: ROUTES } }} />
 }
 
 type Kind = { type: MetaidType; title: string; blurb: string; icon: LucideIcon }

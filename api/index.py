@@ -183,10 +183,15 @@ SESSION_SECRET = os.environ.get("SESSION_SECRET", "")
 SESSION_COOKIE = "gmcl_session"
 SESSION_TTL = 8 * 3600
 
-# The roles that can sign in today. The staff roles exist in the database and
-# nothing is built for them yet, so they are refused at the door rather than
-# handed a session that reaches nothing.
-SIGN_IN_ROLES = ("admin", "end_user")
+# The roles that can sign in today. gml_staff is still refused: nothing is
+# built for it, and a session that reaches no screen is worse than a refusal
+# at the door.
+SIGN_IN_ROLES = ("admin", "newera_staff", "end_user")
+
+# Who may read the MetaID queue and decide on it. The same pair sp_decide_metaid
+# enforces in the database, named here so the API refuses before the round trip
+# rather than relying on the procedure to answer false.
+STAFF_ROLES = ("admin", "newera_staff")
 
 # Local dev is plain http, so the Secure flag has to come off there or the
 # browser drops the cookie and every request looks signed out.
@@ -477,6 +482,14 @@ def require_user(gmcl_session: Optional[str] = Cookie(default=None)) -> int:
 def require_admin(gmcl_session: Optional[str] = Cookie(default=None)) -> int:
     session = read_session(gmcl_session)
     if session is None or session[1] != "admin":
+        raise HTTPException(401, "Not signed in.")
+    return session[0]
+
+
+def require_staff(gmcl_session: Optional[str] = Cookie(default=None)) -> int:
+    """An admin or newera staff. The MetaID queue, and nothing else so far."""
+    session = read_session(gmcl_session)
+    if session is None or session[1] not in STAFF_ROLES:
         raise HTTPException(401, "Not signed in.")
     return session[0]
 
@@ -1043,6 +1056,96 @@ def admin_registrations(
     return {"rows": rows, "total": total, "page": page, "per_page": per_page}
 
 
+class Decision(BaseModel):
+    """What the queue sends back. The note is only worth having on a refusal,
+    where the person is owed a reason."""
+
+    status: str = Field(pattern=r"^(approved|rejected)$")
+    note: Optional[str] = Field(default=None, max_length=500)
+
+
+@app.get("/api/admin/metaid")
+def admin_metaid(
+    _: int = Depends(require_staff),
+    q: str = Query("", max_length=100),
+    status: str = Query("", max_length=10),
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    page: int = 1,
+    per_page: int = 25,
+) -> dict:
+    """Every MetaID request, newest first, with the account it belongs to.
+
+    Phone and the account address are joined rather than stored on the row --
+    a corrected number has to read corrected here, which is the whole reason
+    app_schema.sql keeps them on `users`.
+    """
+    page, per_page = _page(page, per_page)
+    where, params = _window(date_from, date_to)
+    where = [w.replace("created_at", "m.created_at") for w in where]
+
+    if q.strip():
+        where.append("(m.email ilike %s or u.email ilike %s or u.phone ilike %s)")
+        params += [f"%{q.strip()}%"] * 3
+    if status.strip():
+        # Bound, not interpolated, and a value the check constraint would
+        # reject simply matches nothing.
+        where.append("m.status = %s")
+        params.append(status.strip().lower())
+
+    clause = f"where {' and '.join(where)}" if where else ""
+
+    with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            select count(*) as total
+            from metaid_request m join users u on u.id = m.user_id {clause}
+            """,
+            params,
+        )
+        total = cur.fetchone()["total"]
+        cur.execute(
+            f"""
+            select m.id, m.user_id, u.phone, u.email as account_email,
+                   m.email, m.metaid_type as type, m.status, m.decision_note,
+                   m.created_at, m.decided_at
+            from metaid_request m
+            join users u on u.id = m.user_id
+            {clause}
+            order by m.created_at desc, m.id desc
+            limit %s offset %s
+            """,
+            params + [per_page, (page - 1) * per_page],
+        )
+        rows = cur.fetchall()
+
+    return {"rows": rows, "total": total, "page": page, "per_page": per_page}
+
+
+@app.post("/api/admin/metaid/{request_id}")
+def decide_metaid(
+    request_id: int, entry: Decision, staff_id: int = Depends(require_staff)
+) -> dict:
+    """Approve or refuse one request.
+
+    sp_decide_metaid owns every rule: only a pending row moves, only an admin
+    or newera staff may move it, and two people clicking at once means the
+    second UPDATE matches nothing. It answers false rather than raising for all
+    of them, because from here they are the same answer -- this is not yours to
+    decide any more.
+    """
+    with pool.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "CALL sp_decide_metaid(%s, %s, %s, %s)",
+            (request_id, staff_id, entry.status, entry.note),
+        )
+        (ok,) = cur.fetchone()
+
+    if not ok:
+        raise HTTPException(409, "That request has already been decided.")
+    return {"id": request_id, "status": entry.status}
+
+
 @app.get("/api/admin/real-accounts")
 def admin_real_accounts(
     _: int = Depends(require_admin),
@@ -1204,6 +1307,20 @@ if __name__ == "__main__":
 
     assert _page(0, 10_000) == (1, PAGE_MAX)
     assert _page(3, 25) == (3, 25)
+
+    assert Decision(status="approved").note is None
+    assert Decision(status="rejected", note="no").status == "rejected"
+    for bad in ("pending", "Approved", "", "approved; drop table"):
+        try:
+            Decision(status=bad)
+        except ValidationError:
+            continue
+        raise AssertionError(f"accepted {bad!r} as a decision")
+
+    # The queue is staff-wide; everything else behind require_admin is not.
+    assert set(STAFF_ROLES) < set(SIGN_IN_ROLES)
+    assert "end_user" not in STAFF_ROLES, "an entrant could reach the queue"
+    assert "gml_staff" not in SIGN_IN_ROLES, "a role with no screen can sign in"
 
     # A pool with no checkout check hands out connections the far end has
     # already dropped, and the request they land in answers 500. Asserted

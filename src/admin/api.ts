@@ -1,6 +1,6 @@
 /** The one seam between the admin screens and /api/admin/*. */
 
-import { request } from '../lib/api'
+import { postJson, request } from '../lib/api'
 
 export { getMe, logout, Unauthorized, type Me } from '../lib/api'
 
@@ -54,3 +54,26 @@ export const listDemoUsers = (qs: string) =>
 
 export const listRealUsers = (qs: string) =>
   admin<Page<RealUser>>(`/real-accounts?${qs}`)
+
+export type MetaidStatus = 'pending' | 'approved' | 'rejected'
+
+/** One row of the queue: the request, plus the account it belongs to. */
+export type MetaidRow = {
+  id: number
+  user_id: number
+  phone: string
+  /** The address on the account, which is not necessarily the one below. */
+  account_email: string
+  /** The address the MetaID is to be issued against. */
+  email: string
+  type: 'demo' | 'real'
+  status: MetaidStatus
+  decision_note: string | null
+  created_at: string
+  decided_at: string | null
+}
+
+export const listMetaidQueue = (qs: string) => admin<Page<MetaidRow>>(`/metaid?${qs}`)
+
+export const decideMetaid = (id: number, status: 'approved' | 'rejected') =>
+  postJson<{ id: number; status: MetaidStatus }>(`/api/admin/metaid/${id}`, { status })

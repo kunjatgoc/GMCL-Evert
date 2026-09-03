@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import { COUNTRIES } from '../lib/countries'
 import { EASE } from '../lib/motion'
-import { TEXT, btnGhost, btnIcon, btnPrimary, control, fieldLabel } from '../panel/type'
+import {
+  TEXT,
+  btnGhost,
+  btnIcon,
+  btnPrimary,
+  btnSecondary,
+  control,
+  fieldLabel,
+} from '../panel/type'
 import { RowsSkeleton } from '../panel/Skeleton'
 import {
   listDemoUsers,
@@ -12,6 +20,9 @@ import {
   type DemoUser,
   type Page,
   type RealUser,
+  decideMetaid,
+  listMetaidQueue,
+  type MetaidRow,
 } from './api'
 
 const PER_PAGE = 25
@@ -390,5 +401,136 @@ export function RealUsers() {
         },
       ]}
     />
+  )
+}
+
+const STATUS_TONE = {
+  pending: 'text-[var(--admin-gold)]',
+  approved: 'text-[#3EE68A]',
+  rejected: 'text-[var(--admin-destructive)]',
+} as const
+
+/**
+ * The MetaID queue, for admins and newera staff.
+ *
+ * A decision is refused for anything already decided -- the procedure checks
+ * `status = 'pending'` in the same UPDATE that moves it, so two people
+ * clicking at once means the second one is told no rather than overwriting the
+ * first. The buttons disappear on a decided row for the same reason, one step
+ * earlier.
+ */
+export function MetaidQueue() {
+  const [deciding, setDeciding] = useState<number | null>(null)
+  const [failed, setFailed] = useState<string | null>(null)
+  // A new identity for fetchPage is what UserList already reloads on, so a
+  // decision refreshes the table without the table knowing decisions exist.
+  const [version, setVersion] = useState(0)
+  const fetchPage = useCallback(
+    (qs: string) => listMetaidQueue(qs),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [version]
+  )
+
+  const decide = async (id: number, status: 'approved' | 'rejected') => {
+    setDeciding(id)
+    setFailed(null)
+    try {
+      await decideMetaid(id, status)
+      setVersion((v) => v + 1)
+    } catch (e) {
+      setFailed(e instanceof Error ? e.message : 'Could not record that.')
+    } finally {
+      setDeciding(null)
+    }
+  }
+
+  return (
+    <>
+      {failed && (
+        <p role="alert" className={`${TEXT.label} mb-4 text-[var(--admin-destructive)]`}>
+          {failed}
+        </p>
+      )}
+      <UserList<MetaidRow>
+        title="MetaID"
+        accent="Requests"
+        fetchPage={fetchPage}
+        columns={[
+          {
+            header: 'User',
+            skeleton: 'w-16',
+            cell: (r) => <span className="tabular text-[var(--admin-muted)]">#{r.user_id}</span>,
+          },
+          {
+            header: 'Request',
+            skeleton: 'w-16',
+            cell: (r) => <span className="tabular text-[var(--admin-muted)]">#{r.id}</span>,
+            hideOnMobile: true,
+          },
+          {
+            header: 'Phone',
+            skeleton: 'w-32',
+            cell: (r) => <span className="tabular">{r.phone}</span>,
+            hideOnMobile: true,
+          },
+          {
+            header: 'Email',
+            skeleton: 'w-56',
+            cell: (r) => (
+              <span className="font-medium text-white">{r.email}</span>
+            ),
+          },
+          {
+            header: 'Type',
+            skeleton: 'w-16',
+            cell: (r) => (
+              <span className={`${TEXT.label} rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 capitalize`}>
+                {r.type}
+              </span>
+            ),
+          },
+          {
+            header: 'Status',
+            skeleton: 'w-20',
+            cell: (r) => (
+              <span className={`font-semibold capitalize ${STATUS_TONE[r.status]}`}>
+                {r.status}
+              </span>
+            ),
+          },
+          {
+            header: 'Actions',
+            skeleton: 'w-32',
+            cell: (r) =>
+              r.status !== 'pending' ? (
+                <span className={`${TEXT.label} text-[var(--admin-muted)]`}>
+                  {r.decided_at ? `Decided ${fmt(r.decided_at)}` : 'Decided'}
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={deciding === r.id}
+                    onClick={() => decide(r.id, 'approved')}
+                    className={`${btnSecondary} px-3 py-1.5`}
+                  >
+                    <Check className="size-4" />
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deciding === r.id}
+                    onClick={() => decide(r.id, 'rejected')}
+                    className={`${btnGhost} px-3 py-1.5 hover:text-[var(--admin-destructive)]`}
+                  >
+                    <X className="size-4" />
+                    Reject
+                  </button>
+                </span>
+              ),
+          },
+        ]}
+      />
+    </>
   )
 }

@@ -23,12 +23,19 @@ export type PanelRoute = {
   view: ComponentType<{ me: Me }>
 }
 
-type Props = {
-  routes: readonly PanelRoute[]
-  /** The line under the lockup. Says which panel this is. */
+/** What one role sees: the line under the lockup, and the screens it reaches. */
+export type PanelView = {
   subtitle: string
-  /** The only role this panel is for. Anyone else is sent to their own. */
-  role: string
+  routes: readonly PanelRoute[]
+}
+
+type Props = {
+  /**
+   * Role to view. The keys are the roles allowed here -- anyone else is sent
+   * to their own panel -- so there is no separate list of who is permitted
+   * that could fall out of step with who has screens.
+   */
+  views: Record<string, PanelView>
 }
 
 const normalise = (p: string) => p.replace(/\/+$/, '') || '/'
@@ -73,9 +80,10 @@ function Backdrop() {
   )
 }
 
-export function PanelShell({ routes, subtitle, role }: Props) {
+export function PanelShell({ views }: Props) {
   const [path, go] = usePath()
   const [me, setMe] = useState<Me | null>(null)
+  const [view, setView] = useState<PanelView | null>(null)
   const [checking, setChecking] = useState(true)
   // A warm session answers /me in well under 400ms. Showing nothing until
   // then means the common case never flashes a loader at all.
@@ -95,24 +103,27 @@ export function PanelShell({ routes, subtitle, role }: Props) {
   useEffect(() => {
     getMe()
       .then((m) => {
-        if (m.role !== role) {
+        const mine = views[m.role]
+        if (!mine) {
           window.location.href = homeFor(m.role)
           return
         }
         setMe(m)
+        setView(mine)
       })
       .catch((e) => {
         if (e instanceof Unauthorized) window.location.href = '/login'
       })
       .finally(() => setChecking(false))
-  }, [role])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const signOut = async () => {
     await logout().catch(() => {})
     window.location.href = '/login'
   }
 
-  if (checking || !me) {
+  if (checking || !me || !view) {
     return (
       <div className="relative isolate min-h-dvh bg-[var(--admin-bg)]" style={PALETTE}>
         <Backdrop />
@@ -121,7 +132,7 @@ export function PanelShell({ routes, subtitle, role }: Props) {
     )
   }
 
-  const active = routes.find((r) => r.path === path) ?? routes[0]
+  const active = view.routes.find((r) => r.path === path) ?? view.routes[0]
   const View = active.view
 
   return (
@@ -160,13 +171,13 @@ export function PanelShell({ routes, subtitle, role }: Props) {
                 Global Market League
               </span>
               <span className={`${TEXT.label} mt-1.5 block uppercase tracking-[0.14em] text-[var(--admin-muted)]`}>
-                {subtitle}
+                {view.subtitle}
               </span>
             </span>
           </span>
 
           <ul className="mt-5 flex gap-1.5 overflow-x-auto md:mt-9 md:flex-col md:overflow-visible">
-            {routes.map((r, i) => {
+            {view.routes.map((r, i) => {
               const Icon = r.icon
               const on = r.path === active.path
               return (
