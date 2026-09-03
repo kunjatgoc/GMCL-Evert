@@ -1122,6 +1122,33 @@ def admin_metaid(
     return {"rows": rows, "total": total, "page": page, "per_page": per_page}
 
 
+@app.get("/api/admin/metaid/stats")
+def admin_metaid_stats(_: int = Depends(require_staff)) -> dict:
+    """The queue in five numbers.
+
+    Staff-wide rather than admin-only, and deliberately about MetaID requests
+    and nothing else: /api/admin/stats counts registrations and real-account
+    interest, which is GML's business, not newera's. A newera reviewer is here
+    to answer requests, so this is what their dashboard is.
+    """
+    with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            select
+              count(*) filter (where status = 'pending')  as pending,
+              count(*) filter (where status = 'approved') as approved,
+              count(*) filter (where status = 'rejected') as rejected,
+              count(*) filter (where created_at >= current_date) as today,
+              count(*) as total
+            from metaid_request
+            """
+        )
+        return cur.fetchone()
+
+
+# Declared after the stats route above so `stats` is never read as an id. They
+# differ by method as well, but relying on that is a trap for whoever adds a
+# GET here later.
 @app.post("/api/admin/metaid/{request_id}")
 def decide_metaid(
     request_id: int, entry: Decision, staff_id: int = Depends(require_staff)

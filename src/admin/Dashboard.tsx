@@ -14,7 +14,7 @@ const nameFor = (code: string) =>
 
 const flagFor = (code: string) => COUNTRIES.find((c) => c.code === code)?.flag ?? '·'
 
-function Card({
+export function Card({
   label,
   value,
   sub,

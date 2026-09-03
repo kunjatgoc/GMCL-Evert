@@ -77,3 +77,14 @@ export const listMetaidQueue = (qs: string) => admin<Page<MetaidRow>>(`/metaid?$
 
 export const decideMetaid = (id: number, status: 'approved' | 'rejected') =>
   postJson<{ id: number; status: MetaidStatus }>(`/api/admin/metaid/${id}`, { status })
+
+/** The queue in five numbers -- the newera staff dashboard. */
+export type MetaidStats = {
+  pending: number
+  approved: number
+  rejected: number
+  today: number
+  total: number
+}
+
+export const getMetaidStats = () => admin<MetaidStats>('/metaid/stats')
