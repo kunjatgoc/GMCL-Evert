@@ -72,26 +72,17 @@ type Props = {
   wide?: boolean
 }
 
-/** The way out, opposite the brand. Sign-in offers sign-up and the reverse;
- *  the password screens offer the way back in. */
-function navFor(path: string) {
-  if (path === '/signup') return { href: '/login', label: 'Sign in' }
-  if (path === '/login') return { href: '/signup', label: 'Create account' }
-  return { href: '/login', label: 'Sign in' }
-}
-
 export function AuthShell({ eyebrow, title, children, footer, wide }: Props) {
-  const nav = navFor(window.location.pathname.replace(/\/+$/, '') || '/')
 
   return (
     <main className="grain relative isolate flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 py-16">
       <AuthBackdrop />
 
-      {/* The brand on the left, the way out on the right. Every auth screen is
-          reached cold from an email or a link, so it needs somewhere to go that
-          is not the browser's back button. */}
+      {/* The brand alone, linking home. Every card below already offers the
+          other screen in its own copy -- "Already have an account? Sign in" --
+          so a second link up here was the same offer twice. */}
       <motion.nav
-        className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-4 px-5 py-5 sm:px-8"
+        className="absolute inset-x-0 top-0 z-20 flex items-center px-5 py-5 sm:px-8"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: EASE }}
@@ -102,13 +93,6 @@ export function AuthShell({ eyebrow, title, children, footer, wide }: Props) {
           className="rounded-2xl outline-none transition-opacity duration-300 hover:opacity-85 focus-visible:ring-2 focus-visible:ring-[#00FF87]/60"
         >
           <Lockup />
-        </a>
-
-        <a
-          href={nav.href}
-          className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-5 text-[14.5px] font-medium text-[#E4EAE7] backdrop-blur-md transition-colors duration-300 hover:border-[rgba(0,255,135,0.45)] hover:bg-white/[0.07] hover:text-white"
-        >
-          {nav.label}
         </a>
       </motion.nav>
 
