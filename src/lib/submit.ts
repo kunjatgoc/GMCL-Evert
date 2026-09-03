@@ -65,13 +65,16 @@ const LOGIN_ENDPOINT = import.meta.env.VITE_LOGIN_URL ?? '/api/login'
 /**
  * Sign-in. Same contract as the two above.
  *
- * A password and nothing else: the session cookie comes back set and `role`
- * says which panel to open. The confirmation code belongs to account
- * creation, so an address that never answered one is refused here rather than
- * being offered a second chance to. Nothing about the cookie is kept in JS.
+ * Two ways to succeed, and `stage` says which. A confirmed address gets the
+ * session cookie set and a `role` saying which panel to open. An address that
+ * never answered its signup code gets a fresh one and the pending cookie
+ * instead, and finishes at the confirmation step -- otherwise a lapsed pending
+ * cookie would leave the account unreachable. Nothing about either cookie is
+ * kept in JS.
  */
 export type LoginResult =
-  | { ok: true; role: string }
+  | { ok: true; stage: 'session'; role: string }
+  | { ok: true; stage: 'otp'; sent: boolean }
   | { ok: false; error: string }
 
 export async function submitLogin(
@@ -90,22 +93,15 @@ export async function submitLogin(
 
     if (res.ok) {
       const body = await res.json().catch(() => null)
-      return { ok: true, role: String(body?.role ?? '') }
+      if (body?.stage === 'otp')
+        return { ok: true, stage: 'otp', sent: body.sent !== false }
+      return { ok: true, stage: 'session', role: String(body?.role ?? '') }
     }
 
     // One message for both, deliberately: telling a stranger which half was
     // wrong tells them which addresses are registered.
     if (res.status === 401 || res.status === 400)
       return { ok: false, error: 'That email and password do not match.' }
-
-    // The password was right, the address was never confirmed. Worth its own
-    // wording: the fix is in their inbox, not in the form.
-    if (res.status === 403)
-      return {
-        ok: false,
-        error:
-          'Confirm your email first. Use the code we sent when you created the account.',
-      }
 
     if (res.status === 503)
       return { ok: false, error: 'Sign-in is unavailable right now.' }

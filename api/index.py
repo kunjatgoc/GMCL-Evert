@@ -525,9 +525,11 @@ class Login(BaseModel):
 def login(entry: Login, response: Response) -> dict:
     """Password sign-in for any account in SIGN_IN_ROLES.
 
-    A password and nothing else. The confirmation code belongs to account
-    creation and is asked for there; an address that never answered it cannot
-    sign in at all, so no code is issued or checked on this path.
+    A password and nothing else for a confirmed address. An address that never
+    answered its signup code is sent a fresh one here and answers it at
+    /api/verify-otp -- the password has just proved the account is theirs, and
+    without this the ten-minute pending cookie lapsing would lock the account
+    away for good: signup answers 409 and resend has nothing to read.
     """
     if not DATABASE_URL or not SESSION_SECRET:
         raise HTTPException(503, "Sign-in is unavailable.")
@@ -557,22 +559,33 @@ def login(entry: Login, response: Response) -> dict:
 
         user_id, role, email, verified = row[0], row[2], row[3], row[4]
 
-        # Only a confirmed address gets in. Said after the password check, so
-        # the answer still tells a stranger nothing they did not already
-        # supply, and worded so the owner knows where to look.
+        # Never confirmed. Said after the password check, so the answer still
+        # tells a stranger nothing they did not already supply -- a wrong
+        # password on an unconfirmed address is the same 401 as any other.
+        #
+        # A fresh code and the pending cookie signup's code would have bought,
+        # not a session: the address still has to be answered for. `sent` is
+        # false when one went out inside the resend window, so the screen can
+        # say "use the one you have" rather than promising a mail that is not
+        # coming.
         if verified is None:
-            raise HTTPException(
-                403,
-                "Confirm your email first. Use the code we sent when the "
-                "account was created.",
+            if not CAN_SEND_OTP:
+                raise HTTPException(503, "Sign-in is unavailable.")
+            sent = issue_otp(cur, user_id, email)
+            set_cookie(
+                response,
+                PENDING_COOKIE,
+                sign_session(user_id, role, PENDING_TTL),
+                PENDING_TTL,
             )
+            return {"stage": "otp", "sent": sent}
 
         cur.execute(
             "update users set last_login_at = now() where id = %s", (user_id,)
         )
 
     set_cookie(response, SESSION_COOKIE, sign_session(user_id, role), SESSION_TTL)
-    return {"email": email, "role": role}
+    return {"stage": "session", "email": email, "role": role}
 
 
 class OtpCode(BaseModel):

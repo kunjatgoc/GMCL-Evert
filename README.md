@@ -156,18 +156,20 @@ running it means holding the database credential, which is a stronger claim on
 the address than a code in an inbox. The code is for people signing themselves
 up at `/signup`, who hold neither.
 
-Signing in is a password and nothing else. The six-digit code belongs to
-account creation: `/signup` mails one and asks for it there, and an address
-that never answered it cannot sign in at all -- the password is checked first,
-then the attempt is refused with a message pointing at the inbox. No code is
-issued or checked on the sign-in path.
+Signing in is a password and nothing else, for an address that has answered
+its code. The six-digit code belongs to account creation: `/signup` mails one
+and asks for it there. An address that never answered it is the one exception
+-- the password is checked first, and on a match a fresh code goes out and
+the confirmation step runs on the sign-in screen. Without that, a missed code
+is an account nobody can reach: signup answers 409 for the address, and the
+resend endpoint has no pending cookie left to read.
 
 During signup, before the code is answered, the account holds only a
 ten-minute `gmcl_pending` cookie, which is not a session and cannot reach anything behind
 a session guard. Answering the code trades it for the real `gmcl_session`
-cookie and settles `email_verified_at` for good. If the code from account
-creation has expired by the time anyone signs in, that sign-in sends a fresh
-one rather than leaving them stuck.
+cookie and settles `email_verified_at` for good. Sign-in issues the same
+pending cookie when it re-sends a code, so the confirmation step is the same
+step wherever it is reached.
 
 The code lives five minutes, is good once, dies after five wrong answers, and
 can be resent once a minute. It is never in a response, a log or the console:

@@ -25,28 +25,42 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe('submitLogin', () => {
   it('signs a confirmed address straight in', async () => {
-    respondWith(200, { email: 'a@b.com', role: 'admin' })
-    expect(await submitLogin('a@b.com', 'pw')).toEqual({ ok: true, role: 'admin' })
+    respondWith(200, { stage: 'session', email: 'a@b.com', role: 'admin' })
+    expect(await submitLogin('a@b.com', 'pw')).toEqual({
+      ok: true,
+      stage: 'session',
+      role: 'admin',
+    })
   })
 
   it('carries the role, so an entrant lands on the dashboard', async () => {
-    respondWith(200, { email: 'a@b.com', role: 'end_user' })
+    respondWith(200, { stage: 'session', email: 'a@b.com', role: 'end_user' })
     expect(await submitLogin('a@b.com', 'pw')).toMatchObject({ role: 'end_user' })
   })
 
-  it('never asks for a code: sign-in is the password and nothing else', async () => {
-    respondWith(403, { detail: 'Confirm your email first.' })
-    const res = await submitLogin('a@b.com', 'pw')
-    expect(res.ok).toBe(false)
-    if (!res.ok) expect(res.error).toMatch(/confirm your email/i)
+  // The account is otherwise unreachable: the ten-minute pending cookie from
+  // signup has lapsed, signup answers 409, and resend has no cookie to read.
+  it('sends an unconfirmed address to the confirmation step', async () => {
+    respondWith(200, { stage: 'otp', sent: true })
+    expect(await submitLogin('a@b.com', 'pw')).toEqual({
+      ok: true,
+      stage: 'otp',
+      sent: true,
+    })
+  })
+
+  it('passes on that no fresh code went out inside the resend window', async () => {
+    respondWith(200, { stage: 'otp', sent: false })
+    expect(await submitLogin('a@b.com', 'pw')).toMatchObject({ sent: false })
   })
 
   it('separates an unconfirmed address from a wrong password', async () => {
-    respondWith(403)
+    respondWith(200, { stage: 'otp', sent: true })
     const unconfirmed = await submitLogin('a@b.com', 'pw')
     respondWith(401)
     const wrong = await submitLogin('a@b.com', 'pw')
-    expect(unconfirmed).not.toEqual(wrong)
+    expect(unconfirmed.ok).toBe(true)
+    expect(wrong.ok).toBe(false)
   })
 
   it('gives the same message for 400 and 401, so it leaks no addresses', async () => {
