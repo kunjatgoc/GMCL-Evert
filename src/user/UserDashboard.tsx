@@ -1,18 +1,20 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { motion } from 'motion/react'
 import {
+  Check,
   CheckCircle2,
   Clock,
   LayoutDashboard,
   LineChart,
   Loader2,
   Send,
+  UserRound,
   Wallet,
   X,
   XCircle,
   type LucideIcon,
 } from 'lucide-react'
-import { Unauthorized, type Me } from '../lib/api'
+import { changePassword, updateName, Unauthorized, type Me } from '../lib/api'
 import {
   checkMetaidEmail,
   listMetaid,
@@ -32,7 +34,7 @@ import {
   modalCard,
   modalShell,
 } from '../panel/type'
-import { ErrorAlert } from '../components/auth/FormAlert'
+import { ErrorAlert, Notice } from '../components/auth/FormAlert'
 import { EASE } from '../lib/motion'
 
 /** What an entrant can reach. Two screens, drawn by the same rail the admin
@@ -40,6 +42,7 @@ import { EASE } from '../lib/motion'
 const ROUTES: readonly PanelRoute[] = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, view: DashboardScreen },
   { path: '/request-metaid', label: 'Request a MetaID', icon: Send, view: RequestScreen },
+  { path: '/profile', label: 'My Profile', icon: UserRound, view: ProfileScreen },
 ]
 
 export default function UserDashboard() {
@@ -144,17 +147,6 @@ function DashboardScreen({ me }: { me: Me }) {
           </>
         )}
       </h1>
-
-      <dl className="mt-6 grid gap-x-16 gap-y-4 sm:grid-cols-[auto_auto] sm:justify-start">
-        <div>
-          <dt className={fieldLabel}>Account email</dt>
-          <dd className={`${TEXT.body} mt-1 break-words`}>{me.email}</dd>
-        </div>
-        <div>
-          <dt className={fieldLabel}>Phone number</dt>
-          <dd className={`${TEXT.body} mt-1`}>{me.phone}</dd>
-        </div>
-      </dl>
 
       {error && <div className="mt-6"><ErrorAlert>{error}</ErrorAlert></div>}
 
@@ -563,5 +555,199 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
         )}
       </div>
     </dialog>
+  )
+}
+
+/**
+ * What the account is, and the two parts of it its owner can change.
+ *
+ * Email and phone are shown but not editable. Both are unique identifiers
+ * other people are told about -- the address confirmed at sign-up, the number
+ * the account is found by -- so moving either is a support job with its own
+ * confirmation rather than a text field, and saying so beats an input that
+ * refuses to save.
+ */
+function ProfileScreen({ me }: { me: Me }) {
+  const [name, setName] = useState(me.full_name ?? '')
+  const [savedName, setSavedName] = useState(me.full_name ?? '')
+  const [nameBusy, setNameBusy] = useState(false)
+  const [nameDone, setNameDone] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
+
+  const [pwBusy, setPwBusy] = useState(false)
+  const [pwDone, setPwDone] = useState(false)
+  const [pwError, setPwError] = useState<string | null>(null)
+
+  const fail = (set: (m: string) => void) => (e: unknown) => {
+    if (e instanceof Unauthorized) window.location.href = '/login'
+    else set(e instanceof Error ? e.message : 'Something went wrong.')
+  }
+
+  const saveName = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setNameBusy(true)
+    setNameError(null)
+    setNameDone(false)
+    try {
+      const { full_name } = await updateName(name)
+      setSavedName(full_name)
+      setName(full_name)
+      setNameDone(true)
+    } catch (err) {
+      fail(setNameError)(err)
+    } finally {
+      setNameBusy(false)
+    }
+  }
+
+  const savePassword = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const form = e.currentTarget
+    const data = new FormData(form)
+    const next = String(data.get('new_password') ?? '')
+
+    setPwError(null)
+    setPwDone(false)
+    if (next !== String(data.get('confirm') ?? '')) {
+      setPwError('Those two passwords do not match.')
+      return
+    }
+
+    setPwBusy(true)
+    try {
+      await changePassword(String(data.get('current_password') ?? ''), next)
+      form.reset()
+      setPwDone(true)
+    } catch (err) {
+      fail(setPwError)(err)
+    } finally {
+      setPwBusy(false)
+    }
+  }
+
+  return (
+    <div className="xl:max-w-5xl">
+      <h1 className={heading}>
+        My <span className="text-[#3EE68A]">Profile</span>
+      </h1>
+
+      <div className="mt-8 grid gap-4 lg:grid-cols-2">
+        <section className={`${card} p-6`}>
+          <h2 className={`${TEXT.body} font-semibold`}>Your details</h2>
+
+          <form onSubmit={saveName} className="mt-5 space-y-5">
+            <div>
+              <label className={`${fieldLabel} mb-2 block`} htmlFor="full-name">
+                Full name
+              </label>
+              <input
+                id="full-name"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  setNameDone(false)
+                }}
+                required
+                minLength={2}
+                maxLength={80}
+                autoComplete="name"
+                className={`${control} w-full`}
+              />
+            </div>
+
+            {/* Shown, not editable, and told why -- an input that refuses to
+                save is worse than a line of read-only text. */}
+            <dl className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <dt className={fieldLabel}>Email</dt>
+                <dd className={`${TEXT.body} mt-1 break-all text-[var(--admin-muted)]`}>
+                  {me.email}
+                </dd>
+              </div>
+              <div>
+                <dt className={fieldLabel}>Phone</dt>
+                <dd className={`${TEXT.body} mt-1 text-[var(--admin-muted)]`}>
+                  {me.phone}
+                </dd>
+              </div>
+            </dl>
+            <p className={`${TEXT.label} -mt-1 text-[var(--admin-muted)]`}>
+              Your email and phone number identify the account and cannot be
+              changed here. Ask us if either needs to move.
+            </p>
+
+            {nameError && <ErrorAlert>{nameError}</ErrorAlert>}
+            {nameDone && <Notice>Saved.</Notice>}
+
+            <button
+              type="submit"
+              disabled={nameBusy || name.trim() === savedName.trim()}
+              className={`${btnPrimary} w-full sm:w-auto`}
+            >
+              {nameBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              Save name
+            </button>
+          </form>
+        </section>
+
+        <section className={`${card} p-6`}>
+          <h2 className={`${TEXT.body} font-semibold`}>Change password</h2>
+
+          <form onSubmit={savePassword} className="mt-5 space-y-5">
+            <div>
+              <label className={`${fieldLabel} mb-2 block`} htmlFor="current-password">
+                Current password
+              </label>
+              <input
+                id="current-password"
+                name="current_password"
+                type="password"
+                required
+                autoComplete="current-password"
+                className={`${control} w-full`}
+              />
+            </div>
+            <div>
+              <label className={`${fieldLabel} mb-2 block`} htmlFor="new-password">
+                New password
+              </label>
+              <input
+                id="new-password"
+                name="new_password"
+                type="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
+                placeholder="At least 8 characters"
+                className={`${control} w-full`}
+              />
+            </div>
+            <div>
+              <label className={`${fieldLabel} mb-2 block`} htmlFor="confirm-password">
+                Confirm new password
+              </label>
+              <input
+                id="confirm-password"
+                name="confirm"
+                type="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
+                placeholder="Type it again"
+                className={`${control} w-full`}
+              />
+            </div>
+
+            {pwError && <ErrorAlert>{pwError}</ErrorAlert>}
+            {pwDone && <Notice>Your password is changed.</Notice>}
+
+            <button type="submit" disabled={pwBusy} className={`${btnPrimary} w-full sm:w-auto`}>
+              {pwBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              Change password
+            </button>
+          </form>
+        </section>
+      </div>
+    </div>
   )
 }

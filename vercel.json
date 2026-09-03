@@ -33,6 +33,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/profile",
+      "destination": "/index.html"
+    },
+    {
       "source": "/gml",
       "destination": "/index.html"
     },

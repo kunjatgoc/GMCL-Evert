@@ -39,6 +39,23 @@ export const postJson = <T>(path: string, body: unknown) =>
   })
 
 export const getMe = () => request<Me>('/api/me')
+
+/** The name is the only field its owner can change unaided. Email and phone
+ *  are identifiers other people are told about; moving either is a support
+ *  job with its own confirmation. */
+export const updateName = (full_name: string) =>
+  request<{ full_name: string }>('/api/me', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ full_name }),
+  })
+
+export const changePassword = (current_password: string, new_password: string) =>
+  request<{ ok: true }>('/api/change-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ current_password, new_password }),
+  })
 export const logout = () => request<{ ok: true }>('/api/logout', { method: 'POST' })
 
 /** Where a signed-in account lands. One place, so the login screen, the

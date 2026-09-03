@@ -904,6 +904,65 @@ def me(user_id: int = Depends(require_user)) -> dict:
     return row
 
 
+class ProfileUpdate(BaseModel):
+    """The only thing about an account its owner may change unaided.
+
+    Email and phone are not here. Both are unique identifiers others are told
+    about -- the address confirmed at sign-up, the number the account is found
+    by -- so moving either is a support job with its own confirmation, not a
+    text field.
+    """
+
+    full_name: str = Field(min_length=2, max_length=80)
+
+
+@app.patch("/api/me")
+def update_me(entry: ProfileUpdate, user_id: int = Depends(require_user)) -> dict:
+    with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            update users set full_name = btrim(%s)
+             where id = %s and is_active
+            returning full_name
+            """,
+            (entry.full_name, user_id),
+        )
+        row = cur.fetchone()
+    if row is None:
+        raise HTTPException(401, "Not signed in.")
+    return row
+
+
+class PasswordChange(BaseModel):
+    current_password: str = Field(min_length=1, max_length=200)
+    new_password: str = Field(min_length=8, max_length=200)
+
+
+@app.post("/api/change-password")
+def change_password(entry: PasswordChange, user_id: int = Depends(require_user)) -> dict:
+    """The current password is asked for even though the session already
+    proves who this is: a session left open on a shared machine should not be
+    enough to take the account.
+
+    ponytail: sessions are stateless, so this cannot sign other devices out --
+    the same `session_epoch` gap sp_reset_password.sql already names.
+    """
+    with pool.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "select password_hash from users where id = %s and is_active", (user_id,)
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise HTTPException(401, "Not signed in.")
+        if not verify_password(entry.current_password, row[0]):
+            raise HTTPException(403, "That is not your current password.")
+        cur.execute(
+            "update users set password_hash = %s where id = %s",
+            (hash_password(entry.new_password), user_id),
+        )
+    return {"ok": True}
+
+
 # --- the user's dashboard ---------------------------------------------------
 
 
@@ -1423,6 +1482,22 @@ if __name__ == "__main__":
     assert country_of(Registration(**base).phone) == base["country"]
     assert country_of("+14155552671") == "US"
     assert country_of("not a number") is None
+
+    assert ProfileUpdate(full_name="Ada Lovelace").full_name == "Ada Lovelace"
+    for bad in ("A", "x" * 81):
+        try:
+            ProfileUpdate(full_name=bad)
+        except ValidationError:
+            continue
+        raise AssertionError(f"accepted {bad!r} as a name")
+
+    assert PasswordChange(current_password="a", new_password="12345678")
+    try:
+        PasswordChange(current_password="a", new_password="1234567")
+    except ValidationError:
+        pass
+    else:
+        raise AssertionError("accepted a short new password")
 
     assert Decision(status="approved").note is None
     assert Decision(status="rejected", note="no").status == "rejected"
