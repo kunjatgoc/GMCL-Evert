@@ -91,6 +91,11 @@ export const btnSecondary =
   `${TEXT.body} ${btnBase} border border-[rgba(62,230,138,0.35)] bg-[rgba(62,230,138,0.12)] ` +
   'px-5 py-2.5 font-semibold text-[#3EE68A] hover:bg-[rgba(62,230,138,0.2)]'
 
+/** The one alarm colour, and only for an action that cannot be taken back. */
+export const btnDestructive =
+  `${TEXT.body} ${btnBase} border border-[rgba(228,85,60,0.4)] bg-[rgba(228,85,60,0.12)] ` +
+  'px-5 py-2.5 font-semibold text-[var(--admin-destructive)] hover:bg-[rgba(228,85,60,0.2)]'
+
 export const btnGhost =
   `${TEXT.body} ${btnBase} px-3.5 py-2.5 text-[#E4EAE7]/70 hover:text-white`
 

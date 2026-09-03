@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
-import { Check, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Loader2, Search, X } from 'lucide-react'
 import { COUNTRIES } from '../lib/countries'
 import { EASE } from '../lib/motion'
 import {
@@ -10,8 +10,11 @@ import {
   btnIcon,
   btnPrimary,
   btnSecondary,
+  btnDestructive,
   control,
   fieldLabel,
+  modalCard,
+  modalShell,
   selectControl,
 } from '../panel/type'
 import { RowsSkeleton } from '../panel/Skeleton'
@@ -453,7 +456,101 @@ const STATUS_TONE = {
  * first. The buttons disappear on a decided row for the same reason, one step
  * earlier.
  */
+/** The row a decision is about to be made on, and which decision. */
+type Pending = { row: MetaidRow; status: 'approved' | 'rejected' }
+
+/**
+ * Asks before spending a decision.
+ *
+ * A decision cannot be taken back -- sp_decide_metaid only moves a row that is
+ * still pending -- so the mis-click has to be caught before the request, not
+ * apologised for after it. The row is named in full because two rows from the
+ * same person differ only by type and address.
+ */
+function ConfirmDecision({
+  pending,
+  busy,
+  onConfirm,
+  onClose,
+}: {
+  pending: Pending
+  busy: boolean
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDialogElement>(null)
+  const { row, status } = pending
+  const approving = status === 'approved'
+
+  useEffect(() => {
+    ref.current?.showModal()
+  }, [])
+
+  return (
+    <dialog
+      ref={ref}
+      onClose={onClose}
+      onClick={(e) => e.target === ref.current && !busy && ref.current?.close()}
+      aria-labelledby="decide-title"
+      className={modalShell}
+      style={{ colorScheme: 'dark' }}
+    >
+      <div className={modalCard}>
+        <h2 id="decide-title" className={`${TEXT.body} font-semibold`}>
+          {approving ? 'Approve this request?' : 'Reject this request?'}
+        </h2>
+
+        <dl className={`${TEXT.label} mt-5 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2`}>
+          <dt className="text-[var(--admin-muted)]">Request</dt>
+          <dd className="tabular">#{row.id}</dd>
+          <dt className="text-[var(--admin-muted)]">User</dt>
+          <dd className="tabular">#{row.user_id}</dd>
+          <dt className="text-[var(--admin-muted)]">Type</dt>
+          <dd className="capitalize">{row.type}</dd>
+          <dt className="text-[var(--admin-muted)]">Issue to</dt>
+          <dd className="break-all">{row.email}</dd>
+        </dl>
+
+        <p className={`${TEXT.label} mt-5 text-[var(--admin-muted)]`}>
+          This cannot be undone, and the entrant sees the result on their
+          dashboard.
+        </p>
+
+        <div className="mt-6 flex flex-wrap justify-end gap-2.5">
+          {/* Cancel takes focus: the safe half of an irreversible pair should
+              be what Enter reaches first. */}
+          <button
+            type="button"
+            autoFocus
+            disabled={busy}
+            onClick={() => ref.current?.close()}
+            className={btnGhost}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onConfirm}
+            className={approving ? btnSecondary : btnDestructive}
+          >
+            {busy ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : approving ? (
+              <Check className="size-4" />
+            ) : (
+              <X className="size-4" />
+            )}
+            {approving ? 'Approve' : 'Reject'}
+          </button>
+        </div>
+      </div>
+    </dialog>
+  )
+}
+
 export function MetaidQueue() {
+  const [pending, setPending] = useState<Pending | null>(null)
   const [deciding, setDeciding] = useState<number | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
   // A new identity for fetchPage is what UserList already reloads on, so a
@@ -465,13 +562,16 @@ export function MetaidQueue() {
     [version]
   )
 
-  const decide = async (id: number, status: 'approved' | 'rejected') => {
-    setDeciding(id)
+  const decide = async () => {
+    if (!pending) return
+    setDeciding(pending.row.id)
     setFailed(null)
     try {
-      await decideMetaid(id, status)
+      await decideMetaid(pending.row.id, pending.status)
+      setPending(null)
       setVersion((v) => v + 1)
     } catch (e) {
+      setPending(null)
       setFailed(e instanceof Error ? e.message : 'Could not record that.')
     } finally {
       setDeciding(null)
@@ -570,7 +670,7 @@ export function MetaidQueue() {
                   <button
                     type="button"
                     disabled={deciding === r.id}
-                    onClick={() => decide(r.id, 'approved')}
+                    onClick={() => setPending({ row: r, status: 'approved' })}
                     className={`${btnSecondary} px-3 py-1.5`}
                   >
                     <Check className="size-4" />
@@ -579,7 +679,7 @@ export function MetaidQueue() {
                   <button
                     type="button"
                     disabled={deciding === r.id}
-                    onClick={() => decide(r.id, 'rejected')}
+                    onClick={() => setPending({ row: r, status: 'rejected' })}
                     className={`${btnGhost} px-3 py-1.5 hover:text-[var(--admin-destructive)]`}
                   >
                     <X className="size-4" />
@@ -590,6 +690,15 @@ export function MetaidQueue() {
           },
         ]}
       />
+
+      {pending && (
+        <ConfirmDecision
+          pending={pending}
+          busy={deciding === pending.row.id}
+          onConfirm={decide}
+          onClose={() => setPending(null)}
+        />
+      )}
     </>
   )
 }
