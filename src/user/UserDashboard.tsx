@@ -122,7 +122,10 @@ function DashboardScreen({ me }: { me: Me }) {
   const firstName = me.full_name?.trim().split(/\s+/)[0]
 
   return (
-    <div>
+    // Capped, but not centred. This screen is a short read, and letting it
+    // run to 1600px puts the phone number half a metre from the address it
+    // belongs beside. Left-aligned so there is no gutter on the near side.
+    <div className="xl:max-w-5xl">
       <h1 className={heading}>
         {firstName ? (
           <>
@@ -135,7 +138,7 @@ function DashboardScreen({ me }: { me: Me }) {
         )}
       </h1>
 
-      <dl className="mt-6 grid gap-x-10 gap-y-3 sm:grid-cols-2">
+      <dl className="mt-6 grid gap-x-16 gap-y-4 sm:grid-cols-[auto_auto] sm:justify-start">
         <div>
           <dt className={fieldLabel}>Account email</dt>
           <dd className={`${TEXT.body} mt-1 break-words`}>{me.email}</dd>
@@ -153,7 +156,7 @@ function DashboardScreen({ me }: { me: Me }) {
       {!rows ? (
         <Loading />
       ) : rows.length === 0 ? (
-        <div className={`${card} mt-4 p-6 xl:max-w-5xl`}>
+        <div className={`${card} mt-4 p-6`}>
           <p className={`${TEXT.body} text-[#E4EAE7]`}>
             You have not asked for a MetaID yet. Pick one and we will take it
             from there.
@@ -164,11 +167,11 @@ function DashboardScreen({ me }: { me: Me }) {
           </a>
         </div>
       ) : (
-        <ul className="mt-4 space-y-3 xl:max-w-5xl">
+        <ul className="mt-4 space-y-3">
           {rows.map((r, i) => (
             <motion.li
               key={r.id}
-              className={`${card} flex flex-wrap items-start justify-between gap-x-6 gap-y-3 px-6 py-5`}
+              className={`${card} flex flex-wrap items-center gap-x-6 gap-y-3 px-6 py-5`}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45, ease: EASE, delay: i * 0.05 }}
@@ -187,7 +190,9 @@ function DashboardScreen({ me }: { me: Me }) {
                   </p>
                 )}
               </div>
-              <StatusChip status={r.status} />
+              <span className="ml-auto shrink-0">
+                <StatusChip status={r.status} />
+              </span>
             </motion.li>
           ))}
         </ul>
@@ -211,7 +216,7 @@ function RequestScreen() {
   }
 
   return (
-    <div>
+    <div className="xl:max-w-5xl">
       <h1 className={heading}>
         Pick your <span className="text-[#3EE68A]">MetaID</span>
       </h1>
@@ -225,7 +230,7 @@ function RequestScreen() {
       {!rows ? (
         <Loading />
       ) : (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:max-w-5xl">
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {KINDS.map((kind, i) => {
             const latest = latestOf(kind.type)
             const Icon = kind.icon
