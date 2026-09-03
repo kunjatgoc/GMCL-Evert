@@ -80,14 +80,8 @@ export function Lockup() {
       >
         GML
       </span>
-      <span className="text-left leading-none">
-        <span className="block font-[family-name:var(--font-display)] text-[16px] font-bold tracking-tight text-white">
-          Global Market League
-        </span>
-        {/* Same credit the footer carries, so the two agree. */}
-        <span className="mt-1.5 block text-[10px] uppercase tracking-[0.2em] text-[#E4EAE7]/75">
-          Associated with newera
-        </span>
+      <span className="font-[family-name:var(--font-display)] text-[16px] font-bold leading-none tracking-tight text-white">
+        Global Market League
       </span>
     </motion.div>
   )
