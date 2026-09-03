@@ -40,8 +40,8 @@ def main() -> int:
 
     email = sys.argv[1].strip().lower()
     role = (sys.argv[2].strip().lower() if len(sys.argv) == 3 else "admin")
-    if role not in ("admin", "newera_staff"):
-        print(f"Unknown role {role!r}. Use admin or newera_staff.")
+    if role not in ("admin", "newera_staff", "gml_staff"):
+        print(f"Unknown role {role!r}. Use admin, newera_staff or gml_staff.")
         return 2
     url = os.environ.get("DATABASE_URL", "")
     if not url:

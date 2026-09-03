@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { CheckCircle2, Clock, ClipboardList, XCircle } from 'lucide-react'
-import { Card } from './Dashboard'
+import { Card } from '../panel/Card'
 import { getMetaidStats, Unauthorized, type MetaidStats } from './api'
 import { TEXT } from '../panel/type'
 import { StatsSkeleton, useDelayed } from '../panel/Skeleton'

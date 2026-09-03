@@ -43,5 +43,10 @@ export const logout = () => request<{ ok: true }>('/api/logout', { method: 'POST
 
 /** Where a signed-in account lands. One place, so the login screen, the
  *  confirmation step and the guards on both panels cannot disagree. */
-export const homeFor = (role: string) =>
-  role === 'admin' || role === 'newera_staff' ? '/admin' : '/dashboard'
+const HOME: Record<string, string> = {
+  admin: '/admin',
+  newera_staff: '/admin',
+  gml_staff: '/gml',
+}
+
+export const homeFor = (role: string) => HOME[role] ?? '/dashboard'

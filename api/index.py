@@ -183,10 +183,8 @@ SESSION_SECRET = os.environ.get("SESSION_SECRET", "")
 SESSION_COOKIE = "gmcl_session"
 SESSION_TTL = 8 * 3600
 
-# The roles that can sign in today. gml_staff is still refused: nothing is
-# built for it, and a session that reaches no screen is worse than a refusal
-# at the door.
-SIGN_IN_ROLES = ("admin", "newera_staff", "end_user")
+# Every role can sign in now that each has somewhere to land.
+SIGN_IN_ROLES = ("admin", "newera_staff", "gml_staff", "end_user")
 
 # Who may read the MetaID queue and decide on it. The same pair sp_decide_metaid
 # enforces in the database, named here so the API refuses before the round trip
@@ -490,6 +488,19 @@ def require_staff(gmcl_session: Optional[str] = Cookie(default=None)) -> int:
     """An admin or newera staff. The MetaID queue, and nothing else so far."""
     session = read_session(gmcl_session)
     if session is None or session[1] not in STAFF_ROLES:
+        raise HTTPException(401, "Not signed in.")
+    return session[0]
+
+
+def require_gml(gmcl_session: Optional[str] = Cookie(default=None)) -> int:
+    """GML staff, and an admin who wants to see what they see.
+
+    Deliberately not `require_staff`: newera reviews MetaID requests, GML runs
+    the league, and neither has business on the other's screens. The admin is
+    in both because the admin is in everything.
+    """
+    session = read_session(gmcl_session)
+    if session is None or session[1] not in ("admin", "gml_staff"):
         raise HTTPException(401, "Not signed in.")
     return session[0]
 
@@ -944,6 +955,30 @@ def request_metaid(
     return {"id": request_id}
 
 
+@app.get("/api/gml/stats")
+def gml_stats(_: int = Depends(require_gml)) -> dict:
+    """The league in four numbers, all of it already in the database.
+
+    Entries and the accounts behind them -- GML's side of the arrangement.
+    Nothing about MetaID requests: those are newera's to answer, and counting
+    them here would be the first line of a workflow nobody has specified.
+    """
+    with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            select
+              (select count(*) from registration)                     as entrants,
+              (select count(*) from registration
+                 where created_at >= current_date)                    as entrants_today,
+              (select count(distinct country) from registration)      as countries,
+              (select count(*) from users u
+                 join user_roles r on r.id = u.role_id
+                where r.name = 'end_user')                            as accounts
+            """
+        )
+        return cur.fetchone()
+
+
 @app.get("/api/admin/stats")
 def admin_stats(_: int = Depends(require_admin)) -> dict:
     with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
@@ -1351,7 +1386,10 @@ if __name__ == "__main__":
     # The queue is staff-wide; everything else behind require_admin is not.
     assert set(STAFF_ROLES) < set(SIGN_IN_ROLES)
     assert "end_user" not in STAFF_ROLES, "an entrant could reach the queue"
-    assert "gml_staff" not in SIGN_IN_ROLES, "a role with no screen can sign in"
+    # Each role reaches only its own panel. The queue is staff-wide, the
+    # league is GML's, and neither admits the other.
+    assert "gml_staff" not in STAFF_ROLES, "GML staff could reach the MetaID queue"
+    assert set(SIGN_IN_ROLES) == {"admin", "newera_staff", "gml_staff", "end_user"}
 
     # A pool with no checkout check hands out connections the far end has
     # already dropped, and the request they land in answers 500. Asserted

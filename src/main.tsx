@@ -6,13 +6,14 @@ import { Signup } from './components/Signup'
 import { ForgotPassword, ResetPassword } from './components/Recover'
 import './index.css'
 
-// Eight screens is still not a router. A pathname check costs nothing and adds
+// Nine screens is still not a router. A pathname check costs nothing and adds
 // no dependency; the admin panel does its own in-panel navigation.
 const path = window.location.pathname.replace(/\/+$/, '') || '/'
 
 // Split so the marketing page never downloads either panel, and the panels
 // never download gsap or lenis.
 const AdminApp = lazy(() => import('./admin/AdminApp'))
+const GmlApp = lazy(() => import('./gml/GmlApp'))
 const UserDashboard = lazy(() => import('./user/UserDashboard'))
 
 const fallback = <div className="min-h-dvh" />
@@ -20,6 +21,10 @@ const fallback = <div className="min-h-dvh" />
 const screen = path.startsWith('/admin') ? (
   <Suspense fallback={fallback}>
     <AdminApp />
+  </Suspense>
+) : path === '/gml' ? (
+  <Suspense fallback={fallback}>
+    <GmlApp />
   </Suspense>
 ) : path === '/dashboard' || path === '/request-metaid' ? (
   <Suspense fallback={fallback}>
