@@ -1241,45 +1241,6 @@ def _window(date_from: Optional[date], date_to: Optional[date]) -> tuple[list, l
     return where, params
 
 
-@app.get("/api/admin/registrations")
-def admin_registrations(
-    _: int = Depends(require_admin),
-    q: str = Query("", max_length=100),
-    country: str = Query("", max_length=2),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
-    page: int = 1,
-    per_page: int = 25,
-) -> dict:
-    page, per_page = _page(page, per_page)
-    where, params = _window(date_from, date_to)
-
-    if q.strip():
-        where.append("(full_name ilike %s or email ilike %s or mobile ilike %s)")
-        params += [f"%{q.strip()}%"] * 3
-    if country.strip():
-        where.append("country = %s")
-        params.append(country.strip().upper())
-
-    clause = f"where {' and '.join(where)}" if where else ""
-
-    with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
-        cur.execute(f"select count(*) as total from registration {clause}", params)
-        total = cur.fetchone()["total"]
-        cur.execute(
-            f"""
-            select id, full_name, email, mobile, country, created_at
-            from registration {clause}
-            order by created_at desc, id desc
-            limit %s offset %s
-            """,
-            params + [per_page, (page - 1) * per_page],
-        )
-        rows = cur.fetchall()
-
-    return {"rows": rows, "total": total, "page": page, "per_page": per_page}
-
-
 class Decision(BaseModel):
     """What the queue sends back. The note is only worth having on a refusal,
     where the person is owed a reason."""
@@ -1406,43 +1367,6 @@ def decide_metaid(
     if not ok:
         raise HTTPException(409, "That request has already been decided.")
     return {"id": request_id, "status": entry.status}
-
-
-@app.get("/api/admin/real-accounts")
-def admin_real_accounts(
-    _: int = Depends(require_admin),
-    q: str = Query("", max_length=100),
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
-    page: int = 1,
-    per_page: int = 25,
-) -> dict:
-    page, per_page = _page(page, per_page)
-    where, params = _window(date_from, date_to)
-
-    if q.strip():
-        where.append("email ilike %s")
-        params.append(f"%{q.strip()}%")
-
-    clause = f"where {' and '.join(where)}" if where else ""
-
-    with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
-        cur.execute(
-            f"select count(*) as total from real_account_request {clause}", params
-        )
-        total = cur.fetchone()["total"]
-        cur.execute(
-            f"""
-            select id, email, created_at
-            from real_account_request {clause}
-            order by created_at desc, id desc
-            limit %s offset %s
-            """,
-            params + [per_page, (page - 1) * per_page],
-        )
-        rows = cur.fetchall()
-
-    return {"rows": rows, "total": total, "page": page, "per_page": per_page}
 
 
 if __name__ == "__main__":

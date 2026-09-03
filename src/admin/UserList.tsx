@@ -19,12 +19,8 @@ import {
 } from '../panel/type'
 import { RowsSkeleton } from '../panel/Skeleton'
 import {
-  listDemoUsers,
-  listRealUsers,
   query,
-  type DemoUser,
   type Page,
-  type RealUser,
   decideMetaid,
   listMetaidQueue,
   type MetaidRow,
@@ -368,90 +364,6 @@ function UserList<T extends { id: number }>({
 
 const flagFor = (code: string) =>
   COUNTRIES.find((c) => c.code === code)?.flag ?? ''
-
-export function DemoUsers() {
-  return (
-    <UserList<DemoUser>
-      title="Demo ID"
-      accent="Users"
-      fetchPage={listDemoUsers}
-      filters={[
-        { name: 'q', label: 'Search', placeholder: 'Name, email or phone' },
-        {
-          name: 'country',
-          label: 'Country',
-          all: 'All countries',
-          options: COUNTRIES.map((c) => ({
-            value: c.code,
-            label: `${c.flag} ${c.name}`,
-          })),
-        },
-        ...DATE_RANGE,
-      ]}
-      columns={[
-        {
-          header: 'Name',
-          skeleton: 'w-36',
-          cell: (r) => <span className="font-medium text-white">{r.full_name}</span>,
-        },
-        { header: 'Email', skeleton: 'w-56', cell: (r) => r.email },
-        {
-          header: 'Phone',
-          skeleton: 'w-32',
-          cell: (r) => <span className="tabular">{r.mobile}</span>,
-        },
-        {
-          header: 'Country',
-          skeleton: 'w-14',
-          cell: (r) => (
-            <span className={`${TEXT.label} inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5`}>
-              <span aria-hidden>{flagFor(r.country)}</span>
-              {r.country}
-            </span>
-          ),
-          hideOnMobile: true,
-        },
-        {
-          header: 'Registered',
-          skeleton: 'w-32',
-          cell: (r) => (
-            <span className="tabular text-[var(--admin-muted)]">{fmt(r.created_at)}</span>
-          ),
-          hideOnMobile: true,
-        },
-      ]}
-    />
-  )
-}
-
-export function RealUsers() {
-  return (
-    <UserList<RealUser>
-      title="Real ID"
-      accent="Users"
-      fetchPage={listRealUsers}
-      filters={[
-        { name: 'q', label: 'Search', placeholder: 'Email' },
-        ...DATE_RANGE,
-      ]}
-      columns={[
-        {
-          header: 'Email',
-          skeleton: 'w-64',
-          cell: (r) => <span className="font-medium text-white">{r.email}</span>,
-        },
-        {
-          header: 'Requested',
-          skeleton: 'w-32',
-          cell: (r) => (
-            <span className="tabular text-[var(--admin-muted)]">{fmt(r.created_at)}</span>
-          ),
-        },
-      ]}
-    />
-  )
-}
-
 const STATUS_TONE = {
   pending: 'text-[var(--admin-gold)]',
   approved: 'text-[#3EE68A]',

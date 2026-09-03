@@ -18,17 +18,6 @@ export type Stats = {
   daily: DayPoint[]
 }
 
-export type DemoUser = {
-  id: number
-  full_name: string
-  email: string
-  mobile: string
-  country: string
-  created_at: string
-}
-
-export type RealUser = { id: number; email: string; created_at: string }
-
 export type Page<T> = {
   rows: T[]
   total: number
@@ -48,12 +37,6 @@ export function query(params: Record<string, string | number>): string {
   }
   return qs.toString()
 }
-
-export const listDemoUsers = (qs: string) =>
-  admin<Page<DemoUser>>(`/registrations?${qs}`)
-
-export const listRealUsers = (qs: string) =>
-  admin<Page<RealUser>>(`/real-accounts?${qs}`)
 
 export type MetaidStatus = 'pending' | 'approved' | 'rejected'
 

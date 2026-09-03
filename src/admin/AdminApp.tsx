@@ -1,7 +1,7 @@
-import { ClipboardList, LayoutDashboard, Users, UserCheck } from 'lucide-react'
+import { ClipboardList, LayoutDashboard } from 'lucide-react'
 import { Dashboard } from './Dashboard'
 import { MetaidDashboard } from './MetaidDashboard'
-import { DemoUsers, MetaidQueue, RealUsers } from './UserList'
+import { MetaidQueue } from './UserList'
 import { PanelShell, type PanelRoute } from '../panel/PanelShell'
 
 const QUEUE: PanelRoute = {
@@ -23,8 +23,6 @@ const QUEUE: PanelRoute = {
  */
 const ADMIN_ROUTES: readonly PanelRoute[] = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard, view: Dashboard },
-  { path: '/admin/demo-users', label: 'Demo ID Users', icon: Users, view: DemoUsers },
-  { path: '/admin/real-users', label: 'Real ID Users', icon: UserCheck, view: RealUsers },
   QUEUE,
 ]
 
