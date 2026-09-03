@@ -77,8 +77,14 @@ export type LoginResult =
   | { ok: true; stage: 'otp'; sent: boolean }
   | { ok: false; error: string }
 
+/**
+ * Which of the two things you signed up with. `users` carries a separate
+ * unique index on each, so either identifies one account on its own.
+ */
+export type LoginId = { email: string } | { phone: string; country: string }
+
 export async function submitLogin(
-  email: string,
+  id: LoginId,
   password: string
 ): Promise<LoginResult> {
   try {
@@ -88,7 +94,7 @@ export async function submitLogin(
       // Same-origin, so the session cookie the server sets comes back on its
       // own. Nothing is kept in JS.
       credentials: 'same-origin',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ ...id, password }),
     })
 
     if (res.ok) {
@@ -101,7 +107,12 @@ export async function submitLogin(
     // One message for both, deliberately: telling a stranger which half was
     // wrong tells them which addresses are registered.
     if (res.status === 401 || res.status === 400)
-      return { ok: false, error: 'That email and password do not match.' }
+      return { ok: false, error: 'Those details and password do not match.' }
+
+    // The only 422 here is a number that is not one. Worth its own wording:
+    // nothing was looked up, so it says nothing about who has an account.
+    if (res.status === 422)
+      return { ok: false, error: 'That phone number is not valid for the country.' }
 
     if (res.status === 503)
       return { ok: false, error: 'Sign-in is unavailable right now.' }
