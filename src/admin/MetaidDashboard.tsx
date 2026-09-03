@@ -29,7 +29,7 @@ export function MetaidDashboard() {
       .then(setStats)
       .catch((e: unknown) => {
         if (e instanceof Unauthorized) window.location.href = '/login'
-        else setError(e instanceof Error ? e.message : 'Could not load the numbers.')
+        else setError(e instanceof Error ? e.message : 'Could not load the data.')
       })
   }, [])
 
@@ -59,7 +59,7 @@ export function MetaidDashboard() {
           <Card
             label="Pending"
             value={stats.pending}
-            sub="Waiting on a decision"
+            sub="Waiting for a decision"
             icon={Clock}
             index={0}
             accent
@@ -68,7 +68,7 @@ export function MetaidDashboard() {
           <Card
             label="Approved"
             value={stats.approved}
-            sub={`${stats.today} asked today`}
+            sub={`${stats.today} new requests today`}
             icon={CheckCircle2}
             index={1}
             href={`${QUEUE}?status=approved`}
@@ -76,7 +76,7 @@ export function MetaidDashboard() {
           <Card
             label="Rejected"
             value={stats.rejected}
-            sub="Refused so far"
+            sub="Rejected so far"
             icon={XCircle}
             index={2}
             href={`${QUEUE}?status=rejected`}

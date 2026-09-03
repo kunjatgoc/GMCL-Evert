@@ -56,14 +56,14 @@ const KINDS: readonly Kind[] = [
     type: 'demo',
     title: 'Demo MetaID',
     blurb:
-      'A $10,000 demo balance to trade the league with. No deposit, no risk to your own funds.',
+      'Trade in the league with $10,000 of demo money. No deposit. No risk to your own money.',
     icon: LineChart,
   },
   {
     type: 'real',
     title: 'Real MetaID',
     blurb:
-      'A live account with newera Broker, issued to the address you give here once their checks clear.',
+      'A real trading account with newera Broker. They send it to your email after they check your details.',
     icon: Wallet,
   },
 ]
@@ -157,8 +157,7 @@ function DashboardScreen({ me }: { me: Me }) {
       ) : rows.length === 0 ? (
         <div className={`${card} mt-4 p-6`}>
           <p className={`${TEXT.body} text-[#E4EAE7]`}>
-            You have not asked for a MetaID yet. Pick one and we will take it
-            from there.
+            You have not requested a MetaID yet. Choose one to get started.
           </p>
           <a href="/request-metaid" className={`${btnPrimary} mt-5`}>
             <Send className="size-4" />
@@ -178,7 +177,7 @@ function DashboardScreen({ me }: { me: Me }) {
               <div className="min-w-0">
                 <p className={`${TEXT.body} font-semibold`}>{titleOf(r.type)}</p>
                 <p className={`${TEXT.label} mt-1 break-words text-[var(--admin-muted)]`}>
-                  To {r.email} &middot; asked {day(r.created_at)}
+                  Email: {r.email} &middot; Requested {day(r.created_at)}
                 </p>
                 {r.status === 'pending' && (
                   <p className={`${TEXT.label} mt-2 text-[#E4EAE7]`}>{AFTER_SUBMIT}</p>
@@ -217,11 +216,10 @@ function RequestScreen({ me }: { me: Me }) {
   return (
     <div className="xl:max-w-5xl">
       <h1 className={heading}>
-        Pick your <span className="text-[#3EE68A]">MetaID</span>
+        Choose your <span className="text-[#3EE68A]">MetaID</span>
       </h1>
       <p className={`${TEXT.body} mt-4 max-w-2xl text-[#E4EAE7]`}>
-        Choose one, tell us the address it should go to, and newera takes it
-        from there.
+        Choose one. We will send it to your email once newera approves it.
       </p>
 
       {error && <div className="mt-6"><ErrorAlert>{error}</ErrorAlert></div>}
@@ -269,7 +267,7 @@ function RequestScreen({ me }: { me: Me }) {
                     >
                       {latest?.status === 'pending'
                         ? AFTER_SUBMIT
-                        : `Approved. Your MetaID goes to ${latest?.email}.`}
+                        : `Approved. Your MetaID will be sent to ${latest?.email}.`}
                     </p>
                   )}
                 </div>
@@ -385,7 +383,7 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
       const { available } = await checkMetaidEmail(email)
       if (!available) {
         setStep({ name: 'taken', email })
-        setError('That address already has an account too. Try another.')
+        setError('This email also has an account. Try a different one.')
         return
       }
       await file(email)
@@ -398,9 +396,9 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
 
   const title =
     step.name === 'sent'
-      ? 'Request received'
+      ? 'Request sent'
       : step.name === 'taken'
-        ? 'That address is taken'
+        ? 'This email is already in use'
         : kind.title
 
   return (
@@ -454,14 +452,14 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
         {step.name === 'checking' && (
           <p className={`${TEXT.body} mt-6 flex items-center gap-3 text-[#E4EAE7]`} role="status">
             <Loader2 className="size-4 animate-spin" />
-            {kind.type === 'demo' ? 'Filing your request' : 'Checking your address'}
+            {kind.type === 'demo' ? 'Sending your request' : 'Checking your email'}
           </p>
         )}
 
         {step.name === 'confirm' && (
           <>
             <p className={`${TEXT.body} mt-6 leading-relaxed text-[#E4EAE7]`}>
-              Your {kind.title} will be issued to this address.
+              We will send your {kind.title} to this email:
             </p>
             <p
               className={`${TEXT.body} mt-3 break-all rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 font-medium`}
@@ -495,11 +493,11 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
           <form onSubmit={onSubmitOther} className="mt-6">
             <p className={`${TEXT.body} leading-relaxed text-[#E4EAE7]`}>
               <span className="break-all font-medium">{step.email}</span> already
-              has an account. Give us another address for your {kind.title}.
+              has a newera account. Enter a different email for your {kind.title}.
             </p>
             <div className="mt-5">
               <label className={`${fieldLabel} mb-2 block`} htmlFor="metaid-email">
-                Another address
+                Different email
               </label>
               <input
                 id="metaid-email"
@@ -525,7 +523,7 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
               </button>
               <button type="submit" disabled={busy} className={btnPrimary}>
                 {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-                Use this address
+                Use this email
               </button>
             </div>
           </form>
@@ -609,7 +607,7 @@ function ProfileScreen({ me }: { me: Me }) {
     setPwError(null)
     setPwDone(false)
     if (next !== String(data.get('confirm') ?? '')) {
-      setPwError('Those two passwords do not match.')
+      setPwError('The passwords do not match.')
       return
     }
 
@@ -672,12 +670,12 @@ function ProfileScreen({ me }: { me: Me }) {
               </div>
             </dl>
             <p className={`${TEXT.label} -mt-1 text-[var(--admin-muted)]`}>
-              Your email and phone number identify the account and cannot be
-              changed here. Ask us if either needs to move.
+              You cannot change your email or phone number here. Contact us if
+              you need to change them.
             </p>
 
             {nameError && <ErrorAlert>{nameError}</ErrorAlert>}
-            {nameDone && <Notice>Saved.</Notice>}
+            {nameDone && <Notice>Name saved.</Notice>}
 
             <button
               type="submit"
@@ -739,7 +737,7 @@ function ProfileScreen({ me }: { me: Me }) {
             </div>
 
             {pwError && <ErrorAlert>{pwError}</ErrorAlert>}
-            {pwDone && <Notice>Your password is changed.</Notice>}
+            {pwDone && <Notice>Password changed.</Notice>}
 
             <button type="submit" disabled={pwBusy} className={`${btnPrimary} w-full sm:w-auto`}>
               {pwBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}

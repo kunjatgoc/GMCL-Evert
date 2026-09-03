@@ -23,7 +23,7 @@ export function Dashboard() {
   useEffect(() => {
     getStats()
       .then(setStats)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Could not load.'))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Could not load the data.'))
   }, [])
 
   if (error) return <p className={`${TEXT.body} text-[var(--admin-destructive)]`}>{error}</p>
@@ -81,7 +81,7 @@ export function Dashboard() {
           index={3}
           label="Countries"
           value={stats.countries}
-          sub="Represented by demo entrants"
+          sub="Where demo users are from"
           icon={Globe2}
         />
       </div>
@@ -112,7 +112,7 @@ export function Dashboard() {
         animate="show"
       >
         <h2 className={`${TEXT.body} font-semibold tracking-tight text-white`}>
-          Where the entrants are
+          Top countries
         </h2>
 
         <ul className="mt-5 space-y-4">

@@ -44,11 +44,11 @@ export function ForgotPassword() {
 
   return (
     <AuthShell
-      eyebrow="Password reset"
+      eyebrow="Reset password"
       title={
         sentTo ? (
           <>
-            Check your <span className="text-[#00FF87] text-glow">inbox</span>
+            Check your <span className="text-[#00FF87] text-glow">email</span>
           </>
         ) : (
           <>
@@ -63,12 +63,12 @@ export function ForgotPassword() {
         // an account, so this screen must not imply one either way.
         <div className="relative space-y-5">
           <Notice>
-            If {sentTo} has an account, a reset link is on its way. It expires
-            in 30 minutes.
+            If {sentTo} has an account, we sent a reset link to it. The link
+            works for 30 minutes.
           </Notice>
           <p className="text-[15px] leading-relaxed text-[#E4EAE7]/80">
-            Nothing arrived? Check the spam folder, then ask again in a minute
-            &mdash; a link sent moments ago is still the live one.
+            No email? Check your spam folder. You can ask for a new link after
+            one minute.
           </p>
           <GlowButton
             href="/login"
@@ -82,8 +82,7 @@ export function ForgotPassword() {
       ) : (
         <form onSubmit={onSubmit} className="relative space-y-5">
           <p className="text-[15px] leading-relaxed text-[#E4EAE7]/80">
-            Give us the address on the account and we will send a link to
-            choose a new password.
+            Enter your email. We will send you a link to set a new password.
           </p>
 
           <div>
@@ -112,11 +111,11 @@ export function ForgotPassword() {
             state={busy ? 'busy' : 'idle'}
             className="mt-2 w-full cursor-pointer"
           >
-            Send the link
+            Send link
           </GlowButton>
 
           <p className="text-center text-[14px] leading-relaxed text-[#E4EAE7]/80">
-            Remembered it?{' '}
+            Remember your password?{' '}
             <a
               href="/login"
               className="font-medium text-[#00FF87] underline-offset-4 hover:underline"
@@ -151,7 +150,7 @@ export function ResetPassword() {
     // typing does not match the one above it, and saying so on every keystroke
     // is noise. Nothing is sent when they differ, so the button never spins.
     if (password !== String(data.get('confirm') ?? '')) {
-      setError('Those two passwords do not match.')
+      setError('The passwords do not match.')
       return
     }
 
@@ -173,15 +172,15 @@ export function ResetPassword() {
 
   return (
     <AuthShell
-      eyebrow="Password reset"
+      eyebrow="Reset password"
       title={
         changed ? (
           <>
-            That&rsquo;s <span className="text-[#00FF87] text-glow">done</span>
+            Password <span className="text-[#00FF87] text-glow">changed</span>
           </>
         ) : (
           <>
-            Choose a new <span className="text-[#00FF87] text-glow">password</span>
+            Set a new <span className="text-[#00FF87] text-glow">password</span>
           </>
         )
       }
@@ -189,7 +188,7 @@ export function ResetPassword() {
     >
       {changed ? (
         <div className="relative space-y-5">
-          <Notice>Your password is set. Sign in with it.</Notice>
+          <Notice>Your password is changed. You can sign in now.</Notice>
           <GlowButton
             href="/login"
             magnetic={false}
@@ -202,8 +201,8 @@ export function ResetPassword() {
       ) : broken ? (
         <div className="relative space-y-5">
           <ErrorAlert>
-            This link is incomplete. Open the one from the email in full, or ask
-            for another.
+            This link is broken. Open the full link from your email, or ask for
+            a new one.
           </ErrorAlert>
           <GlowButton
             href="/forgot-password"
@@ -255,7 +254,7 @@ export function ResetPassword() {
             magnetic={false}
             icon={<ArrowRight className="size-4" />}
             state={done ? 'done' : busy ? 'busy' : 'idle'}
-            doneLabel="Password set"
+            doneLabel="Password changed"
             className="mt-2 w-full cursor-pointer"
           >
             Set new password
@@ -269,7 +268,7 @@ export function ResetPassword() {
               href="/forgot-password"
               className="font-medium text-[#00FF87] underline-offset-4 hover:underline"
             >
-              Ask for another
+              Get a new one
             </a>
           </p>
         </form>

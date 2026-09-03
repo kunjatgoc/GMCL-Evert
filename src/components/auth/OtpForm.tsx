@@ -39,7 +39,7 @@ export function OtpForm({
   onVerified,
   onExpired,
   back,
-  submitLabel = 'Verify and sign in',
+  submitLabel = 'Confirm and sign in',
 }: Props) {
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -47,8 +47,8 @@ export function OtpForm({
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(() =>
     sent
-      ? `We sent a six-digit code to ${address}.`
-      : `A code was sent to ${address} moments ago. Use that one.`
+      ? `We sent a 6-digit code to ${address}.`
+      : `We already sent a code to ${address} a moment ago. Use that code.`
   )
   const [cooldown, setCooldown] = useState(RESEND_SECONDS)
   const [phase, setPhase] = useState<OrbitPhase>('idle')
@@ -136,7 +136,7 @@ export function OtpForm({
     if (res.ok) {
       setCode('')
       setCooldown(RESEND_SECONDS)
-      setNotice(`A new code is on its way to ${address}.`)
+      setNotice(`We sent a new code to ${address}.`)
       return
     }
     if (res.expired) {
@@ -158,7 +158,7 @@ export function OtpForm({
           className={`${label} transition-opacity duration-300 ${standDown}`}
           htmlFor="otp"
         >
-          Six-digit code
+          6-digit code
         </label>
 
         {/* Six slots drawn behind one real field, not six fields. The input
@@ -291,8 +291,8 @@ export function OtpForm({
       </GlowButton>
 
       <p className="text-center text-[14px] leading-relaxed text-[#E4EAE7]/80">
-        A one-time check on a new account. After this, your password is all
-        you need.
+        We only ask this once. After this, you sign in with just your
+        password.
       </p>
 
       <div className="flex items-center justify-between gap-4 pt-1 text-[13.5px]">

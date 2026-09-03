@@ -86,7 +86,7 @@ export function Signup() {
   const title =
     stage.name === 'form' ? (
       <>
-        Join the <span className="text-[#00FF87] text-glow">league</span>
+        Create your <span className="text-[#00FF87] text-glow">account</span>
       </>
     ) : stage.name === 'otp' ? (
       <>
@@ -94,19 +94,19 @@ export function Signup() {
       </>
     ) : (
       <>
-        That took a <span className="text-[#00FF87] text-glow">while</span>
+        Your code <span className="text-[#00FF87] text-glow">expired</span>
       </>
     )
 
   return (
     <AuthShell
-      eyebrow="Create your account"
+      eyebrow="Sign up"
       title={title}
       wide
       footer={
         <>
           <ShieldCheck className="mr-1.5 inline size-4 -translate-y-px text-[#00FF87]" />
-          Free to enter. No deposit, no payment details.
+          Free to join. No deposit. No card needed.
         </>
       }
     >
@@ -227,7 +227,7 @@ export function Signup() {
         <OtpForm
           address={stage.address}
           sent
-          submitLabel="Verify and continue"
+          submitLabel="Confirm and continue"
           onVerified={(role) => {
             window.location.href = homeFor(role)
           }}
@@ -245,8 +245,8 @@ export function Signup() {
       {stage.name === 'expired' && (
         <div className="relative space-y-5 text-center">
           <p className="text-[15.5px] leading-relaxed text-[#E4EAE7]">
-            Your account is saved, but the code has lapsed. Sign in with your
-            password and we will send a fresh one.
+            Your account is saved, but your code expired. Sign in with your
+            password and we will send you a new code.
           </p>
           <GlowButton
             href="/login"

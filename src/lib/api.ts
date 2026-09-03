@@ -26,7 +26,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (res.status === 401) throw new Unauthorized('Not signed in.')
   if (!res.ok) {
     const detail = await res.json().catch(() => null)
-    throw new Error(detail?.detail ?? `Request failed (${res.status}).`)
+    throw new Error(detail?.detail ?? 'Something went wrong. Please try again.')
   }
   return res.json()
 }

@@ -12,7 +12,7 @@ const emailField = z
   .string()
   .trim()
   .min(1, 'Please enter your email address.')
-  .email('That does not look like a valid email address.')
+  .email('Enter a valid email address.')
 
 export const realAccountSchema = z.object({ email: emailField })
 
@@ -23,7 +23,7 @@ const registrationFields = z.object({
     .string()
     .trim()
     .min(2, 'Please enter your full name.')
-    .max(80, 'That name is too long.')
+    .max(80, 'Name is too long.')
     // Rejects a lone surname or a string of digits without excluding
     // single-word mononyms, which are legitimate in many countries.
     .regex(/^[\p{L}\p{M}][\p{L}\p{M}'’.\- ]*$/u, 'Use letters only.'),
@@ -46,7 +46,7 @@ const phoneMatchesCountry = (
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['phone'],
-      message: 'That phone number is not valid for the selected country.',
+      message: 'This phone number is not valid for the selected country.',
     })
   }
 }
@@ -64,8 +64,8 @@ export const signupSchema = registrationFields
   .extend({
     password: z
       .string()
-      .min(PASSWORD_MIN, `Use at least ${PASSWORD_MIN} characters.`)
-      .max(200, 'That password is too long.'),
+      .min(PASSWORD_MIN, `Password must be at least ${PASSWORD_MIN} characters.`)
+      .max(200, 'Password is too long.'),
   })
   .superRefine(phoneMatchesCountry)
 

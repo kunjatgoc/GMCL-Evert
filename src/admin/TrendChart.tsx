@@ -128,7 +128,7 @@ export function TrendChart({ data }: { data: DayPoint[] }) {
           </span>
         ))}
         <span className={`${TEXT.label} tabular ml-auto text-[var(--admin-muted)]`}>
-          Peak {peak} / day
+          Highest: {peak} per day
         </span>
       </div>
 

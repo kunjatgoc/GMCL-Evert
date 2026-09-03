@@ -693,8 +693,8 @@ def signup(entry: Signup, response: Response) -> dict:
         # still taken: its owner finishes at sign-in, where the password
         # proves it is them.
         if exc.diag.constraint_name == "users_phone_key":
-            raise HTTPException(409, "That phone number already has an account.")
-        raise HTTPException(409, "That email already has an account.")
+            raise HTTPException(409, "This phone number already has an account.")
+        raise HTTPException(409, "This email already has an account.")
 
     set_cookie(
         response,
@@ -747,7 +747,7 @@ def login(entry: Login, response: Response) -> dict:
         # One message for both halves: naming which was wrong tells a stranger
         # which addresses exist.
         if not ok or row[2] not in SIGN_IN_ROLES:
-            raise HTTPException(401, "That email and password do not match.")
+            raise HTTPException(401, "Wrong email or password.")
 
         user_id, role, email, verified = row[0], row[2], row[3], row[4]
 
@@ -1048,7 +1048,7 @@ def change_password(entry: PasswordChange, user_id: int = Depends(require_user))
         if row is None:
             raise HTTPException(401, "Not signed in.")
         if not verify_password(entry.current_password, row[0]):
-            raise HTTPException(403, "That is not your current password.")
+            raise HTTPException(403, "Your current password is wrong.")
         cur.execute(
             "update users set password_hash = %s where id = %s",
             (hash_password(entry.new_password), user_id),
@@ -1128,7 +1128,7 @@ def request_metaid(
     # Checked again here, not only on the screen: /api/metaid/check is
     # advisory and a caller can simply not ask it.
     if entry.type == "real" and not real_email_available(entry.email):
-        raise HTTPException(409, "That address already has an account.")
+        raise HTTPException(409, "This email already has a newera account.")
 
     try:
         with pool.connection() as conn, conn.cursor() as cur:
@@ -1139,7 +1139,7 @@ def request_metaid(
             (request_id,) = cur.fetchone()
     except errors.UniqueViolation:
         raise HTTPException(
-            409, f"Your {entry.type} MetaID request is already waiting for an answer."
+            409, f"You already have a {entry.type} MetaID request waiting."
         )
     return {"id": request_id}
 
@@ -1365,7 +1365,7 @@ def decide_metaid(
         (ok,) = cur.fetchone()
 
     if not ok:
-        raise HTTPException(409, "That request has already been decided.")
+        raise HTTPException(409, "This request was already decided.")
     return {"id": request_id, "status": entry.status}
 
 

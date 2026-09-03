@@ -36,7 +36,7 @@ function GmlDashboard() {
       .then(setStats)
       .catch((e: unknown) => {
         if (e instanceof Unauthorized) window.location.href = '/login'
-        else setError(e instanceof Error ? e.message : 'Could not load the numbers.')
+        else setError(e instanceof Error ? e.message : 'Could not load the data.')
       })
   }, [])
 
@@ -67,7 +67,7 @@ function GmlDashboard() {
             <Card
               label="League entrants"
               value={stats.entrants}
-              sub={`${stats.entrants_today} entered today`}
+              sub={`${stats.entrants_today} joined today`}
               icon={Trophy}
               index={0}
               accent
@@ -82,12 +82,12 @@ function GmlDashboard() {
             <Card
               label="Countries"
               value={stats.countries}
-              sub="Represented by entrants"
+              sub="Where entrants are from"
               icon={Globe}
               index={2}
             />
             <Card
-              label="Entered today"
+              label="Joined today"
               value={stats.entrants_today}
               sub="Since midnight"
               icon={UserPlus}
@@ -96,7 +96,7 @@ function GmlDashboard() {
           </div>
 
           <p className={`${TEXT.label} mt-6 text-[var(--admin-muted)]`}>
-            League tooling arrives here once the workflow is defined.
+            More tools will be added here soon.
           </p>
         </>
       )}

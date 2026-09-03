@@ -75,7 +75,7 @@ export function Login() {
           </>
         ) : (
           <>
-            Back to the <span className="text-[#00FF87] text-glow">board</span>
+            Sign in to your <span className="text-[#00FF87] text-glow">account</span>
           </>
         )
       }
@@ -135,7 +135,7 @@ export function Login() {
           </GlowButton>
 
           <p className="text-center text-[14px] leading-relaxed text-[#E4EAE7]/80">
-            New here?{' '}
+            No account yet?{' '}
             <a
               href="/signup"
               className="font-medium text-[#00FF87] underline-offset-4 hover:underline"
@@ -158,10 +158,10 @@ export function Login() {
           // costs one more sign-in and nothing else.
           onExpired={() => {
             setStage({ name: 'form' })
-            setError('That took a while. Sign in again for a fresh code.')
+            setError('Your code expired. Sign in again to get a new one.')
           }}
           back={{
-            label: 'Use a different account',
+            label: 'Go back',
             onClick: () => {
               setError(null)
               setStage({ name: 'form' })

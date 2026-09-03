@@ -292,7 +292,7 @@ function UserList<T extends { id: number }>({
                       onError={(e) => (e.currentTarget.style.display = 'none')}
                     />
                     <p className={`${TEXT.body} text-[var(--admin-muted)]`}>
-                      Nothing matches those filters.
+                      No results found.
                     </p>
                   </td>
                 </tr>
@@ -449,7 +449,7 @@ function ConfirmDecision({
         >
           <dt className="text-[var(--admin-muted)]">Request</dt>
           <dd className="tabular">#{row.id}</dd>
-          <dt className="text-[var(--admin-muted)]">Issue to</dt>
+          <dt className="text-[var(--admin-muted)]">Send to</dt>
           <dd className="break-all">{row.email}</dd>
         </dl>
 
@@ -467,14 +467,14 @@ function ConfirmDecision({
               maxLength={500}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Shown to the entrant on their dashboard."
+              placeholder="The user will see this on their dashboard."
               className={`${control} w-full resize-none`}
             />
           </div>
         )}
 
         <p className={`${TEXT.label} mt-5 text-[var(--admin-muted)]`}>
-          This cannot be undone, and the entrant sees the result on their
+          You cannot undo this. The user will see the result on their
           dashboard.
         </p>
 
@@ -534,7 +534,7 @@ export function MetaidQueue() {
       setVersion((v) => v + 1)
     } catch (e) {
       setPending(null)
-      setFailed(e instanceof Error ? e.message : 'Could not record that.')
+      setFailed(e instanceof Error ? e.message : 'Could not save your decision.')
     } finally {
       setDeciding(null)
     }
@@ -555,7 +555,7 @@ export function MetaidQueue() {
           {
             name: 'status',
             label: 'Status',
-            all: 'Any status',
+            all: 'All statuses',
             width: 'w-[10.5rem]',
             options: [
               { value: 'pending', label: 'Pending' },

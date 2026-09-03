@@ -101,10 +101,10 @@ export async function submitLogin(
     // One message for both, deliberately: telling a stranger which half was
     // wrong tells them which addresses are registered.
     if (res.status === 401 || res.status === 400)
-      return { ok: false, error: 'That email and password do not match.' }
+      return { ok: false, error: 'Wrong email or password.' }
 
     if (res.status === 503)
-      return { ok: false, error: 'Sign-in is unavailable right now.' }
+      return { ok: false, error: 'Sign in is not available right now. Try again later.' }
 
     return { ok: false, error: 'Sign in failed. Please try again.' }
   } catch {
@@ -136,15 +136,15 @@ export async function submitSignup(data: Signup): Promise<SubmitResult> {
       const detail = await res.json().catch(() => null)
       return {
         ok: false,
-        error: String(detail?.detail ?? 'That email already has an account.'),
+        error: String(detail?.detail ?? 'This email already has an account.'),
       }
     }
     if (res.status === 422)
-      return { ok: false, error: 'Check the details above and try again.' }
+      return { ok: false, error: 'Some details are not right. Check the form and try again.' }
     if (res.status === 502)
       return { ok: false, error: 'We could not send the code. Please try again.' }
     if (res.status === 503)
-      return { ok: false, error: 'Sign-up is unavailable right now.' }
+      return { ok: false, error: 'Sign up is not available right now. Try again later.' }
 
     return { ok: false, error: 'Sign-up failed. Please try again.' }
   } catch {
@@ -174,7 +174,7 @@ export async function submitForgotPassword(email: string): Promise<SubmitResult>
     if (res.status === 502)
       return { ok: false, error: 'We could not send that email. Please try again.' }
     if (res.status === 503)
-      return { ok: false, error: 'Password reset is unavailable right now.' }
+      return { ok: false, error: 'Password reset is not available right now. Try again later.' }
 
     return { ok: false, error: 'Could not send the link. Please try again.' }
   } catch {
@@ -203,14 +203,14 @@ export async function submitResetPassword(
     if (res.status === 401)
       return {
         ok: false,
-        error: 'That link is no longer valid. Ask for a new one.',
+        error: 'This link has expired or was already used. Ask for a new one.',
       }
     if (res.status === 422)
-      return { ok: false, error: 'Pick a password of at least 8 characters.' }
+      return { ok: false, error: 'Your password must be at least 8 characters.' }
     if (res.status === 503)
-      return { ok: false, error: 'Password reset is unavailable right now.' }
+      return { ok: false, error: 'Password reset is not available right now. Try again later.' }
 
-    return { ok: false, error: 'Could not set that password. Please try again.' }
+    return { ok: false, error: 'Could not change your password. Please try again.' }
   } catch {
     return {
       ok: false,
@@ -262,15 +262,15 @@ export async function submitOtp(code: string): Promise<VerifyResult> {
         ok: false,
         expired,
         error: expired
-          ? 'That sign-in expired. Enter your password again.'
-          : 'That code is wrong or has expired.',
+          ? 'Your session expired. Sign in again.'
+          : 'This code is wrong or has expired.',
       }
     }
 
     if (res.status === 422)
-      return { ok: false, error: 'Enter the six digits from the email.' }
+      return { ok: false, error: 'Enter the 6-digit code from your email.' }
 
-    return { ok: false, error: 'Could not check that code. Please try again.' }
+    return { ok: false, error: 'Could not check the code. Please try again.' }
   } catch {
     return {
       ok: false,
@@ -288,15 +288,15 @@ export async function resendOtp(): Promise<OtpResult> {
       return {
         ok: false,
         expired: true,
-        error: 'That sign-in expired. Enter your password again.',
+        error: 'Your session expired. Sign in again.',
       }
     if (res.status === 429)
       return {
         ok: false,
-        error: 'A code was just sent. Wait a moment before asking for another.',
+        error: 'We just sent a code. Wait a moment before asking for another.',
       }
 
-    return { ok: false, error: 'Could not send another code. Please try again.' }
+    return { ok: false, error: 'Could not send a new code. Please try again.' }
   } catch {
     return {
       ok: false,
