@@ -652,6 +652,20 @@ export function MetaidQueue() {
             hideOnMobile: true,
           },
           {
+            header: 'Country',
+            skeleton: 'w-14',
+            cell: (r) =>
+              r.country ? (
+                <span className={`${TEXT.label} inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5`}>
+                  <span aria-hidden>{flagFor(r.country)}</span>
+                  {r.country}
+                </span>
+              ) : (
+                <span className="text-[var(--admin-muted)]">&mdash;</span>
+              ),
+            hideOnMobile: true,
+          },
+          {
             header: 'Email',
             skeleton: 'w-56',
             cell: (r) => (

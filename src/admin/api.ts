@@ -64,6 +64,8 @@ export type MetaidRow = {
   /** Null on staff accounts, which are seeded without one. */
   full_name: string | null
   phone: string
+  /** ISO code read off the number above, not a stored field. */
+  country: string | null
   /** The address on the account, which is not necessarily the one below. */
   account_email: string
   /** The address the MetaID is to be issued against. */

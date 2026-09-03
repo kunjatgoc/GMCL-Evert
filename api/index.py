@@ -102,6 +102,23 @@ app.add_middleware(
 )
 
 
+def country_of(phone: str) -> Optional[str]:
+    """The ISO country of a stored number, or None if it will not parse.
+
+    Derived rather than stored: `users` keeps the number in E.164, which
+    carries the dialling country inside it, so a column would be a second copy
+    of something already there and free to drift from it.
+
+    ponytail: this is the number's country, not a stated residence. They agree
+    for almost everyone and the queue only needs the former; add a real column
+    to `users` on the day someone has to be asked where they live.
+    """
+    try:
+        return phonenumbers.region_code_for_number(phonenumbers.parse(phone))
+    except phonenumbers.NumberParseException:
+        return None
+
+
 class Registration(BaseModel):
     """Exactly the JSON the form posts. Field names match `src/lib/schema.ts`."""
 
@@ -1161,6 +1178,10 @@ def admin_metaid(
         )
         rows = cur.fetchall()
 
+    # Read off the number rather than selected: see country_of.
+    for row in rows:
+        row["country"] = country_of(row["phone"])
+
     return {"rows": rows, "total": total, "page": page, "per_page": per_page}
 
 
@@ -1376,6 +1397,12 @@ if __name__ == "__main__":
 
     assert _page(0, 10_000) == (1, PAGE_MAX)
     assert _page(3, 25) == (3, 25)
+
+    # A stored number carries its own country, which is why none is kept
+    # beside it on `users`.
+    assert country_of(Registration(**base).phone) == base["country"]
+    assert country_of("+14155552671") == "US"
+    assert country_of("not a number") is None
 
     assert Decision(status="approved").note is None
     assert Decision(status="rejected", note="no").status == "rejected"
