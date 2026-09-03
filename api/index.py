@@ -57,7 +57,27 @@ ALLOWED_ORIGINS = [
 # socket it may never use  the database is remote, so every connection costs
 # a TCP and TLS handshake. timeout=5 so a database that is down fails the
 # request in seconds rather than parking the instance for the 30s default.
-pool = ConnectionPool(DATABASE_URL, min_size=0, max_size=2, timeout=5, open=False)
+#
+# `check` is not optional here. Without it the pool hands out whatever it is
+# holding, and a connection the far end has quietly dropped -- a NAT expiring
+# an idle flow, an instance thawed after being frozen, a laptop that slept --
+# only reveals itself as "server closed the connection unexpectedly" on the
+# first query, which the caller sees as a 500. Postgres itself is not closing
+# these: `idle_session_timeout` is 0 and keepalives do not start for two hours,
+# so nothing on the server side will ever prevent it.
+#
+# check_connection sends an empty query at checkout, so a dead connection is
+# discarded and replaced before the request touches it. It costs one round trip
+# per request -- about 20ms against this database, next to 322ms to open a
+# fresh connection -- which is the price of the request not failing.
+pool = ConnectionPool(
+    DATABASE_URL,
+    min_size=0,
+    max_size=2,
+    timeout=5,
+    check=ConnectionPool.check_connection,
+    open=False,
+)
 
 # Opened here rather than in a lifespan handler: Vercel's ASGI wrapper does not
 # reliably run lifespan events, and with min_size=0 this connects to nothing.
@@ -961,6 +981,12 @@ if __name__ == "__main__":
 
     assert _page(0, 10_000) == (1, PAGE_MAX)
     assert _page(3, 25) == (3, 25)
+
+    # A pool with no checkout check hands out connections the far end has
+    # already dropped, and the request they land in answers 500. Asserted
+    # rather than commented, because the failure only shows up after an idle
+    # gap and is easy to reintroduce by editing the line above.
+    assert pool._check is ConnectionPool.check_connection, "pool lost its liveness check"
 
     # The one property that matters about the echo switch: with it off, a code
     # never reaches the log. Checked by running the real sender and reading
