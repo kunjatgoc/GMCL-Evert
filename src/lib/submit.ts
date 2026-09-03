@@ -156,6 +156,70 @@ export async function submitSignup(data: Signup): Promise<SubmitResult> {
 }
 
 /**
+ * Forgetting the password, and the link that undoes it.
+ *
+ * The ask always reports success. The server will not say whether the address
+ * has an account, so neither can this -- the screen says "if that address has
+ * an account" and means it.
+ */
+export async function submitForgotPassword(email: string): Promise<SubmitResult> {
+  try {
+    const res = await fetch('/api/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+
+    if (res.ok) return { ok: true }
+    if (res.status === 502)
+      return { ok: false, error: 'We could not send that email. Please try again.' }
+    if (res.status === 503)
+      return { ok: false, error: 'Password reset is unavailable right now.' }
+
+    return { ok: false, error: 'Could not send the link. Please try again.' }
+  } catch {
+    return {
+      ok: false,
+      error: 'Could not reach the server. Check your connection and try again.',
+    }
+  }
+}
+
+/** Spends the link. 401 is the only failure worth its own wording: the link is
+ *  old, already used, or was never real, and all three end the same way. */
+export async function submitResetPassword(
+  uid: string,
+  token: string,
+  password: string
+): Promise<SubmitResult> {
+  try {
+    const res = await fetch('/api/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid, token, password }),
+    })
+
+    if (res.ok) return { ok: true }
+    if (res.status === 401)
+      return {
+        ok: false,
+        error: 'That link is no longer valid. Ask for a new one.',
+      }
+    if (res.status === 422)
+      return { ok: false, error: 'Pick a password of at least 8 characters.' }
+    if (res.status === 503)
+      return { ok: false, error: 'Password reset is unavailable right now.' }
+
+    return { ok: false, error: 'Could not set that password. Please try again.' }
+  } catch {
+    return {
+      ok: false,
+      error: 'Could not reach the server. Check your connection and try again.',
+    }
+  }
+}
+
+/**
  * The confirmation step, and the resend beside it.
  *
  * `expired` is the one distinction worth making: the pending cookie has run

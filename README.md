@@ -176,10 +176,29 @@ can be resent once a minute. It is never in a response, a log or the console:
 what reaches the database is `hmac_sha256(SESSION_SECRET, purpose:user_id:code)`,
 so a copy of `auth_token` is not a list of live codes.
 
+A forgotten password takes the other door. `/forgot-password` asks for the
+address and answers the same either way -- it will not say whether an account
+exists -- and `/api/forgot-password` mails
+`APP_ORIGIN/reset-password?uid=<id>&token=<secret>` to the address if there is
+one. The secret is 32 bytes from the CSPRNG rather than six digits, because a
+link is guessed offline at network speed and a code is typed five times into a
+form; it is stored the same hashed way, lives thirty minutes, and is spent by
+`sp_reset_password` in the same one-statement match-and-consume the codes use.
+Setting the password settles `email_verified_at` too, so this recovers an
+account that never answered its signup code as well. It does not sign anyone
+in: the new password does that, on the next screen.
+
+One thing a reset does not do is sign out whoever else holds a session, since
+sessions are signed cookies with nothing on the server to revoke. A cookie
+taken beforehand stays good for its eight hours. `db/procedures/sp_reset_password.sql`
+names the fix -- a `session_epoch` column carried in the cookie payload.
+
 `SESSION_SECRET` must be set for sign-in to work at all -- without it the
 endpoint answers 503 rather than issuing a cookie nobody can verify. `SMTP_HOST`
-must be set to confirm an address, for the same reason: better a 503 than
-pretending a code went out. A confirmed account signs in without either mail
+must be set to confirm an address or reset a password, for the same reason:
+better a 503 than pretending a mail went out. `APP_ORIGIN` is where the reset
+link points; unset, it falls back to the first `ALLOWED_ORIGINS` entry, which
+is right everywhere except a Vercel deployment that never consults that list. A confirmed account signs in without either mail
 setting. The session is a signed cookie, HttpOnly, eight hours, nothing kept in
 JS. Passwords are pbkdf2-sha256 at 600k rounds, hashed by `api/index.py` so the
 seed script and the login endpoint can never disagree on the format.

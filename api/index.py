@@ -51,6 +51,14 @@ ALLOWED_ORIGINS = [
     if o.strip()
 ]
 
+# Absolute, because a reset link in an email has nowhere to be relative to.
+# Falls back to the first allowed origin, which is the site in every deployment
+# that needs CORS at all, and localhost in the one that does not.
+APP_ORIGIN = (
+    os.environ.get("APP_ORIGIN")
+    or next(iter(ALLOWED_ORIGINS), "http://localhost:5173")
+).rstrip("/")
+
 # One serverless instance serves one request at a time and is frozen between
 # them, so the pool exists only to reuse a connection across the requests a
 # warm instance happens to get. min_size=0 keeps a cold start from opening a
@@ -208,6 +216,17 @@ PENDING_TTL = 10 * 60
 OTP_DIGITS = 6
 OTP_TTL_MINUTES = 5
 
+# A reset secret rides in a URL, so it cannot be six digits: a link is guessed
+# offline at whatever rate the network allows, not typed five times into a
+# form. 32 bytes is 256 bits, and token_urlsafe emits nothing a query string
+# would have to escape.
+#
+# Half an hour rather than the OTP's five minutes -- the code is read off a
+# screen the person is already looking at, the link is found later, in an inbox
+# they had to go and open.
+RESET_TOKEN_BYTES = 32
+RESET_TTL_MINUTES = 30
+
 # Long enough that a held-down resend button costs one mail, short enough that
 # a code lost to a slow inbox is not a five-minute wait. Enforced in
 # sp_issue_auth_token, because a serverless instance is frozen between requests
@@ -236,9 +255,9 @@ SMTP_TIMEOUT = 10
 # exist. That substitution only ever happens when this is on.
 OTP_ECHO = os.environ.get("OTP_ECHO", "") == "1"
 
-# A code can reach the person either by mail or, in development, by being
+# A secret can reach the person either by mail or, in development, by being
 # printed. The endpoints ask this rather than asking about SMTP directly.
-CAN_SEND_OTP = bool(SMTP_HOST) or OTP_ECHO
+CAN_SEND_MAIL = bool(SMTP_HOST) or OTP_ECHO
 
 if OTP_ECHO:
     print(
@@ -302,40 +321,32 @@ def otp_hash(purpose: str, user_id: int, code: str) -> str:
     ).hexdigest()
 
 
-def send_otp_email(to_email: str, code: str) -> None:
-    """Mails one code. Raises HTTPException(502) if it cannot.
+def send_mail(to_email: str, subject: str, body: str) -> None:
+    """Mails one message. Raises HTTPException(502) if it cannot.
 
     Nothing is logged unless OTP_ECHO is on, which is a development switch and
-    is off by default. The caller sends inside its database transaction, so a
+    is off by default. Callers send inside their database transaction, so a
     failure here rolls the token back and the person can try again immediately
     rather than waiting out a resend window for a mail that never left.
+
+    The two letters below build their own text and hand it here. Only the
+    transport is shared, because only the transport is worth not writing twice.
     """
     if OTP_ECHO:
-        # stderr, not stdout: uvicorn's own log goes there, so the code lands
+        # stderr, not stdout: uvicorn's own log goes there, so the secret lands
         # in the same stream as the request that caused it and stays out of
         # anything parsing stdout.
-        print(
-            f"[OTP_ECHO] {to_email} -> {code}  "
-            f"(expires in {OTP_TTL_MINUTES} minutes)",
-            file=sys.stderr,
-            flush=True,
-        )
-        # No mail server to hand it to, and the code is already on screen, so
+        print(f"[OTP_ECHO] {to_email} -- {subject}\n{body}", file=sys.stderr, flush=True)
+        # No mail server to hand it to, and the secret is already on screen, so
         # the send is done. Only reachable with the switch on.
         if not SMTP_HOST:
             return
 
     msg = EmailMessage()
-    msg["Subject"] = "Confirm your Global Market League email"
+    msg["Subject"] = subject
     msg["From"] = SMTP_FROM_EMAIL
     msg["To"] = to_email
-    msg.set_content(
-        f"Your confirmation code is {code}\n\n"
-        f"Enter it to confirm this address. It expires in "
-        f"{OTP_TTL_MINUTES} minutes and can be used once.\n\n"
-        "If you were not expecting this, ignore it -- the code is useless "
-        "without the account password.\n"
-    )
+    msg.set_content(body)
 
     try:
         if SMTP_PORT == 465:
@@ -361,7 +372,31 @@ def send_otp_email(to_email: str, code: str) -> None:
     except (smtplib.SMTPException, OSError) as exc:
         # Deliberately vague to the caller: which host refused, and why, is not
         # the browser's business.
-        raise HTTPException(502, "We could not send the code. Try again.") from exc
+        raise HTTPException(502, "We could not send that email. Try again.") from exc
+
+
+def send_otp_email(to_email: str, code: str) -> None:
+    send_mail(
+        to_email,
+        "Confirm your Global Market League email",
+        f"Your confirmation code is {code}\n\n"
+        f"Enter it to confirm this address. It expires in "
+        f"{OTP_TTL_MINUTES} minutes and can be used once.\n\n"
+        "If you were not expecting this, ignore it -- the code is useless "
+        "without the account password.\n",
+    )
+
+
+def send_reset_email(to_email: str, link: str) -> None:
+    send_mail(
+        to_email,
+        "Reset your Global Market League password",
+        f"Open this link to choose a new password:\n\n{link}\n\n"
+        f"It expires in {RESET_TTL_MINUTES} minutes and can be used once. "
+        "Your current password keeps working until you finish.\n\n"
+        "If you did not ask for this, ignore it -- the link is the only way "
+        "in and nobody else has it.\n",
+    )
 
 
 def sign_session(user_id: int, role: str, ttl: int = SESSION_TTL) -> str:
@@ -479,7 +514,7 @@ def signup(entry: Signup, response: Response) -> dict:
     again rather than owning an address they can neither confirm nor
     re-register.
     """
-    if not DATABASE_URL or not SESSION_SECRET or not CAN_SEND_OTP:
+    if not DATABASE_URL or not SESSION_SECRET or not CAN_SEND_MAIL:
         raise HTTPException(503, "Sign-up is unavailable.")
 
     try:
@@ -569,7 +604,7 @@ def login(entry: Login, response: Response) -> dict:
         # say "use the one you have" rather than promising a mail that is not
         # coming.
         if verified is None:
-            if not CAN_SEND_OTP:
+            if not CAN_SEND_MAIL:
                 raise HTTPException(503, "Sign-in is unavailable.")
             sent = issue_otp(cur, user_id, email)
             set_cookie(
@@ -652,7 +687,7 @@ def resend_otp(gmcl_pending: Optional[str] = Cookie(default=None)) -> dict:
     pending = read_session(gmcl_pending)
     if pending is None:
         raise HTTPException(401, "That sign-in expired. Start again.")
-    if not CAN_SEND_OTP:
+    if not CAN_SEND_MAIL:
         raise HTTPException(503, "Sign-in is unavailable.")
     user_id = pending[0]
 
@@ -669,6 +704,113 @@ def resend_otp(gmcl_pending: Optional[str] = Cookie(default=None)) -> dict:
         raise HTTPException(401, "That sign-in expired. Start again.")
     if not sent:
         raise HTTPException(429, "A code was just sent. Wait a moment.")
+    return {"ok": True}
+
+
+class ForgotPassword(BaseModel):
+    email: EmailStr
+
+
+# ponytail: no rate limit, same as every other public POST. The resend guard in
+# sp_issue_auth_token caps the mail one address can draw; a per-IP window is
+# what caps the rest, when it is worth having.
+@app.post("/api/forgot-password")
+def forgot_password(entry: ForgotPassword) -> dict:
+    """Mails a reset link, and answers the same either way.
+
+    The answer never says whether the address has an account. That costs
+    nothing here, so it is done properly -- though the loud oracle on this site
+    is /api/signup, which says 409 for an address it already holds.
+
+    Timing still separates the two: a known address waits on SMTP and an
+    unknown one returns at once. Closing that needs the send off the request,
+    which needs a queue.
+    """
+    if not DATABASE_URL or not SESSION_SECRET or not CAN_SEND_MAIL:
+        raise HTTPException(503, "Password reset is unavailable.")
+
+    with pool.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            select u.id, u.email, r.name as role
+            from users u
+            join user_roles r on r.id = u.role_id
+            where lower(u.email) = lower(%s) and u.is_active
+            """,
+            (entry.email,),
+        )
+        row = cur.fetchone()
+
+        if row is not None and row[2] in SIGN_IN_ROLES:
+            user_id, email = row[0], row[1]
+            # The secret leaves in the link and is never stored: what reaches
+            # auth_token is the same keyed hash the codes use, so a copy of the
+            # table is not a set of live links either.
+            token = secrets.token_urlsafe(RESET_TOKEN_BYTES)
+            cur.execute(
+                "CALL sp_issue_auth_token(%s, 'password_reset', %s, %s, %s)",
+                (
+                    user_id,
+                    otp_hash("password_reset", user_id, token),
+                    RESET_TTL_MINUTES,
+                    OTP_RESEND_SECONDS,
+                ),
+            )
+            (token_id,) = cur.fetchone()
+            # Null means one went out inside the resend window and is still
+            # live. Nothing is sent, and the answer does not change: the person
+            # already has the link they are asking for.
+            if token_id is not None:
+                # token_urlsafe emits nothing a query string would escape.
+                send_reset_email(
+                    email,
+                    f"{APP_ORIGIN}/reset-password?uid={user_id}&token={token}",
+                )
+
+    return {"ok": True}
+
+
+class ResetPassword(BaseModel):
+    """What the link carries, plus what the screen asks for."""
+
+    uid: int
+    token: str = Field(min_length=16, max_length=200)
+    password: str = Field(min_length=8, max_length=200)
+
+
+@app.post("/api/reset-password")
+def reset_password(entry: ResetPassword) -> dict:
+    """Spends the link and sets the new password.
+
+    sp_reset_password settles email_verified_at too, so an account that never
+    answered its signup code is recovered by this as well -- otherwise it would
+    get its password back and still be shut out.
+    """
+    if not DATABASE_URL or not SESSION_SECRET:
+        raise HTTPException(503, "Password reset is unavailable.")
+
+    with pool.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "CALL sp_reset_password(%s, %s, %s)",
+            (
+                entry.uid,
+                otp_hash("password_reset", entry.uid, entry.token),
+                hash_password(entry.password),
+            ),
+        )
+        (ok,) = cur.fetchone()
+
+    # Raised after the block, not inside it: a miss has just cost an attempt,
+    # and rolling that back would hand a guesser unlimited tries.
+    if not ok:
+        raise HTTPException(401, "That link is no longer valid. Ask for a new one.")
+
+    # No session. Signing in with the new password is the proof it was set, and
+    # this endpoint takes no cookie so it has nothing to trade.
+    #
+    # ponytail: sessions are stateless, so a reset cannot sign anyone else out
+    # -- a cookie taken before this stays good for its eight hours. The fix is
+    # the `session_epoch` column named in db/procedures/sp_reset_password.sql.
     return {"ok": True}
 
 
@@ -952,6 +1094,30 @@ if __name__ == "__main__":
             continue
         raise AssertionError(f"accepted {bad!r} as a password")
 
+    assert ForgotPassword(email="alex@example.com").email == "alex@example.com"
+
+    good = dict(uid=7, token=secrets.token_urlsafe(RESET_TOKEN_BYTES), password="12345678")
+    assert ResetPassword(**good).uid == 7
+    for bad in ({"token": "short"}, {"password": "1234567"}, {"uid": "seven"}):
+        try:
+            ResetPassword(**{**good, **bad})
+        except ValidationError:
+            continue
+        raise AssertionError(f"accepted {bad}")
+
+    # The token goes into a query string as it is, so it must not contain a
+    # character that would have to be escaped to survive the trip.
+    import string
+
+    safe = set(string.ascii_letters + string.digits + "-_")
+    assert all(
+        set(secrets.token_urlsafe(RESET_TOKEN_BYTES)) <= safe for _ in range(50)
+    ), "reset token needs escaping in a URL"
+
+    # A doubled slash in the middle of a link is the classic way this breaks.
+    assert not APP_ORIGIN.endswith("/")
+    assert f"{APP_ORIGIN}/reset-password".count("//") == 1
+
     assert MetaidRequest(type="demo", email="alex@example.com").type == "demo"
     for bad in ({"type": "live"}, {"type": ""}, {"email": "alex@"}):
         try:
@@ -1019,6 +1185,6 @@ if __name__ == "__main__":
                 # far as trying to send without ever printing.
                 pass
         assert "424242" not in captured.getvalue(), "a code reached the log"
-        assert not CAN_SEND_OTP or SMTP_HOST, "codes can be issued with no way to send"
+        assert not CAN_SEND_MAIL or SMTP_HOST, "codes can be issued with no way to send"
 
     print("ok")

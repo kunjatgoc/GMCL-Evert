@@ -117,6 +117,15 @@ export function Login() {
             />
           </div>
 
+          <p className="-mt-1 text-right text-[14px]">
+            <a
+              href="/forgot-password"
+              className="text-[#E4EAE7]/70 underline-offset-4 transition-colors duration-200 hover:text-[#00FF87] hover:underline"
+            >
+              Forgot your password?
+            </a>
+          </p>
+
           {error && <ErrorAlert>{error}</ErrorAlert>}
 
           <GlowButton

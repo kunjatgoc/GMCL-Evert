@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { resendOtp, submitLogin, submitOtp, submitSignup } from '../src/lib/submit'
+import {
+  resendOtp,
+  submitForgotPassword,
+  submitLogin,
+  submitOtp,
+  submitResetPassword,
+  submitSignup,
+} from '../src/lib/submit'
 
 const respondWith = (status: number, body?: unknown) =>
   vi.stubGlobal(
@@ -76,6 +83,58 @@ describe('submitLogin', () => {
   it('reports a reachability problem when the request throws', async () => {
     throwsOnFetch()
     const res = await submitLogin('a@b.com', 'pw')
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error).toMatch(/could not reach/i)
+  })
+})
+
+describe('submitForgotPassword', () => {
+  it('reports success, which is all the server will say', async () => {
+    respondWith(200, { ok: true })
+    expect(await submitForgotPassword('a@b.com')).toEqual({ ok: true })
+  })
+
+  it('says the same for an address with no account, so it leaks none', async () => {
+    respondWith(200, { ok: true })
+    const known = await submitForgotPassword('a@b.com')
+    respondWith(200, { ok: true })
+    const unknown = await submitForgotPassword('nobody@b.com')
+    expect(known).toEqual(unknown)
+  })
+
+  it('reports a mail failure as its own thing, not as success', async () => {
+    respondWith(502)
+    const res = await submitForgotPassword('a@b.com')
+    expect(res.ok).toBe(false)
+  })
+})
+
+describe('submitResetPassword', () => {
+  it('reports success on 200', async () => {
+    respondWith(200, { ok: true })
+    expect(await submitResetPassword('7', 'tok', 'password123')).toEqual({ ok: true })
+  })
+
+  // Expired, already spent, or never real. The person can act on all three the
+  // same way, so they read the same way.
+  it('points a dead link at asking for another', async () => {
+    respondWith(401, { detail: 'That link is no longer valid.' })
+    const res = await submitResetPassword('7', 'tok', 'password123')
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error).toMatch(/ask for a new one/i)
+  })
+
+  it('separates a rejected password from a dead link', async () => {
+    respondWith(422)
+    const short = await submitResetPassword('7', 'tok', 'abc')
+    respondWith(401)
+    const dead = await submitResetPassword('7', 'tok', 'password123')
+    expect(short).not.toEqual(dead)
+  })
+
+  it('reports a reachability problem when the request throws', async () => {
+    throwsOnFetch()
+    const res = await submitResetPassword('7', 'tok', 'password123')
     expect(res.ok).toBe(false)
     if (!res.ok) expect(res.error).toMatch(/could not reach/i)
   })

@@ -3,9 +3,10 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import { Login } from './components/Login'
 import { Signup } from './components/Signup'
+import { ForgotPassword, ResetPassword } from './components/Recover'
 import './index.css'
 
-// Five screens is still not a router. A pathname check costs nothing and adds
+// Seven screens is still not a router. A pathname check costs nothing and adds
 // no dependency; the admin panel does its own in-panel navigation.
 const path = window.location.pathname.replace(/\/+$/, '') || '/'
 
@@ -28,6 +29,10 @@ const screen = path.startsWith('/admin') ? (
   <Login />
 ) : path === '/signup' ? (
   <Signup />
+) : path === '/forgot-password' ? (
+  <ForgotPassword />
+) : path === '/reset-password' ? (
+  <ResetPassword />
 ) : (
   <App />
 )
