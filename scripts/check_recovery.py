@@ -44,15 +44,20 @@ def refuse_to_send_real_mail() -> None:
         env = pathlib.Path(".env").read_text()
     except OSError:
         return
-    for line in env.splitlines():
-        line = line.strip()
-        if line.startswith("SMTP_HOST=") and line.split("=", 1)[1].strip():
-            sys.exit(
-                "SMTP_HOST is set, so this would send real mail to "
-                "@example.com addresses and bounce every one.\n"
-                "Comment SMTP_HOST out in .env (OTP_ECHO covers local runs), "
-                "or set ALLOW_REAL_MAIL=1 if you mean it."
-            )
+    creds = {
+        line.split("=", 1)[0].strip()
+        for line in env.splitlines()
+        if "=" in line
+        and not line.strip().startswith("#")
+        and line.split("=", 1)[1].strip()
+    }
+    if {"SMTP_USER", "SMTP_PASSWORD"} <= creds:
+        sys.exit(
+            "SMTP credentials are set, so this would send real mail to "
+            "@example.com addresses and bounce every one.\n"
+            "Comment SMTP_USER and SMTP_PASSWORD out in .env (OTP_ECHO covers "
+            "local runs), or set ALLOW_REAL_MAIL=1 if you mean it."
+        )
 
 
 refuse_to_send_real_mail()

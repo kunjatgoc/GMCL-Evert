@@ -233,19 +233,35 @@ RESET_TTL_MINUTES = 30
 # and an in-process counter would forget.
 OTP_RESEND_SECONDS = 60
 
-# Amazon SES, or anything else that speaks SMTP. Never hardcoded: an empty host
-# means sign-in answers 503 rather than pretending a code went out.
-SMTP_HOST = os.environ.get("SMTP_HOST", "")
+# Amazon SES. The host, the sender identity and the configuration set are the
+# same wherever this app runs -- one SES account, one verified domain -- so
+# they are constants rather than three lines of .env that exist only to be
+# copied identically into each environment and then drift. Each reads an
+# environment variable first, which is all a second deployment would need.
+#
+# None of it is secret: the host is public and the from address is printed on
+# every message that goes out. `.env` is for the credentials below.
+SMTP_HOST = os.environ.get("SMTP_HOST", 'email-smtp.ap-south-1.amazonaws.com')
 SMTP_PORT = int(os.environ.get("SMTP_PORT") or 587)
-SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", "")
+SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", 'GOC Global Algo <pnl@algo.goctechnology.com>')
 SMTP_TIMEOUT = 10
 
-# Optional. SES groups a message under a configuration set when this header is
-# present, which is where bounce and complaint tracking is switched on. Unset
-# means SES applies whatever default the identity carries.
-EMAIL_CONFIGURATION_SET = os.environ.get("EMAIL_CONFIGURATION_SET", "")
+# SES groups a message under a configuration set when this header is present,
+# which is where bounce and complaint tracking is switched on.
+EMAIL_CONFIGURATION_SET = os.environ.get(
+    "EMAIL_CONFIGURATION_SET", 'cs-algo-pnl'
+)
+
+# The credentials, and the only part of the mail config that is secret. Empty
+# is the normal state on a machine that has not been given them.
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+
+# SES refuses a message from an unauthenticated session, so the credentials are
+# what decide whether mail can go out -- not the host, which now always has a
+# value. Without them an endpoint answers 503 rather than pretending a code
+# went out.
+SMTP_READY = bool(SMTP_HOST and SMTP_USER and SMTP_PASSWORD)
 
 # Prints every confirmation code to the terminal. A development switch, and a
 # real credential leak anywhere else: a code in a log is a code anyone with log
@@ -255,14 +271,14 @@ EMAIL_CONFIGURATION_SET = os.environ.get("EMAIL_CONFIGURATION_SET", "")
 # possible -- it has to be set to be dangerous. Never put OTP_ECHO in the
 # Vercel project environment.
 #
-# With no SMTP host configured it also stands in for the mail server, so the
-# whole sign-up flow can be walked through locally before SES credentials
+# With no usable SMTP credentials it also stands in for the mail server, so
+# the whole sign-up flow can be walked through locally before SES credentials
 # exist. That substitution only ever happens when this is on.
 OTP_ECHO = os.environ.get("OTP_ECHO", "") == "1"
 
 # A secret can reach the person either by mail or, in development, by being
 # printed. The endpoints ask this rather than asking about SMTP directly.
-CAN_SEND_MAIL = bool(SMTP_HOST) or OTP_ECHO
+CAN_SEND_MAIL = SMTP_READY or OTP_ECHO
 
 if OTP_ECHO:
     print(
@@ -342,9 +358,9 @@ def send_mail(to_email: str, subject: str, body: str) -> None:
         # in the same stream as the request that caused it and stays out of
         # anything parsing stdout.
         print(f"[OTP_ECHO] {to_email} -- {subject}\n{body}", file=sys.stderr, flush=True)
-        # No mail server to hand it to, and the secret is already on screen, so
-        # the send is done. Only reachable with the switch on.
-        if not SMTP_HOST:
+        # Nothing to hand it to, and the secret is already on screen, so the
+        # send is done. Only reachable with the switch on.
+        if not SMTP_READY:
             return
 
     msg = EmailMessage()
@@ -1213,6 +1229,6 @@ if __name__ == "__main__":
                 # far as trying to send without ever printing.
                 pass
         assert "424242" not in captured.getvalue(), "a code reached the log"
-        assert not CAN_SEND_MAIL or SMTP_HOST, "codes can be issued with no way to send"
+        assert not CAN_SEND_MAIL or SMTP_READY, "codes can be issued with no way to send"
 
     print("ok")
