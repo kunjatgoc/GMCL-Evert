@@ -76,3 +76,20 @@ export const btnIcon =
   `${btnBase} size-10 shrink-0 border border-white/10 bg-white/[0.03] text-[#E4EAE7] ` +
   'hover:border-[rgba(62,230,138,0.4)] hover:text-white ' +
   'disabled:hover:border-white/10'
+
+/**
+ * A pop-up, in two parts: the <dialog> itself and the card inside it.
+ *
+ * Here rather than in the screen that happens to own the first one, so the
+ * second and third are the same size and sit at the same place instead of
+ * being eyeballed again. Anything modal in either panel wears these.
+ *
+ * m-auto because Tailwind's preflight zeroes the margin a modal dialog centres
+ * itself with -- without it the box sits in the top-left corner.
+ */
+export const modalShell =
+  'm-auto w-[min(34rem,calc(100vw-2rem))] rounded-2xl border-0 bg-transparent p-0 ' +
+  'text-[#E4EAE7] backdrop:bg-black/70 backdrop:backdrop-blur-sm'
+
+export const modalCard =
+  'relative rounded-2xl border border-white/8 bg-[var(--admin-card)] p-7 sm:p-8'

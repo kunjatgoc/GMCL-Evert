@@ -15,7 +15,16 @@ import {
 import { Unauthorized, type Me } from '../lib/api'
 import { listMetaid, requestMetaid, type MetaidRequest, type MetaidType } from './api'
 import { PanelShell, type PanelRoute } from '../panel/PanelShell'
-import { TEXT, btnIcon, btnPrimary, btnSecondary, control, fieldLabel } from '../panel/type'
+import {
+  TEXT,
+  btnIcon,
+  btnPrimary,
+  btnSecondary,
+  control,
+  fieldLabel,
+  modalCard,
+  modalShell,
+} from '../panel/type'
 import { ErrorAlert } from '../components/auth/FormAlert'
 import { EASE } from '../lib/motion'
 
@@ -188,7 +197,7 @@ function DashboardScreen({ me }: { me: Me }) {
 }
 
 /** The two options, and the modal that takes the address for either. */
-function RequestScreen({ me }: { me: Me }) {
+function RequestScreen() {
   const { rows, error, reload } = useRequests()
   const [open, setOpen] = useState<Kind | null>(null)
 
@@ -267,12 +276,7 @@ function RequestScreen({ me }: { me: Me }) {
       )}
 
       {open && (
-        <RequestModal
-          kind={open}
-          defaultEmail={latestOf(open.type)?.email ?? me.email}
-          onClose={() => setOpen(null)}
-          onChanged={reload}
-        />
+        <RequestModal kind={open} onClose={() => setOpen(null)} onChanged={reload} />
       )}
     </div>
   )
@@ -280,7 +284,6 @@ function RequestScreen({ me }: { me: Me }) {
 
 type ModalProps = {
   kind: Kind
-  defaultEmail: string
   onClose: () => void
   onChanged: () => Promise<void>
 }
@@ -290,7 +293,7 @@ type ModalProps = {
  * the page behind it inert, and a real ::backdrop -- all of it free, and none
  * of it worth hand-rolling.
  */
-function RequestModal({ kind, defaultEmail, onClose, onChanged }: ModalProps) {
+function RequestModal({ kind, onClose, onChanged }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(false)
@@ -327,17 +330,15 @@ function RequestModal({ kind, defaultEmail, onClose, onChanged }: ModalProps) {
       // dialog itself only when the click landed outside its content.
       onClick={(e) => e.target === ref.current && ref.current?.close()}
       aria-labelledby="request-modal-title"
-      // m-auto because Tailwind's preflight zeroes the margin a modal dialog
-      // centres itself with. Without it the box sits in the top-left corner.
-      className="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-2xl border-0 bg-transparent p-0 text-[#E4EAE7] backdrop:bg-black/70 backdrop:backdrop-blur-sm"
+      className={modalShell}
       style={{ colorScheme: 'dark' }}
     >
-      <div className={`${card} relative p-6`}>
+      <div className={modalCard}>
         <button
           type="button"
           onClick={() => ref.current?.close()}
           aria-label="Close"
-          className={`${btnIcon} absolute right-4 top-4`}
+          className={`${btnIcon} absolute right-5 top-5`}
         >
           <X className="size-4" />
         </button>
@@ -371,7 +372,7 @@ function RequestModal({ kind, defaultEmail, onClose, onChanged }: ModalProps) {
                 autoFocus
                 inputMode="email"
                 autoComplete="email"
-                defaultValue={defaultEmail}
+                placeholder="you@example.com"
                 className={`${control} w-full`}
               />
               <p className={`${TEXT.label} mt-2 leading-relaxed text-[var(--admin-muted)]`}>
