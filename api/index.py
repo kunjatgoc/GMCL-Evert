@@ -1069,6 +1069,7 @@ def admin_metaid(
     _: int = Depends(require_staff),
     q: str = Query("", max_length=100),
     status: str = Query("", max_length=10),
+    type: str = Query("", max_length=10),
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     page: int = 1,
@@ -1087,11 +1088,14 @@ def admin_metaid(
     if q.strip():
         where.append("(m.email ilike %s or u.email ilike %s or u.phone ilike %s)")
         params += [f"%{q.strip()}%"] * 3
+    # Both bound, not interpolated, and a value the check constraints would
+    # reject simply matches nothing.
     if status.strip():
-        # Bound, not interpolated, and a value the check constraint would
-        # reject simply matches nothing.
         where.append("m.status = %s")
         params.append(status.strip().lower())
+    if type.strip():
+        where.append("m.metaid_type = %s")
+        params.append(type.strip().lower())
 
     clause = f"where {' and '.join(where)}" if where else ""
 

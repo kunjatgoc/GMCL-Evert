@@ -43,14 +43,38 @@ type Column<T> = {
   hideOnMobile?: boolean
 }
 
-type Filters = {
-  q: string
-  country: string
-  date_from: string
-  date_to: string
+/**
+ * One control in the filter bar. Each screen says what its own data is worth
+ * filtering by, rather than every list wearing the same search box and pair of
+ * dates whether they mean anything there or not.
+ *
+ * `name` is the query parameter, so it has to match what the endpoint reads.
+ */
+type Filter = {
+  name: string
+  label: string
+  /** A date picker instead of a text box. Ignored when `options` is given. */
+  kind?: 'text' | 'date'
+  placeholder?: string
+  /** Present turns this into a dropdown, with `all` as the empty first row. */
+  options?: readonly { value: string; label: string }[]
+  all?: string
+  /** Tailwind width. Text controls grow to fill the row; the rest do not. */
+  width?: string
 }
 
-const EMPTY: Filters = { q: '', country: '', date_from: '', date_to: '' }
+type Draft = Record<string, string>
+
+const emptyDraft = (filters: readonly Filter[]): Draft =>
+  Object.fromEntries(filters.map((f) => [f.name, '']))
+
+/** Every list has a created_at, so these two are worth offering on all of
+ *  them -- which is not the same as offering them by default to a screen that
+ *  never asked. A screen still has to list them. */
+export const DATE_RANGE: readonly Filter[] = [
+  { name: 'date_from', label: 'From', kind: 'date' },
+  { name: 'date_to', label: 'To', kind: 'date' },
+]
 
 const fmt = (iso: string) =>
   new Date(iso).toLocaleString('en-IN', {
@@ -66,7 +90,7 @@ type Props<T> = {
   title: string
   accent: string
   columns: Column<T>[]
-  withCountry?: boolean
+  filters: readonly Filter[]
   fetchPage: (qs: string) => Promise<Page<T>>
 }
 
@@ -74,14 +98,14 @@ function UserList<T extends { id: number }>({
   title,
   accent,
   columns,
-  withCountry = false,
+  filters,
   fetchPage,
 }: Props<T>) {
   // `draft` is what the inputs hold; `applied` is what the last search asked
   // for. Splitting them is what lets the query fire on submit instead of on
   // every keystroke -- no debounce, no request per character.
-  const [draft, setDraft] = useState<Filters>(EMPTY)
-  const [applied, setApplied] = useState<Filters>(EMPTY)
+  const [draft, setDraft] = useState<Draft>(() => emptyDraft(filters))
+  const [applied, setApplied] = useState<Draft>(() => emptyDraft(filters))
   const [page, setPage] = useState(1)
 
   const [data, setData] = useState<Page<T> | null>(null)
@@ -111,8 +135,8 @@ function UserList<T extends { id: number }>({
   }
 
   const reset = () => {
-    setDraft(EMPTY)
-    setApplied(EMPTY)
+    setDraft(emptyDraft(filters))
+    setApplied(emptyDraft(filters))
     setPage(1)
   }
 
@@ -147,57 +171,48 @@ function UserList<T extends { id: number }>({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: EASE, delay: 0.32 }}
       >
-        <label className="flex min-w-[13rem] flex-1 flex-col gap-1">
-          <span className={fieldLabel}>Search</span>
-          <input
-            value={draft.q}
-            onChange={(e) => setDraft({ ...draft, q: e.target.value })}
-            placeholder={withCountry ? 'Name, email or phone' : 'Email'}
-            className={control}
-          />
-        </label>
-
-        {withCountry && (
-          <label className="flex flex-col gap-1">
-            <span className={fieldLabel}>Country</span>
-            <select
-              value={draft.country}
-              onChange={(e) => setDraft({ ...draft, country: e.target.value })}
-              className={`${control} w-[11.5rem] cursor-pointer`}
+        {filters.map((f) => {
+          const set = (v: string) => setDraft({ ...draft, [f.name]: v })
+          return (
+            <label
+              key={f.name}
+              className={`flex flex-col gap-1 ${
+                f.width ?? (f.options || f.kind === 'date' ? '' : 'min-w-[13rem] flex-1')
+              }`}
             >
-              <option value="" className="bg-[#121212]">
-                All countries
-              </option>
-              {COUNTRIES.map((c) => (
-                <option key={c.code} value={c.code} className="bg-[#121212]">
-                  {c.flag} {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+              <span className={fieldLabel}>{f.label}</span>
 
-        {/* Native date inputs. A picker library would be three dependencies
-            for something every browser already ships. */}
-        <label className="flex flex-col gap-1">
-          <span className={fieldLabel}>From</span>
-          <input
-            type="date"
-            value={draft.date_from}
-            onChange={(e) => setDraft({ ...draft, date_from: e.target.value })}
-            className={`${control} cursor-pointer [color-scheme:dark]`}
-          />
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className={fieldLabel}>To</span>
-          <input
-            type="date"
-            value={draft.date_to}
-            onChange={(e) => setDraft({ ...draft, date_to: e.target.value })}
-            className={`${control} cursor-pointer [color-scheme:dark]`}
-          />
-        </label>
+              {f.options ? (
+                <select
+                  value={draft[f.name]}
+                  onChange={(e) => set(e.target.value)}
+                  className={`${control} ${f.width ?? 'w-[11.5rem]'} cursor-pointer`}
+                >
+                  <option value="" className="bg-[#121212]">
+                    {f.all ?? 'All'}
+                  </option>
+                  {f.options.map((o) => (
+                    <option key={o.value} value={o.value} className="bg-[#121212]">
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                // Native date input for dates. A picker library would be three
+                // dependencies for something every browser already ships.
+                <input
+                  type={f.kind === 'date' ? 'date' : 'text'}
+                  value={draft[f.name]}
+                  onChange={(e) => set(e.target.value)}
+                  placeholder={f.placeholder}
+                  className={`${control} ${
+                    f.kind === 'date' ? 'cursor-pointer [color-scheme:dark]' : ''
+                  }`}
+                />
+              )}
+            </label>
+          )
+        })}
 
         <div className="flex items-center gap-2">
         <button type="submit" className={btnPrimary}>
@@ -342,8 +357,20 @@ export function DemoUsers() {
     <UserList<DemoUser>
       title="Demo ID"
       accent="Users"
-      withCountry
       fetchPage={listDemoUsers}
+      filters={[
+        { name: 'q', label: 'Search', placeholder: 'Name, email or phone' },
+        {
+          name: 'country',
+          label: 'Country',
+          all: 'All countries',
+          options: COUNTRIES.map((c) => ({
+            value: c.code,
+            label: `${c.flag} ${c.name}`,
+          })),
+        },
+        ...DATE_RANGE,
+      ]}
       columns={[
         {
           header: 'Name',
@@ -386,6 +413,10 @@ export function RealUsers() {
       title="Real ID"
       accent="Users"
       fetchPage={listRealUsers}
+      filters={[
+        { name: 'q', label: 'Search', placeholder: 'Email' },
+        ...DATE_RANGE,
+      ]}
       columns={[
         {
           header: 'Email',
@@ -455,6 +486,31 @@ export function MetaidQueue() {
         title="MetaID"
         accent="Requests"
         fetchPage={fetchPage}
+        filters={[
+          {
+            name: 'status',
+            label: 'Status',
+            all: 'Any status',
+            width: 'w-[10.5rem]',
+            options: [
+              { value: 'pending', label: 'Pending' },
+              { value: 'approved', label: 'Approved' },
+              { value: 'rejected', label: 'Rejected' },
+            ],
+          },
+          {
+            name: 'type',
+            label: 'Type',
+            all: 'Demo and real',
+            width: 'w-[10.5rem]',
+            options: [
+              { value: 'demo', label: 'Demo' },
+              { value: 'real', label: 'Real' },
+            ],
+          },
+          { name: 'q', label: 'Search', placeholder: 'Email or phone' },
+          ...DATE_RANGE,
+        ]}
         columns={[
           {
             header: 'User',
