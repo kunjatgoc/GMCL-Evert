@@ -29,6 +29,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/request-metaid",
+      "destination": "/index.html"
+    },
+    {
       "source": "/admin",
       "destination": "/index.html"
     },

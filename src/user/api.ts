@@ -6,7 +6,11 @@ export type MetaidType = 'demo' | 'real'
 export type MetaidStatus = 'pending' | 'approved' | 'rejected'
 
 export type MetaidRequest = {
+  /** The row's own id -- what the admin queue will decide against. */
   id: number
+  user_id: number
+  /** Joined from the account, never copied onto the row. */
+  phone: string
   type: MetaidType
   email: string
   status: MetaidStatus

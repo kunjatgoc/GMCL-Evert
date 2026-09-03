@@ -827,7 +827,7 @@ def me(user_id: int = Depends(require_user)) -> dict:
     with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
-            select u.email, u.full_name, r.name as role
+            select u.email, u.full_name, u.phone, r.name as role
             from users u
             join user_roles r on r.id = u.role_id
             where u.id = %s and u.is_active
@@ -853,15 +853,21 @@ class MetaidRequest(BaseModel):
 @app.get("/api/metaid")
 def list_metaid(user_id: int = Depends(require_user)) -> dict:
     """Every request this person has made, newest first, so the dashboard can
-    show the latest of each kind."""
+    show the latest of each kind.
+
+    `phone` is joined from `users` rather than stored on the row, so a
+    corrected number reads corrected on every request the person ever made.
+    Same shape the admin queue will want, minus the `where`.
+    """
     with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
-            select id, metaid_type as type, email, status, decision_note,
-                   created_at, decided_at
-            from metaid_request
-            where user_id = %s
-            order by created_at desc, id desc
+            select m.id, m.user_id, u.phone, m.metaid_type as type, m.email,
+                   m.status, m.decision_note, m.created_at, m.decided_at
+            from metaid_request m
+            join users u on u.id = m.user_id
+            where m.user_id = %s
+            order by m.created_at desc, m.id desc
             """,
             (user_id,),
         )
@@ -869,10 +875,25 @@ def list_metaid(user_id: int = Depends(require_user)) -> dict:
     return {"rows": rows}
 
 
+def validate_real_email(email: str) -> None:
+    """The external check a Real MetaID's address is meant to pass.
+
+    Nothing is called yet, because the API does not exist. When it does it
+    goes in this body and nowhere else: raise HTTPException to refuse the
+    address, return to let it through. The row is written `pending` either
+    way -- passing this is not a decision, it is only a reason to accept the
+    request at all.
+    """
+    return
+
+
 @app.post("/api/metaid", status_code=201)
 def request_metaid(
     entry: MetaidRequest, user_id: int = Depends(require_user)
 ) -> dict:
+    if entry.type == "real":
+        validate_real_email(entry.email)
+
     try:
         with pool.connection() as conn, conn.cursor() as cur:
             cur.execute(

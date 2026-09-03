@@ -4,7 +4,12 @@
  * own and nothing about it is kept in JS.
  */
 
-export type Me = { email: string; role: string; full_name: string | null }
+export type Me = {
+  email: string
+  role: string
+  full_name: string | null
+  phone: string
+}
 
 /** Thrown on 401 so a caller can bounce to the login screen without parsing
  *  a message. Every other failure is a plain Error with something readable. */

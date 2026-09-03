@@ -6,7 +6,7 @@ import { Signup } from './components/Signup'
 import { ForgotPassword, ResetPassword } from './components/Recover'
 import './index.css'
 
-// Seven screens is still not a router. A pathname check costs nothing and adds
+// Eight screens is still not a router. A pathname check costs nothing and adds
 // no dependency; the admin panel does its own in-panel navigation.
 const path = window.location.pathname.replace(/\/+$/, '') || '/'
 
@@ -21,7 +21,7 @@ const screen = path.startsWith('/admin') ? (
   <Suspense fallback={fallback}>
     <AdminApp />
   </Suspense>
-) : path === '/dashboard' ? (
+) : path === '/dashboard' || path === '/request-metaid' ? (
   <Suspense fallback={fallback}>
     <UserDashboard />
   </Suspense>

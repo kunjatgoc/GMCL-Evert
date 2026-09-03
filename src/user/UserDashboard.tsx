@@ -1,13 +1,15 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { motion } from 'motion/react'
 import {
   CheckCircle2,
   Clock,
+  LayoutDashboard,
   LineChart,
   Loader2,
   LogOut,
   Send,
   Wallet,
+  X,
   XCircle,
   type LucideIcon,
 } from 'lucide-react'
@@ -24,6 +26,21 @@ import { GlowButton, holdDone } from '../components/ui/GlowButton'
 import { Eyebrow } from '../components/ui/Eyebrow'
 import { field, label } from '../lib/fieldStyles'
 import { EASE, depthIn } from '../lib/motion'
+
+/**
+ * The entrant's area: two screens behind one load.
+ *
+ * A pathname check rather than a router, the same way main.tsx picks between
+ * screens -- two pages that share one fetch do not justify a dependency, and
+ * the chunk is already downloaded by the time either is drawn.
+ */
+const DASHBOARD = '/dashboard'
+const REQUEST = '/request-metaid'
+
+const MENU = [
+  { path: DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
+  { path: REQUEST, label: 'Request a MetaID', icon: Send },
+] as const
 
 type Kind = { type: MetaidType; title: string; blurb: string; icon: LucideIcon }
 
@@ -44,18 +61,39 @@ const KINDS: readonly Kind[] = [
   },
 ]
 
+const STATUS = {
+  pending: { icon: Clock, tone: 'text-[#ffd166]', label: 'Pending' },
+  approved: { icon: CheckCircle2, tone: 'text-[#00FF87]', label: 'Approved' },
+  rejected: { icon: XCircle, tone: 'text-[#ff9a9a]', label: 'Rejected' },
+} as const
+
+/** What the screen says once a request is in. Asked for word for word. */
+const AFTER_SUBMIT = 'Your verification will be done soon within 24hr to 48hr.'
+
 const day = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 
-/**
- * The entrant's dashboard: one card per kind of MetaID, each showing the
- * latest answer or the form to ask. newera decides in the admin panel and
- * emails the MetaID itself, so nothing here ever displays one.
- */
+const titleOf = (type: MetaidType) =>
+  KINDS.find((k) => k.type === type)?.title ?? type
+
+function StatusChip({ status }: { status: MetaidRequest['status'] }) {
+  const { icon: Icon, tone, label: text } = STATUS[status]
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12.5px] font-medium ${tone}`}
+    >
+      <Icon className="size-3.5" />
+      {text}
+    </span>
+  )
+}
+
 export default function UserDashboard() {
   const [me, setMe] = useState<Me | null>(null)
   const [requests, setRequests] = useState<MetaidRequest[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const path = window.location.pathname.replace(/\/+$/, '') || DASHBOARD
 
   const load = () =>
     Promise.all([getMe(), listMetaid()])
@@ -77,8 +115,6 @@ export default function UserDashboard() {
     await logout().catch(() => {})
     window.location.href = '/login'
   }
-
-  const firstName = me?.full_name?.trim().split(/\s+/)[0]
 
   return (
     <main className="grain relative isolate min-h-dvh overflow-hidden px-6 py-8 sm:py-10">
@@ -103,52 +139,39 @@ export default function UserDashboard() {
           </motion.button>
         </header>
 
+        {/* Plain links, not pushState: two screens sharing one already-loaded
+            chunk, and every other navigation on the site works this way. */}
+        <nav className="mt-8 flex gap-2" aria-label="Sections">
+          {MENU.map(({ path: to, label: text, icon: Icon }) => {
+            const current = to === path
+            return (
+              <a
+                key={to}
+                href={to}
+                aria-current={current ? 'page' : undefined}
+                className={`inline-flex h-11 items-center gap-2 rounded-full border px-4 text-[14px] font-medium transition-colors duration-300 ${
+                  current
+                    ? 'border-[rgba(0,255,135,0.45)] bg-[rgba(0,255,135,0.09)] text-[#00FF87]'
+                    : 'border-white/10 bg-white/[0.04] text-[#E4EAE7] hover:border-white/20 hover:text-white'
+                }`}
+              >
+                <Icon className="size-4" />
+                {text}
+              </a>
+            )
+          })}
+        </nav>
+
         {me && requests ? (
-          <>
-            <motion.section
-              className="mt-14"
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, ease: EASE, delay: 0.1 }}
-            >
-              <Eyebrow>Your dashboard</Eyebrow>
-              <h1 className="mt-5 text-balance text-[clamp(2rem,6vw,2.85rem)] font-bold leading-[1.05]">
-                {firstName ? (
-                  <>
-                    Hi, <span className="text-[#00FF87] text-glow">{firstName}</span>
-                  </>
-                ) : (
-                  <>
-                    Welcome <span className="text-[#00FF87] text-glow">back</span>
-                  </>
-                )}
-              </h1>
-              <p className="mt-3 text-[15px] text-[#E4EAE7]/75">{me.email}</p>
-              <p className="mt-5 max-w-xl text-[1.05rem] leading-relaxed text-[#E4EAE7]">
-                Ask for the MetaID you want to trade with. newera answers each
-                request by email, and the answer shows here.
-              </p>
-            </motion.section>
-
-            {error && (
-              <div className="mt-8">
-                <ErrorAlert>{error}</ErrorAlert>
-              </div>
-            )}
-
-            <div className="mt-10 grid gap-5 sm:grid-cols-2">
-              {KINDS.map((kind, i) => (
-                <MetaidCard
-                  key={kind.type}
-                  kind={kind}
-                  index={i}
-                  latest={requests.find((r) => r.type === kind.type)}
-                  accountEmail={me.email}
-                  onChanged={load}
-                />
-              ))}
-            </div>
-          </>
+          path === REQUEST ? (
+            <RequestScreen
+              me={me}
+              requests={requests}
+              onChanged={load}
+            />
+          ) : (
+            <DashboardScreen me={me} requests={requests} />
+          )
         ) : (
           !error && (
             <p className="mt-24 text-center text-[#E4EAE7]/60" role="status">
@@ -157,7 +180,7 @@ export default function UserDashboard() {
           )
         )}
 
-        {error && !me && (
+        {error && (
           <div className="mt-10">
             <ErrorAlert>{error}</ErrorAlert>
           </div>
@@ -167,35 +190,235 @@ export default function UserDashboard() {
   )
 }
 
-type CardProps = {
-  kind: Kind
-  index: number
-  /** Newest request of this kind, if any. */
-  latest?: MetaidRequest
-  accountEmail: string
+/** Who you are, and where each request stands. Nothing to fill in. */
+function DashboardScreen({ me, requests }: { me: Me; requests: MetaidRequest[] }) {
+  const firstName = me.full_name?.trim().split(/\s+/)[0]
+
+  return (
+    <>
+      <motion.section
+        className="mt-12"
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: EASE, delay: 0.1 }}
+      >
+        <Eyebrow>Your dashboard</Eyebrow>
+        <h1 className="mt-5 text-balance text-[clamp(2rem,6vw,2.85rem)] font-bold leading-[1.05]">
+          {firstName ? (
+            <>
+              Hi, <span className="text-[#00FF87] text-glow">{firstName}</span>
+            </>
+          ) : (
+            <>
+              Welcome <span className="text-[#00FF87] text-glow">back</span>
+            </>
+          )}
+        </h1>
+
+        <dl className="mt-6 grid gap-x-8 gap-y-3 text-[15px] sm:grid-cols-2">
+          <div>
+            <dt className="text-[#E4EAE7]/55">Account email</dt>
+            <dd className="mt-0.5 text-[#E4EAE7]">{me.email}</dd>
+          </div>
+          <div>
+            <dt className="text-[#E4EAE7]/55">Phone number</dt>
+            <dd className="mt-0.5 text-[#E4EAE7]">{me.phone}</dd>
+          </div>
+        </dl>
+      </motion.section>
+
+      <motion.section
+        className="mt-12"
+        variants={depthIn}
+        custom={3}
+        initial="hidden"
+        animate="show"
+      >
+        <h2 className="text-[1.35rem] font-bold leading-tight">Your requests</h2>
+
+        {requests.length === 0 ? (
+          <div className="glass glass-lip mt-5 rounded-3xl p-7">
+            <p className="text-[15.5px] leading-relaxed text-[#E4EAE7]/85">
+              You have not asked for a MetaID yet. Pick one and we will take it
+              from there.
+            </p>
+            <GlowButton
+              href={REQUEST}
+              magnetic={false}
+              icon={<Send className="size-4" />}
+              className="mt-5 w-full px-6 py-3.5 text-[15px] sm:w-auto"
+            >
+              Request a MetaID
+            </GlowButton>
+          </div>
+        ) : (
+          <ul className="mt-5 space-y-3">
+            {requests.map((r) => (
+              <li
+                key={r.id}
+                className="glass glass-lip flex flex-wrap items-start justify-between gap-x-6 gap-y-3 rounded-2xl px-6 py-5"
+              >
+                <div className="min-w-0">
+                  <p className="text-[15.5px] font-semibold">{titleOf(r.type)}</p>
+                  <p className="mt-1 break-words text-[14px] text-[#E4EAE7]/75">
+                    To {r.email} &middot; asked {day(r.created_at)}
+                  </p>
+                  {r.status === 'pending' && (
+                    <p className="mt-2 text-[14px] text-[#E4EAE7]/85">
+                      {AFTER_SUBMIT}
+                    </p>
+                  )}
+                  {r.status === 'rejected' && r.decision_note && (
+                    <p className="mt-2 text-[14px] text-[#ff9a9a]">
+                      {r.decision_note}
+                    </p>
+                  )}
+                </div>
+                <StatusChip status={r.status} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </motion.section>
+    </>
+  )
+}
+
+type RequestProps = {
+  me: Me
+  requests: MetaidRequest[]
   onChanged: () => Promise<void>
 }
 
-const STATUS = {
-  pending: { icon: Clock, tone: 'text-[#ffd166]', label: 'Waiting for newera' },
-  approved: { icon: CheckCircle2, tone: 'text-[#00FF87]', label: 'Approved' },
-  rejected: { icon: XCircle, tone: 'text-[#ff9a9a]', label: 'Declined' },
-} as const
+/** The two options, and the modal that takes the address for either. */
+function RequestScreen({ me, requests, onChanged }: RequestProps) {
+  const [open, setOpen] = useState<Kind | null>(null)
 
-function MetaidCard({ kind, index, latest, accountEmail, onChanged }: CardProps) {
+  // A settled request leaves the way clear to ask again; only a rejected one
+  // needs to. Approved means the MetaID is on its way, and the database
+  // refuses a second pending row of the same type anyway.
+  const latestOf = (type: MetaidType) => requests.find((r) => r.type === type)
+  const canAsk = (type: MetaidType) => {
+    const latest = latestOf(type)
+    return !latest || latest.status === 'rejected'
+  }
+
+  return (
+    <>
+      <motion.section
+        className="mt-12"
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: EASE, delay: 0.1 }}
+      >
+        <Eyebrow>Request a MetaID</Eyebrow>
+        <h1 className="mt-5 text-balance text-[clamp(2rem,6vw,2.85rem)] font-bold leading-[1.05]">
+          Pick your <span className="text-[#00FF87] text-glow">MetaID</span>
+        </h1>
+        <p className="mt-5 max-w-xl text-[1.05rem] leading-relaxed text-[#E4EAE7]">
+          Choose one, tell us the address it should go to, and newera takes it
+          from there.
+        </p>
+      </motion.section>
+
+      <div className="mt-10 grid gap-5 sm:grid-cols-2">
+        {KINDS.map((kind, i) => {
+          const latest = latestOf(kind.type)
+          const Icon = kind.icon
+          return (
+            <motion.article
+              key={kind.type}
+              className="glass glass-lip relative flex flex-col overflow-hidden rounded-3xl p-7"
+              variants={depthIn}
+              custom={i + 3}
+              initial="hidden"
+              animate="show"
+            >
+              <img
+                src="/img/card-texture.webp"
+                alt=""
+                aria-hidden
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[0.13] mix-blend-screen"
+                onError={(e) => (e.currentTarget.style.display = 'none')}
+              />
+
+              <div className="relative flex items-start justify-between gap-4">
+                <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-[rgba(0,255,135,0.3)] bg-[rgba(0,255,135,0.07)] text-[#00FF87]">
+                  <Icon className="size-5" />
+                </span>
+                {latest && <StatusChip status={latest.status} />}
+              </div>
+
+              <h2 className="relative mt-5 text-[1.35rem] font-bold leading-tight">
+                {kind.title}
+              </h2>
+              <p className="relative mt-2 text-[14.5px] leading-relaxed text-[#E4EAE7]/85">
+                {kind.blurb}
+              </p>
+
+              <div className="relative mt-auto pt-6">
+                {canAsk(kind.type) ? (
+                  <GlowButton
+                    type="button"
+                    magnetic={false}
+                    onClick={() => setOpen(kind)}
+                    icon={<Send className="size-4" />}
+                    className="w-full cursor-pointer px-6 py-3.5 text-[15px]"
+                  >
+                    Request {kind.title}
+                  </GlowButton>
+                ) : (
+                  <p className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[14px] leading-relaxed text-[#E4EAE7]/85">
+                    {latest?.status === 'pending'
+                      ? AFTER_SUBMIT
+                      : `Approved. Your MetaID goes to ${latest?.email}.`}
+                  </p>
+                )}
+              </div>
+            </motion.article>
+          )
+        })}
+      </div>
+
+      {open && (
+        <RequestModal
+          kind={open}
+          defaultEmail={latestOf(open.type)?.email ?? me.email}
+          onClose={() => setOpen(null)}
+          onChanged={onChanged}
+        />
+      )}
+    </>
+  )
+}
+
+type ModalProps = {
+  kind: Kind
+  defaultEmail: string
+  onClose: () => void
+  onChanged: () => Promise<void>
+}
+
+/**
+ * A native <dialog>, opened with showModal(). Escape to close, focus trapped,
+ * the page behind it inert, and a real ::backdrop -- all of it free, and none
+ * of it worth hand-rolling.
+ */
+function RequestModal({ kind, defaultEmail, onClose, onChanged }: ModalProps) {
+  const ref = useRef<HTMLDialogElement>(null)
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
+  const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const Icon = kind.icon
 
-  // A settled request leaves the way clear to ask again; only a declined one
-  // needs to. Approved means the MetaID is on its way, and asking twice would
-  // only confuse whoever answers.
-  const canAsk = !latest || latest.status === 'rejected'
+  useEffect(() => {
+    ref.current?.showModal()
+  }, [])
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const email = String(new FormData(e.currentTarget).get('email') ?? '')
+
     setBusy(true)
     setError(null)
     try {
@@ -203,6 +426,8 @@ function MetaidCard({ kind, index, latest, accountEmail, onChanged }: CardProps)
       setBusy(false)
       setDone(true)
       await holdDone()
+      setSent(true)
+      // Refreshed behind the open dialog, so closing lands on the new status.
       await onChanged()
     } catch (err: unknown) {
       if (err instanceof Unauthorized) window.location.href = '/login'
@@ -212,101 +437,84 @@ function MetaidCard({ kind, index, latest, accountEmail, onChanged }: CardProps)
     }
   }
 
-  const status = latest && STATUS[latest.status]
-  const StatusIcon = status?.icon
-
   return (
-    <motion.article
-      className="glass glass-lip relative flex flex-col overflow-hidden rounded-3xl p-7"
-      variants={depthIn}
-      custom={index + 3}
-      initial="hidden"
-      animate="show"
+    <dialog
+      ref={ref}
+      onClose={onClose}
+      // Native dialogs do not close on a backdrop click. The target is the
+      // dialog itself only when the click landed outside its content.
+      onClick={(e) => e.target === ref.current && ref.current?.close()}
+      aria-labelledby="request-modal-title"
+      // m-auto because Tailwind's preflight zeroes the margin a modal dialog
+      // centres itself with. Without it the box sits in the top-left corner.
+      className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-3xl border-0 bg-transparent p-0 text-[#E4EAE7] backdrop:bg-black/70 backdrop:backdrop-blur-sm"
     >
-      <img
-        src="/img/card-texture.webp"
-        alt=""
-        aria-hidden
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[0.13] mix-blend-screen"
-        onError={(e) => (e.currentTarget.style.display = 'none')}
-      />
+      <div className="glass glass-lip relative rounded-3xl p-7">
+        <button
+          type="button"
+          onClick={() => ref.current?.close()}
+          aria-label="Close"
+          className="absolute right-5 top-5 grid size-9 cursor-pointer place-items-center rounded-full border border-white/10 bg-white/[0.04] text-[#E4EAE7]/70 transition-colors duration-200 hover:border-white/25 hover:text-white"
+        >
+          <X className="size-4" />
+        </button>
 
-      <div className="relative flex items-start justify-between gap-4">
-        <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-[rgba(0,255,135,0.3)] bg-[rgba(0,255,135,0.07)] text-[#00FF87]">
-          <Icon className="size-5" />
-        </span>
-        {status && StatusIcon && (
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12.5px] font-medium ${status.tone}`}
-          >
-            <StatusIcon className="size-3.5" />
-            {status.label}
-          </span>
+        <h2 id="request-modal-title" className="pr-12 text-[1.35rem] font-bold leading-tight">
+          {sent ? 'Request received' : kind.title}
+        </h2>
+
+        {sent ? (
+          <div className="mt-5 space-y-5">
+            <p className="text-[15.5px] leading-relaxed text-[#E4EAE7]">
+              {AFTER_SUBMIT}
+            </p>
+            <GlowButton
+              type="button"
+              magnetic={false}
+              onClick={() => ref.current?.close()}
+              className="w-full cursor-pointer px-6 py-3.5 text-[15px]"
+            >
+              Done
+            </GlowButton>
+          </div>
+        ) : (
+          <form onSubmit={onSubmit} className="mt-5 space-y-5">
+            <div>
+              <label className={label} htmlFor="metaid-email">
+                Send the MetaID to
+              </label>
+              <input
+                id="metaid-email"
+                name="email"
+                type="email"
+                required
+                autoFocus
+                inputMode="email"
+                autoComplete="email"
+                defaultValue={defaultEmail}
+                className={`${field} w-full`}
+              />
+              <p className="mt-2 text-[13.5px] leading-relaxed text-[#E4EAE7]/65">
+                The address newera issues the MetaID against. It does not have
+                to be your sign-in address.
+              </p>
+            </div>
+
+            {error && <ErrorAlert>{error}</ErrorAlert>}
+
+            <GlowButton
+              type="submit"
+              magnetic={false}
+              icon={<Send className="size-4" />}
+              state={done ? 'done' : busy ? 'busy' : 'idle'}
+              doneLabel="Requested"
+              className="w-full cursor-pointer px-6 py-3.5 text-[15px]"
+            >
+              Submit request
+            </GlowButton>
+          </form>
         )}
       </div>
-
-      <h2 className="relative mt-5 text-[1.35rem] font-bold leading-tight">{kind.title}</h2>
-      <p className="relative mt-2 text-[14.5px] leading-relaxed text-[#E4EAE7]/85">
-        {kind.blurb}
-      </p>
-
-      {latest && (
-        <div className="relative mt-5 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[14px] leading-relaxed text-[#E4EAE7]/85">
-          {latest.status === 'pending' && (
-            <>
-              Asked on {day(latest.created_at)} for{' '}
-              <span className="text-white">{latest.email}</span>. newera will
-              email you once it is decided.
-            </>
-          )}
-          {latest.status === 'approved' && (
-            <>
-              Approved{latest.decided_at ? ` on ${day(latest.decided_at)}` : ''}.
-              Your MetaID goes to <span className="text-white">{latest.email}</span>.
-            </>
-          )}
-          {latest.status === 'rejected' && (
-            <>
-              Declined{latest.decided_at ? ` on ${day(latest.decided_at)}` : ''}.
-              {latest.decision_note ? ` ${latest.decision_note}` : ''} You can ask
-              again below.
-            </>
-          )}
-        </div>
-      )}
-
-      {canAsk && (
-        <form onSubmit={onSubmit} className="relative mt-5 space-y-4">
-          <div>
-            <label className={label} htmlFor={`${kind.type}-email`}>
-              Send the MetaID to
-            </label>
-            <input
-              id={`${kind.type}-email`}
-              name="email"
-              type="email"
-              required
-              inputMode="email"
-              autoComplete="email"
-              defaultValue={latest?.email ?? accountEmail}
-              className={`${field} w-full`}
-            />
-          </div>
-
-          {error && <ErrorAlert>{error}</ErrorAlert>}
-
-          <GlowButton
-            type="submit"
-            magnetic={false}
-            icon={<Send className="size-4" />}
-            state={done ? 'done' : busy ? 'busy' : 'idle'}
-            doneLabel="Requested"
-            className="w-full cursor-pointer px-6 py-3.5 text-[15px]"
-          >
-            Request {kind.title}
-          </GlowButton>
-        </form>
-      )}
-    </motion.article>
+    </dialog>
   )
 }
