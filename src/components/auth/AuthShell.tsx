@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { motion } from 'motion/react'
-import { ArrowLeft } from 'lucide-react'
 import { Eyebrow } from '../ui/Eyebrow'
 import { EASE, depthIn } from '../../lib/motion'
 
@@ -38,31 +37,6 @@ export function AuthBackdrop() {
   )
 }
 
-/** Pill in the top-left corner that grows a label on hover. */
-export function BackLink({ href, label }: { href: string; label: string }) {
-  return (
-    <motion.a
-      href={href}
-      aria-label={label}
-      className="group absolute left-5 top-5 z-20 inline-flex h-12 cursor-pointer items-center rounded-full border border-white/10 bg-white/[0.04] px-3.5 text-[#E4EAE7] backdrop-blur-md transition-colors duration-300 hover:border-[rgba(0,255,135,0.4)] hover:bg-white/[0.07] hover:text-white sm:left-8 sm:top-8 sm:h-14 sm:px-4"
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.7, ease: EASE, delay: 0.15 }}
-    >
-      <ArrowLeft
-        aria-hidden
-        className="size-5 shrink-0 transition-transform duration-300 group-hover:-translate-x-0.5 sm:size-6"
-      />
-      {/* max-width rather than width: `auto` is not an animatable length. */}
-      <span
-        aria-hidden
-        className="max-w-0 overflow-hidden whitespace-nowrap text-[14px] font-medium opacity-0 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:max-w-[9rem] group-hover:pl-2.5 group-hover:opacity-100 group-focus-visible:max-w-[9rem] group-focus-visible:pl-2.5 group-focus-visible:opacity-100"
-      >
-        {label}
-      </span>
-    </motion.a>
-  )
-}
 
 /** Lockup, not a link: wherever it appears, something else already owns the
  *  trip home, and two routes to the same place is one too many. */
@@ -76,11 +50,11 @@ export function Lockup() {
     >
       <span
         aria-hidden
-        className="grid size-10 shrink-0 place-items-center rounded-xl border border-[rgba(0,255,135,0.3)] bg-[rgba(0,255,135,0.07)] text-[12px] font-bold tracking-tight text-[#00FF87] shadow-[0_0_30px_-8px_rgba(0,255,135,0.75),inset_0_1px_0_0_rgba(255,255,255,0.08)]"
+        className="grid size-12 shrink-0 place-items-center rounded-2xl border border-[rgba(0,255,135,0.45)] bg-[rgba(0,255,135,0.1)] text-[15px] font-extrabold tracking-tight text-[#00FF87] shadow-[0_0_44px_-8px_rgba(0,255,135,0.9),inset_0_1px_0_0_rgba(255,255,255,0.12)]"
       >
         GML
       </span>
-      <span className="font-[family-name:var(--font-display)] text-[16px] font-bold leading-none tracking-tight text-white">
+      <span className="font-[family-name:var(--font-display)] text-[19px] font-bold leading-none tracking-tight text-white">
         Global Market League
       </span>
     </motion.div>
@@ -98,11 +72,45 @@ type Props = {
   wide?: boolean
 }
 
+/** The way out, opposite the brand. Sign-in offers sign-up and the reverse;
+ *  the password screens offer the way back in. */
+function navFor(path: string) {
+  if (path === '/signup') return { href: '/login', label: 'Sign in' }
+  if (path === '/login') return { href: '/signup', label: 'Create account' }
+  return { href: '/login', label: 'Sign in' }
+}
+
 export function AuthShell({ eyebrow, title, children, footer, wide }: Props) {
+  const nav = navFor(window.location.pathname.replace(/\/+$/, '') || '/')
+
   return (
     <main className="grain relative isolate flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 py-16">
       <AuthBackdrop />
-      <BackLink href="/" label="Event page" />
+
+      {/* The brand on the left, the way out on the right. Every auth screen is
+          reached cold from an email or a link, so it needs somewhere to go that
+          is not the browser's back button. */}
+      <motion.nav
+        className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-4 px-5 py-5 sm:px-8"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, ease: EASE }}
+      >
+        <a
+          href="/"
+          aria-label="Global Market League home"
+          className="rounded-2xl outline-none transition-opacity duration-300 hover:opacity-85 focus-visible:ring-2 focus-visible:ring-[#00FF87]/60"
+        >
+          <Lockup />
+        </a>
+
+        <a
+          href={nav.href}
+          className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-5 text-[14.5px] font-medium text-[#E4EAE7] backdrop-blur-md transition-colors duration-300 hover:border-[rgba(0,255,135,0.45)] hover:bg-white/[0.07] hover:text-white"
+        >
+          {nav.label}
+        </a>
+      </motion.nav>
 
       {/* depthIn rotates on X, which is inert without a perspective ancestor. */}
       <div
@@ -125,10 +133,7 @@ export function AuthShell({ eyebrow, title, children, footer, wide }: Props) {
         />
 
         <header className="text-center">
-          <Lockup />
-
           <motion.div
-            className="mt-6"
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: EASE, delay: 0.1 }}

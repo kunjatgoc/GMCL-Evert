@@ -159,7 +159,7 @@ export function PanelShell({ views }: Props) {
           <span className="flex items-center gap-2.5">
             <span
               aria-hidden
-              className={`${TEXT.label} grid size-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] font-bold text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]`}
+              className={`${TEXT.label} grid size-12 shrink-0 place-items-center rounded-2xl border border-[rgba(62,230,138,0.45)] bg-[rgba(62,230,138,0.1)] font-extrabold text-[#3EE68A] shadow-[0_0_36px_-10px_rgba(62,230,138,0.8),inset_0_1px_0_0_rgba(255,255,255,0.1)]`}
             >
               GML
             </span>

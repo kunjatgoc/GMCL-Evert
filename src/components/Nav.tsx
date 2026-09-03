@@ -51,9 +51,18 @@ export function Nav() {
       <div className="shell flex h-full items-center gap-4 pl-6 pr-4 xl:pl-20 2xl:pl-28">
         <a
           href="#top"
-          className="shrink-0 text-[14px] font-bold tracking-tight text-white"
+          aria-label="Global Market League"
+          className="flex shrink-0 items-center gap-2.5 outline-none focus-visible:ring-2 focus-visible:ring-[#00FF87]/60"
         >
-          GML
+          <span
+            aria-hidden
+            className="grid size-9 shrink-0 place-items-center rounded-xl border border-[rgba(0,255,135,0.45)] bg-[rgba(0,255,135,0.1)] text-[12px] font-extrabold tracking-tight text-[#00FF87] shadow-[0_0_30px_-8px_rgba(0,255,135,0.85)]"
+          >
+            GML
+          </span>
+          <span className="hidden font-[family-name:var(--font-display)] text-[15px] font-bold tracking-tight text-white sm:block">
+            Global Market League
+          </span>
         </a>
 
         {/* The strip is the only element allowed to grow: the brand and the
