@@ -102,22 +102,6 @@ app.add_middleware(
 )
 
 
-def to_e164(phone: str, country: str) -> str:
-    """The number as `users.phone` stores it. Raises ValueError otherwise.
-
-    Shared by the registration forms and by sign-in: a number typed at sign-in
-    has to normalise to the same string signup wrote, or the unique index it is
-    looked up through never matches.
-    """
-    try:
-        parsed = phonenumbers.parse(phone, country.upper())
-    except phonenumbers.NumberParseException:
-        raise ValueError("phone is not valid for the selected country")
-    if not phonenumbers.is_valid_number(parsed):
-        raise ValueError("phone is not valid for the selected country")
-    return phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
-
-
 class Registration(BaseModel):
     """Exactly the JSON the form posts. Field names match `src/lib/schema.ts`."""
 
@@ -130,7 +114,15 @@ class Registration(BaseModel):
     def normalise_phone(self):
         """The browser already checked this. Check it again  the endpoint is
         public, and the stored number has to be E.164 whoever posted it."""
-        self.phone = to_e164(self.phone, self.country)
+        try:
+            parsed = phonenumbers.parse(self.phone, self.country.upper())
+        except phonenumbers.NumberParseException:
+            raise ValueError("phone is not valid for the selected country")
+        if not phonenumbers.is_valid_number(parsed):
+            raise ValueError("phone is not valid for the selected country")
+        self.phone = phonenumbers.format_number(
+            parsed, phonenumbers.PhoneNumberFormat.E164
+        )
         return self
 
 
@@ -593,36 +585,16 @@ def signup(entry: Signup, response: Response) -> dict:
 
 
 class Login(BaseModel):
-    """One identifier and the password.
-
-    Email or phone, never both: `users` carries a separate unique index on each
-    (`users_email_key` on lower(email), `users_phone_key` on phone), so either
-    one identifies exactly one account on its own. Sending both would be two
-    questions with no rule for disagreeing answers.
-    """
-
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = None
-    country: Optional[str] = Field(default=None, min_length=2, max_length=2)
+    email: EmailStr
     password: str = Field(min_length=1, max_length=200)
-
-    @model_validator(mode="after")
-    def one_identifier(self):
-        if bool(self.email) == bool(self.phone):
-            raise ValueError("send exactly one of email or phone")
-        if self.phone:
-            if not self.country:
-                raise ValueError("a phone number needs its country")
-            self.phone = to_e164(self.phone, self.country)
-        return self
 
 
 # ponytail: no throttle on wrong passwords. A serverless instance is frozen
-# between requests so an in-process counter buys nothing -- add an attempt
-# column on `users` (or a WAF rule) if this ever faces a weak password.
+# between requests so an in-process counter buys nothing -- add a per-email
+# attempt column on `users` (or a WAF rule) if this ever faces a weak password.
 @app.post("/api/login")
 def login(entry: Login, response: Response) -> dict:
-    """Password sign-in for any account in SIGN_IN_ROLES, by email or phone.
+    """Password sign-in for any account in SIGN_IN_ROLES.
 
     A password and nothing else for a confirmed address. An address that never
     answered its signup code is sent a fresh one here and answers it at
@@ -633,24 +605,16 @@ def login(entry: Login, response: Response) -> dict:
     if not DATABASE_URL or not SESSION_SECRET:
         raise HTTPException(503, "Sign-in is unavailable.")
 
-    # One of two fixed fragments, chosen by which identifier arrived. The
-    # value is bound either way; nothing the caller sent reaches the SQL text.
-    lookup, identifier = (
-        ("lower(u.email) = lower(%s)", entry.email)
-        if entry.email
-        else ("u.phone = %s", entry.phone)
-    )
-
     with pool.connection() as conn, conn.cursor() as cur:
         cur.execute(
-            f"""
+            """
             select u.id, u.password_hash, r.name as role, u.email,
                    u.email_verified_at
             from users u
             join user_roles r on r.id = u.role_id
-            where {lookup} and u.is_active
+            where lower(u.email) = lower(%s) and u.is_active
             """,
-            (identifier,),
+            (entry.email,),
         )
         row = cur.fetchone()
 
@@ -660,10 +624,9 @@ def login(entry: Login, response: Response) -> dict:
         ok = verify_password(entry.password, stored) and row is not None
 
         # One message for both halves: naming which was wrong tells a stranger
-        # which accounts exist. Worded around neither identifier, since either
-        # one could be the half that missed.
+        # which addresses exist.
         if not ok or row[2] not in SIGN_IN_ROLES:
-            raise HTTPException(401, "Those details and password do not match.")
+            raise HTTPException(401, "That email and password do not match.")
 
         user_id, role, email, verified = row[0], row[2], row[3], row[4]
 
@@ -1344,30 +1307,6 @@ if __name__ == "__main__":
 
     assert _page(0, 10_000) == (1, PAGE_MAX)
     assert _page(3, 25) == (3, 25)
-
-    assert Login(email="alex@example.com", password="x").phone is None
-    assert (
-        Login(phone="98765 43210", country="IN", password="x").phone == "+919876543210"
-    ), "sign-in must reach the same E.164 string signup stored"
-    for bad in (
-        {},                                                   # neither
-        {"email": "alex@example.com", "phone": "9876543210", "country": "IN"},  # both
-        {"phone": "9876543210"},                              # no country
-        {"phone": "12", "country": "IN"},                     # not a number
-    ):
-        try:
-            Login(password="x", **bad)
-        except ValidationError:
-            continue
-        raise AssertionError(f"accepted {bad}")
-
-    # The number that signs up and the number that signs in must land on the
-    # same string, or the unique index the lookup goes through never matches.
-    assert (
-        Login(phone=base["phone"], country=base["country"], password="x").phone
-        == Registration(**base).phone
-    ), "sign-up and sign-in normalise differently"
-    assert to_e164("98765 43210", "in") == to_e164("+91 98765 43210", "IN")
 
     assert Decision(status="approved").note is None
     assert Decision(status="rejected", note="no").status == "rejected"

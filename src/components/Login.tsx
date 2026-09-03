@@ -2,8 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { GlowButton, holdDone } from './ui/GlowButton'
 import { field, label } from '../lib/fieldStyles'
-import { COUNTRIES } from '../lib/countries'
-import { submitLogin, type LoginId } from '../lib/submit'
+import { submitLogin } from '../lib/submit'
 import { homeFor } from '../lib/api'
 import { AuthShell } from './auth/AuthShell'
 import { OtpForm } from './auth/OtpForm'
@@ -27,13 +26,8 @@ import { ErrorAlert } from './auth/FormAlert'
  */
 type Stage = { name: 'form' } | { name: 'otp'; address: string; sent: boolean }
 
-/** Which field the form is asking for. `users` has a unique index on each, so
- *  either one finds the account; this only decides which to show. */
-type By = 'email' | 'phone'
-
 export function Login() {
   const [stage, setStage] = useState<Stage>({ name: 'form' })
-  const [by, setBy] = useState<By>('email')
   const [busy, setBusy] = useState(false)
   // Held on the button while the tick reads, before the page moves on.
   const [done, setDone] = useState(false)
@@ -44,17 +38,10 @@ export function Login() {
     // Read before the await: currentTarget is null once the handler yields.
     const data = new FormData(e.currentTarget)
     const address = String(data.get('email') ?? '')
-    const id: LoginId =
-      by === 'email'
-        ? { email: address }
-        : {
-            phone: String(data.get('phone') ?? ''),
-            country: String(data.get('country') ?? ''),
-          }
 
     setBusy(true)
     setError(null)
-    const res = await submitLogin(id, String(data.get('password') ?? ''))
+    const res = await submitLogin(address, String(data.get('password') ?? ''))
     setBusy(false)
 
     if (!res.ok) {
@@ -66,9 +53,7 @@ export function Login() {
     // its way (or one from moments ago is still live, which `sent` says), and
     // the session waits on it.
     if (res.stage === 'otp') {
-      // Signing in by phone gives no address to name, so the copy falls back
-      // to "your inbox" rather than inventing one.
-      setStage({ name: 'otp', address: address || 'your inbox', sent: res.sent })
+      setStage({ name: 'otp', address, sent: res.sent })
       return
     }
 
@@ -103,86 +88,22 @@ export function Login() {
     >
       {stage.name === 'form' && (
         <form onSubmit={onSubmit} className="relative space-y-5">
-          {/* Two buttons, not a select: two options that swap one field are
-              a switch, and a switch you can see both halves of is faster to
-              use than one you have to open. */}
-          <div
-            role="group"
-            aria-label="Sign in with"
-            className="flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1"
-          >
-            {(['email', 'phone'] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => {
-                  setBy(option)
-                  setError(null)
-                }}
-                aria-pressed={by === option}
-                className={`flex-1 cursor-pointer rounded-lg px-3 py-2 text-[14px] font-medium capitalize transition-colors duration-300 ${
-                  by === option
-                    ? 'bg-[rgba(0,255,135,0.12)] text-[#00FF87]'
-                    : 'text-[#E4EAE7]/70 hover:text-white'
-                }`}
-              >
-                {option}
-              </button>
-            ))}
+          <div>
+            <label className={label} htmlFor="email">
+              Email address
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              inputMode="email"
+              autoComplete="email"
+              autoFocus
+              placeholder="you@example.com"
+              className={`${field} w-full`}
+            />
           </div>
-
-          {by === 'email' ? (
-            <div>
-              <label className={label} htmlFor="email">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                inputMode="email"
-                autoComplete="email"
-                autoFocus
-                placeholder="you@example.com"
-                className={`${field} w-full`}
-              />
-            </div>
-          ) : (
-            <div>
-              <label className={label} htmlFor="phone">
-                Phone number
-              </label>
-              {/* The same country + national number pair the signup form uses,
-                  because the number has to normalise to the E.164 string that
-                  form stored or the unique index never matches. */}
-              <div className="flex gap-2.5">
-                <select
-                  name="country"
-                  defaultValue="IN"
-                  aria-label="Country dialling code"
-                  className={`${field} w-[7.75rem] shrink-0 cursor-pointer appearance-none pr-2`}
-                >
-                  {COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.code} className="bg-[#121212]">
-                      {c.flag} {c.dial}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  required
-                  inputMode="tel"
-                  autoComplete="tel-national"
-                  autoFocus
-                  placeholder="98765 43210"
-                  className={`${field} min-w-0 flex-1`}
-                />
-              </div>
-            </div>
-          )}
 
           <div>
             <label className={label} htmlFor="current-password">

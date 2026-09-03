@@ -33,7 +33,7 @@ afterEach(() => vi.unstubAllGlobals())
 describe('submitLogin', () => {
   it('signs a confirmed address straight in', async () => {
     respondWith(200, { stage: 'session', email: 'a@b.com', role: 'admin' })
-    expect(await submitLogin({ email: 'a@b.com' }, 'pw')).toEqual({
+    expect(await submitLogin('a@b.com', 'pw')).toEqual({
       ok: true,
       stage: 'session',
       role: 'admin',
@@ -42,14 +42,14 @@ describe('submitLogin', () => {
 
   it('carries the role, so an entrant lands on the dashboard', async () => {
     respondWith(200, { stage: 'session', email: 'a@b.com', role: 'end_user' })
-    expect(await submitLogin({ email: 'a@b.com' }, 'pw')).toMatchObject({ role: 'end_user' })
+    expect(await submitLogin('a@b.com', 'pw')).toMatchObject({ role: 'end_user' })
   })
 
   // The account is otherwise unreachable: the ten-minute pending cookie from
   // signup has lapsed, signup answers 409, and resend has no cookie to read.
   it('sends an unconfirmed address to the confirmation step', async () => {
     respondWith(200, { stage: 'otp', sent: true })
-    expect(await submitLogin({ email: 'a@b.com' }, 'pw')).toEqual({
+    expect(await submitLogin('a@b.com', 'pw')).toEqual({
       ok: true,
       stage: 'otp',
       sent: true,
@@ -58,50 +58,31 @@ describe('submitLogin', () => {
 
   it('passes on that no fresh code went out inside the resend window', async () => {
     respondWith(200, { stage: 'otp', sent: false })
-    expect(await submitLogin({ email: 'a@b.com' }, 'pw')).toMatchObject({ sent: false })
+    expect(await submitLogin('a@b.com', 'pw')).toMatchObject({ sent: false })
   })
 
   it('separates an unconfirmed address from a wrong password', async () => {
     respondWith(200, { stage: 'otp', sent: true })
-    const unconfirmed = await submitLogin({ email: 'a@b.com' }, 'pw')
+    const unconfirmed = await submitLogin('a@b.com', 'pw')
     respondWith(401)
-    const wrong = await submitLogin({ email: 'a@b.com' }, 'pw')
+    const wrong = await submitLogin('a@b.com', 'pw')
     expect(unconfirmed.ok).toBe(true)
     expect(wrong.ok).toBe(false)
   })
 
   it('gives the same message for 400 and 401, so it leaks no addresses', async () => {
     respondWith(401)
-    const unauthorised = await submitLogin({ email: 'a@b.com' }, 'pw')
+    const unauthorised = await submitLogin('a@b.com', 'pw')
     respondWith(400)
-    const bad = await submitLogin({ email: 'a@b.com' }, 'pw')
+    const bad = await submitLogin('a@b.com', 'pw')
 
     expect(unauthorised.ok).toBe(false)
     expect(unauthorised).toEqual(bad)
   })
 
-  it('signs in by phone, which the server treats the same way', async () => {
-    let sent: unknown = null
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (_url: string, init: RequestInit) => {
-        sent = JSON.parse(String(init.body))
-        return new Response(JSON.stringify({ stage: 'session', role: 'end_user' }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      })
-    )
-
-    const res = await submitLogin({ phone: '98765 43210', country: 'IN' }, 'pw')
-    expect(res).toEqual({ ok: true, stage: 'session', role: 'end_user' })
-    // No email goes up: the server chooses its lookup from what it is sent.
-    expect(sent).toEqual({ phone: '98765 43210', country: 'IN', password: 'pw' })
-  })
-
   it('reports a reachability problem when the request throws', async () => {
     throwsOnFetch()
-    const res = await submitLogin({ email: 'a@b.com' }, 'pw')
+    const res = await submitLogin('a@b.com', 'pw')
     expect(res.ok).toBe(false)
     if (!res.ok) expect(res.error).toMatch(/could not reach/i)
   })
