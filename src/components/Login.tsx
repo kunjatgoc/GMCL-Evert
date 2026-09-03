@@ -1,38 +1,24 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { motion } from 'motion/react'
-import {
-  AlertCircle,
-  ArrowLeft,
-  Eye,
-  EyeOff,
-  Loader2,
-  MailCheck,
-  ShieldCheck,
-} from 'lucide-react'
+import { useState, type FormEvent } from 'react'
+import { Loader2, ShieldCheck } from 'lucide-react'
 import { GlowButton } from './ui/GlowButton'
-import { Eyebrow } from './ui/Eyebrow'
 import { field, label } from '../lib/fieldStyles'
-import { resendOtp, submitLogin, submitOtp } from '../lib/submit'
-import { EASE, depthIn } from '../lib/motion'
+import { submitLogin } from '../lib/submit'
+import { homeFor } from '../lib/api'
+import { AuthShell } from './auth/AuthShell'
+import { OtpForm } from './auth/OtpForm'
+import { PasswordField } from './auth/PasswordField'
+import { ErrorAlert } from './auth/FormAlert'
 
-/** Mirrors OTP_RESEND_SECONDS in api/index.py. The server is the rule; this
- *  only stops the button offering something that would be refused. */
-const RESEND_SECONDS = 60
-
-type Stage = 'password' | 'otp'
+type Stage = { name: 'password' } | { name: 'otp'; address: string; sent: boolean }
 
 /**
- * Admin sign-in.
+ * Sign-in, for admins and league entrants alike: the server says which by the
+ * role it answers with, and the screen goes wherever that role lives.
  *
- * Wears the hero's backdrop -- same skyline plate, same drift, same horizon
- * bloom -- so the screen reads as part of the event rather than a bolted-on
- * auth page. Nothing new was generated for it.
- *
- * Deliberately has no nav, no marquee and no way to create an account: the one
- * admin is seeded by scripts/seed_admin.py. Validation is the browser's -- `required` plus
- * `type="email"` covers every rule a client is entitled to have an opinion
- * about, and the only other verdict (do these credentials match) belongs to
- * the server. So no zod schema and no form library here.
+ * Validation is the browser's -- `required` plus `type="email"` covers every
+ * rule a client is entitled to have an opinion about, and the only other
+ * verdict (do these credentials match) belongs to the server. So no zod schema
+ * and no form library here.
  *
  * Usually one stage. An address that has never been confirmed gets a second:
  * a six-digit code, once, mailed when the account was created. Both stages
@@ -40,27 +26,16 @@ type Stage = 'password' | 'otp'
  * shape.
  */
 export function Login() {
-  const [stage, setStage] = useState<Stage>('password')
+  const [stage, setStage] = useState<Stage>({ name: 'password' })
+  // Remembered across stages, so "use a different account" comes back with
+  // the address still filled in.
   const [address, setAddress] = useState('')
-  const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
-  const [reveal, setReveal] = useState(false)
-  const [cooldown, setCooldown] = useState(0)
 
-  // One timeout per second rather than an interval, so the countdown cannot
-  // outlive the component or double up when the stage changes.
-  useEffect(() => {
-    if (cooldown <= 0) return
-    const id = setTimeout(() => setCooldown((s) => s - 1), 1000)
-    return () => clearTimeout(id)
-  }, [cooldown])
-
-  const backToPassword = () => {
-    setStage('password')
-    setCode('')
-    setNotice(null)
+  const backToPassword = (message: string | null = null) => {
+    setStage({ name: 'password' })
+    setError(message)
   }
 
   const onPassword = async (e: FormEvent<HTMLFormElement>) => {
@@ -79,386 +54,112 @@ export function Login() {
       return
     }
 
-    // The usual case: a confirmed address needs nothing else.
+    // The usual case: a confirmed address needs nothing else. Full navigation
+    // rather than a client-side swap -- the panel is a separate chunk and the
+    // session cookie has just changed.
     if (res.stage === 'done') {
-      window.location.href = '/admin'
+      window.location.href = homeFor(res.role)
       return
     }
 
     setAddress(email)
-    setCode('')
-    setStage('otp')
-    setCooldown(RESEND_SECONDS)
-    setNotice(
-      res.sent
-        ? `We sent a six-digit code to ${email}.`
-        : `A code was sent to ${email} moments ago. Use that one.`
-    )
-  }
-
-  const onCode = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setBusy(true)
-    setError(null)
-    const res = await submitOtp(code)
-    setBusy(false)
-
-    // Full navigation rather than a client-side swap: the admin bundle is a
-    // separate chunk and the session cookie has just changed.
-    if (res.ok) {
-      window.location.href = '/admin'
-      return
-    }
-
-    if (res.expired) backToPassword()
-    setError(res.error)
-  }
-
-  const onResend = async () => {
-    setBusy(true)
-    setError(null)
-    setNotice(null)
-    const res = await resendOtp()
-    setBusy(false)
-
-    if (res.ok) {
-      setCode('')
-      setCooldown(RESEND_SECONDS)
-      setNotice(`A new code is on its way to ${address}.`)
-      return
-    }
-
-    if (res.expired) backToPassword()
-    setError(res.error)
+    setStage({ name: 'otp', address: email, sent: res.sent })
   }
 
   return (
-    <main className="grain relative isolate flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 py-16">
-      {/* This screen's own plate: one shaft of light landing in a dark pool.
-          Deliberately still -- the hero drifts because it is selling motion,
-          and a door should not. */}
-      <div aria-hidden className="absolute inset-0 -z-20">
-        <img
-          src="/img/login-plate.webp"
-          alt=""
-          fetchPriority="high"
-          className="h-full w-full object-cover object-bottom opacity-95"
-        />
-
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[55%] [animation:horizon-glow_9s_ease-in-out_infinite] [background:radial-gradient(60%_55%_at_50%_95%,rgba(0,255,135,0.16),transparent_70%)]" />
-      </div>
-
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-40 bg-gradient-to-b from-[#0a0a0a] to-transparent"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-[#0a0a0a] to-transparent"
-      />
-
-      <motion.a
-        href="/"
-        aria-label="Back to the event page"
-        className="group absolute left-5 top-5 z-20 inline-flex h-12 cursor-pointer items-center rounded-full border border-white/10 bg-white/[0.04] px-3.5 text-[#E4EAE7] backdrop-blur-md transition-colors duration-300 hover:border-[rgba(0,255,135,0.4)] hover:bg-white/[0.07] hover:text-white sm:left-8 sm:top-8 sm:h-14 sm:px-4"
-        initial={{ opacity: 0, x: -10 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.7, ease: EASE, delay: 0.15 }}
-      >
-        <ArrowLeft
-          aria-hidden
-          className="size-5 shrink-0 transition-transform duration-300 group-hover:-translate-x-0.5 sm:size-6"
-        />
-        {/* max-width rather than width: `auto` is not an animatable length. */}
-        <span
-          aria-hidden
-          className="max-w-0 overflow-hidden whitespace-nowrap text-[14px] font-medium opacity-0 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:max-w-[9rem] group-hover:pl-2.5 group-hover:opacity-100 group-focus-visible:max-w-[9rem] group-focus-visible:pl-2.5 group-focus-visible:opacity-100"
-        >
-          Event page
-        </span>
-      </motion.a>
-
-      {/* depthIn rotates on X, which is inert without a perspective ancestor. */}
-      <div className="relative z-10 w-full max-w-md [perspective:1200px]">
-        {/* Legibility scrim anchored to the content, not to the frame. The
-            plate's brightest ripple lands around a third of the way down, which
-            is exactly where the lockup and eyebrow sit -- a frame-centred
-            gradient darkens the middle and leaves that header on lit water.
-            Pinned to this column, it travels with the type at every height.
-
-            Full-bleed rather than column-width: the ripple runs the whole way
-            across, so a scrim that stops at the card's edge leaves a lit band
-            either side of the lockup and the header still reads as floating on
-            water. It stays soft-edged and lets the pool below the card through,
-            which is the part of the plate worth keeping. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[calc(100%+16rem)] w-screen -translate-x-1/2 -translate-y-1/2 [background:radial-gradient(46%_50%_at_50%_50%,rgba(6,9,8,0.97)_0%,rgba(6,9,8,0.93)_42%,rgba(6,9,8,0.7)_70%,transparent_100%)]"
-        />
-
-        <header className="text-center">
-          {/* Lockup, not a link: the back control above already owns the trip
-              home, and two routes to the same place is one too many. */}
-          <motion.div
-            className="inline-flex items-center gap-3"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: EASE }}
-          >
-            <span
-              aria-hidden
-              className="grid size-10 shrink-0 place-items-center rounded-xl border border-[rgba(0,255,135,0.3)] bg-[rgba(0,255,135,0.07)] text-[12px] font-bold tracking-tight text-[#00FF87] shadow-[0_0_30px_-8px_rgba(0,255,135,0.75),inset_0_1px_0_0_rgba(255,255,255,0.08)]"
-            >
-              GML
-            </span>
-            <span className="text-left leading-none">
-              <span className="block font-[family-name:var(--font-display)] text-[16px] font-bold tracking-tight text-white">
-                Global Market League
-              </span>
-              {/* Same credit the footer carries, so the two agree. */}
-              <span className="mt-1.5 block text-[10px] uppercase tracking-[0.2em] text-[#E4EAE7]/75">
-                Associated with newera
-              </span>
-            </span>
-          </motion.div>
-
-          <motion.div
-            className="mt-6"
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: EASE, delay: 0.1 }}
-          >
-            <Eyebrow>Admin access</Eyebrow>
-          </motion.div>
-
-          {/* The hero's masked reveal: the line rises out from behind a hard
-              clip rather than fading in. */}
-          <h1 className="mt-6 text-balance text-[clamp(2rem,7vw,2.85rem)] font-bold leading-[1.05]">
-            <span className="block overflow-hidden pb-[0.12em]">
-              <motion.span
-                className="block"
-                initial={{ y: '110%' }}
-                animate={{ y: '0%' }}
-                transition={{ duration: 1.05, ease: EASE, delay: 0.22 }}
-              >
-                {stage === 'password' ? (
-                  <>
-                    Back to the{' '}
-                    <span className="text-[#00FF87] text-glow">board</span>
-                  </>
-                ) : (
-                  <>
-                    Confirm your{' '}
-                    <span className="text-[#00FF87] text-glow">email</span>
-                  </>
-                )}
-              </motion.span>
-            </span>
-          </h1>
-        </header>
-
-        <motion.div
-          className="glass glass-lip relative mt-9 overflow-hidden rounded-3xl p-7 sm:p-9"
-          variants={depthIn}
-          custom={3}
-          initial="hidden"
-          animate="show"
-        >
-          {/* Faint mesh over the glass, same texture the prize cards use. Kept
-              low so the type stays the brightest thing on the card. */}
-          <img
-            src="/img/card-texture.webp"
-            alt=""
-            aria-hidden
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[0.13] mix-blend-screen"
-            onError={(e) => (e.currentTarget.style.display = 'none')}
-          />
-
-          {stage === 'password' ? (
-            <form onSubmit={onPassword} className="relative space-y-5">
-              <div>
-                <label className={label} htmlFor="email">
-                  Email address
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  inputMode="email"
-                  autoComplete="email"
-                  autoFocus
-                  defaultValue={address}
-                  placeholder="you@example.com"
-                  className={`${field} w-full`}
-                />
-              </div>
-
-              <div>
-                <label className={label} htmlFor="current-password">
-                  Password
-                </label>
-                {/* The toggle sits inside the field's box, so the padding-right
-                    keeps typed text from running under it. */}
-                <div className="relative">
-                  <input
-                    id="current-password"
-                    name="password"
-                    type={reveal ? 'text' : 'password'}
-                    required
-                    autoComplete="current-password"
-                    className={`${field} w-full pr-12`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setReveal((v) => !v)}
-                    aria-label={reveal ? 'Hide password' : 'Show password'}
-                    aria-pressed={reveal}
-                    className="absolute inset-y-0 right-0 grid w-12 cursor-pointer place-items-center text-white/45 transition-colors duration-200 hover:text-white"
-                  >
-                    {reveal ? (
-                      <EyeOff className="size-[18px]" />
-                    ) : (
-                      <Eye className="size-[18px]" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-            {notice && (
-              <p className="flex items-start gap-2 rounded-xl border border-[rgba(0,255,135,0.3)] bg-[rgba(0,255,135,0.08)] px-4 py-3 text-[15px] text-[#9dffcf]">
-                <MailCheck className="mt-0.5 size-4 shrink-0" />
-                {notice}
-              </p>
-            )}
-
-            {error && (
-              <p
-                role="alert"
-                className="flex items-start gap-2 rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-4 py-3 text-[15px] text-[#ff9a9a]"
-              >
-                <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                {error}
-              </p>
-            )}
-
-              <GlowButton
-                type="submit"
-                magnetic={false}
-                disabled={busy}
-                className="mt-2 w-full cursor-pointer"
-              >
-                {busy ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Signing in…
-                  </>
-                ) : (
-                  'Sign in'
-                )}
-              </GlowButton>
-            </form>
-          ) : (
-            <form onSubmit={onCode} className="relative space-y-5">
-              <div>
-                <label className={label} htmlFor="otp">
-                  Six-digit code
-                </label>
-                {/* One field rather than six boxes: `one-time-code` lets the
-                    phone offer the code from the notification, and a paste of
-                    all six digits lands in one place. Non-digits are dropped as
-                    they arrive, so the server never sees a code it would only
-                    reject. */}
-                <input
-                  id="otp"
-                  name="otp"
-                  required
-                  autoFocus
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  placeholder="000000"
-                  value={code}
-                  onChange={(e) =>
-                    setCode(e.target.value.replace(/\D/g, '').slice(0, 6))
-                  }
-                  className={`${field} w-full text-center text-[22px] font-semibold tracking-[0.45em] [text-indent:0.45em]`}
-                />
-              </div>
-
-            {notice && (
-              <p className="flex items-start gap-2 rounded-xl border border-[rgba(0,255,135,0.3)] bg-[rgba(0,255,135,0.08)] px-4 py-3 text-[15px] text-[#9dffcf]">
-                <MailCheck className="mt-0.5 size-4 shrink-0" />
-                {notice}
-              </p>
-            )}
-
-            {error && (
-              <p
-                role="alert"
-                className="flex items-start gap-2 rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/10 px-4 py-3 text-[15px] text-[#ff9a9a]"
-              >
-                <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                {error}
-              </p>
-            )}
-
-              <GlowButton
-                type="submit"
-                magnetic={false}
-                disabled={busy || code.length < 6}
-                className="mt-2 w-full cursor-pointer"
-              >
-                {busy ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Verifying…
-                  </>
-                ) : (
-                  'Verify and sign in'
-                )}
-              </GlowButton>
-
-              <p className="text-center text-[14px] leading-relaxed text-[#E4EAE7]/80">
-                A one-time check on a new account. After this, your password is
-                all you need.
-              </p>
-
-              <div className="flex items-center justify-between gap-4 pt-1 text-[13.5px]">
-                <button
-                  type="button"
-                  onClick={backToPassword}
-                  className="cursor-pointer text-[#E4EAE7]/75 underline-offset-4 transition-colors duration-200 hover:text-white hover:underline"
-                >
-                  Use a different account
-                </button>
-
-                {/* Disabled for exactly as long as the server would refuse
-                    another, so the countdown is the rate limit made visible
-                    rather than a second rule that could disagree with it. */}
-                <button
-                  type="button"
-                  onClick={onResend}
-                  disabled={busy || cooldown > 0}
-                  className="cursor-pointer font-medium text-[#00FF87] underline-offset-4 transition-colors duration-200 hover:underline disabled:cursor-default disabled:text-[#E4EAE7]/45 disabled:no-underline"
-                >
-                  {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
-                </button>
-              </div>
-            </form>
-          )}
-        </motion.div>
-
-        <motion.p
-          className="mt-8 text-center text-[13.5px] leading-relaxed text-[#E4EAE7]/75 [text-shadow:0_1px_10px_rgba(0,0,0,0.9)]"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.9, ease: EASE, delay: 0.9 }}
-        >
+    <AuthShell
+      eyebrow="Sign in"
+      title={
+        stage.name === 'password' ? (
+          <>
+            Back to the <span className="text-[#00FF87] text-glow">board</span>
+          </>
+        ) : (
+          <>
+            Confirm your <span className="text-[#00FF87] text-glow">email</span>
+          </>
+        )
+      }
+      footer={
+        <>
           <ShieldCheck className="mr-1.5 inline size-4 -translate-y-px text-[#00FF87]" />
-          Authorised staff only · All sign-ins are recorded
-        </motion.p>
-      </div>
-    </main>
+          All sign-ins are recorded
+        </>
+      }
+    >
+      {stage.name === 'password' ? (
+        <form onSubmit={onPassword} className="relative space-y-5">
+          <div>
+            <label className={label} htmlFor="email">
+              Email address
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              inputMode="email"
+              autoComplete="email"
+              autoFocus
+              defaultValue={address}
+              placeholder="you@example.com"
+              className={`${field} w-full`}
+            />
+          </div>
+
+          <div>
+            <label className={label} htmlFor="current-password">
+              Password
+            </label>
+            <PasswordField
+              id="current-password"
+              name="password"
+              required
+              autoComplete="current-password"
+            />
+          </div>
+
+          {error && <ErrorAlert>{error}</ErrorAlert>}
+
+          <GlowButton
+            type="submit"
+            magnetic={false}
+            disabled={busy}
+            className="mt-2 w-full cursor-pointer"
+          >
+            {busy ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Signing in…
+              </>
+            ) : (
+              'Sign in'
+            )}
+          </GlowButton>
+
+          <p className="text-center text-[14px] leading-relaxed text-[#E4EAE7]/80">
+            New here?{' '}
+            <a
+              href="/signup"
+              className="font-medium text-[#00FF87] underline-offset-4 hover:underline"
+            >
+              Create an account
+            </a>
+          </p>
+        </form>
+      ) : (
+        <OtpForm
+          address={stage.address}
+          sent={stage.sent}
+          onVerified={(role) => {
+            window.location.href = homeFor(role)
+          }}
+          onExpired={() =>
+            backToPassword('That sign-in expired. Enter your password again.')
+          }
+          back={{ label: 'Use a different account', onClick: () => backToPassword() }}
+        />
+      )}
+    </AuthShell>
   )
 }

@@ -1,4 +1,4 @@
-"""GMCL API: the public registration endpoints and the admin panel behind them.
+"""GMCL API: the public registration endpoints, accounts, and the admin panel.
 
 Pydantic owns the shape (types, email format, phone validity for the chosen
 country). `sp_register` owns the write and the duplicate rule. No SQL is
@@ -143,7 +143,7 @@ def request_real_account(entry: RealAccountRequest) -> dict:
     return {"id": request_id}
 
 
-# --- admin panel ------------------------------------------------------------
+# --- accounts, and the admin panel behind them -------------------------------
 #
 # The public endpoints above write through security-definer procedures. These
 # read directly with parameterised SQL instead: the filters are dynamic, and a
@@ -151,8 +151,13 @@ def request_real_account(entry: RealAccountRequest) -> dict:
 # query. Every value is bound, never interpolated.
 
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "")
-SESSION_COOKIE = "gmcl_admin"
+SESSION_COOKIE = "gmcl_session"
 SESSION_TTL = 8 * 3600
+
+# The roles that can sign in today. The staff roles exist in the database and
+# nothing is built for them yet, so they are refused at the door rather than
+# handed a session that reaches nothing.
+SIGN_IN_ROLES = ("admin", "end_user")
 
 # Local dev is plain http, so the Secure flag has to come off there or the
 # browser drops the cookie and every request looks signed out.
@@ -264,7 +269,7 @@ def send_otp_email(to_email: str, code: str) -> None:
     msg["To"] = to_email
     msg.set_content(
         f"Your confirmation code is {code}\n\n"
-        f"Enter it when you sign in to confirm this address. It expires in "
+        f"Enter it to confirm this address. It expires in "
         f"{OTP_TTL_MINUTES} minutes and can be used once.\n\n"
         "If you were not expecting this, ignore it -- the code is useless "
         "without the account password.\n"
@@ -297,11 +302,17 @@ def send_otp_email(to_email: str, code: str) -> None:
         raise HTTPException(502, "We could not send the code. Try again.") from exc
 
 
-def sign_session(user_id: int, ttl: int = SESSION_TTL) -> str:
+def sign_session(user_id: int, role: str, ttl: int = SESSION_TTL) -> str:
     """`<base64 payload>.<hmac>`. Stateless, so signing out server-side is not
-    possible -- the short TTL is what bounds a stolen cookie."""
+    possible -- the short TTL is what bounds a stolen cookie.
+
+    The role rides in the payload so an end user's cookie cannot open the
+    admin panel, and no request has to ask the database to say so. A role
+    change waits out the TTL at most."""
     body = (
-        base64.urlsafe_b64encode(f"{user_id}:{int(time.time()) + ttl}".encode())
+        base64.urlsafe_b64encode(
+            f"{user_id}:{role}:{int(time.time()) + ttl}".encode()
+        )
         .rstrip(b"=")
         .decode()
     )
@@ -309,8 +320,9 @@ def sign_session(user_id: int, ttl: int = SESSION_TTL) -> str:
     return f"{body}.{sig}"
 
 
-def read_session(token: Optional[str]) -> Optional[int]:
-    """The user id, or None for anything that fails to verify or has expired."""
+def read_session(token: Optional[str]) -> Optional[tuple[int, str]]:
+    """`(user id, role)`, or None for anything that fails to verify or has
+    expired."""
     if not token or not SESSION_SECRET:
         return None
     body, _, sig = token.partition(".")
@@ -323,22 +335,123 @@ def read_session(token: Optional[str]) -> Optional[int]:
         return None
     try:
         padded = body + "=" * (-len(body) % 4)
-        user_id, expires_at = base64.urlsafe_b64decode(padded).decode().split(":")
+        user_id, role, expires_at = (
+            base64.urlsafe_b64decode(padded).decode().split(":")
+        )
         if int(expires_at) < time.time():
             return None
-        return int(user_id)
+        return int(user_id), role
     except (ValueError, UnicodeDecodeError):
         return None
 
 
-def require_admin(gmcl_admin: Optional[str] = Cookie(default=None)) -> int:
-    user_id = read_session(gmcl_admin)
-    if user_id is None:
+# The parameter is named for the cookie it reads; FastAPI matches on the name.
+def require_user(gmcl_session: Optional[str] = Cookie(default=None)) -> int:
+    """Any signed-in account."""
+    session = read_session(gmcl_session)
+    if session is None or session[1] not in SIGN_IN_ROLES:
         raise HTTPException(401, "Not signed in.")
-    return user_id
+    return session[0]
 
 
-class AdminLogin(BaseModel):
+def require_admin(gmcl_session: Optional[str] = Cookie(default=None)) -> int:
+    session = read_session(gmcl_session)
+    if session is None or session[1] != "admin":
+        raise HTTPException(401, "Not signed in.")
+    return session[0]
+
+
+def set_cookie(response: Response, name: str, value: str, ttl: int) -> None:
+    response.set_cookie(
+        name,
+        value,
+        max_age=ttl,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="lax",
+        path="/",
+    )
+
+
+def issue_otp(cur, user_id: int, email: str) -> bool:
+    """A fresh confirmation code, issued and mailed inside the caller's
+    transaction. False when one went out inside the resend window: that code
+    is still live, and nothing is sent.
+
+    Inside the transaction on purpose. A send that fails takes the token with
+    it, so nobody is left waiting out a resend window for a code that never
+    left the building."""
+    code = new_otp()
+    cur.execute(
+        "CALL sp_issue_auth_token(%s, 'signup_otp', %s, %s, %s)",
+        (
+            user_id,
+            otp_hash("signup_otp", user_id, code),
+            OTP_TTL_MINUTES,
+            OTP_RESEND_SECONDS,
+        ),
+    )
+    (token_id,) = cur.fetchone()
+    if token_id is None:
+        return False
+    send_otp_email(email, code)
+    return True
+
+
+class Signup(Registration):
+    """The signup form: the registration fields plus a password."""
+
+    password: str = Field(min_length=8, max_length=200)
+
+
+# ponytail: no rate limit or bot check, same as /api/register. Each account
+# costs one mail and the resend guard caps the rest -- add a per-IP window when
+# the spam starts.
+@app.post("/api/signup", status_code=201)
+def signup(entry: Signup, response: Response) -> dict:
+    """Creates an end-user account and mails it a confirmation code.
+
+    The account is not usable yet: the response carries a pending cookie, not
+    a session, and /api/verify-otp trades one for the other. A code that
+    cannot be mailed takes the account with it, so the person simply tries
+    again rather than owning an address they can neither confirm nor
+    re-register.
+    """
+    if not DATABASE_URL or not SESSION_SECRET or not SMTP_HOST:
+        raise HTTPException(503, "Sign-up is unavailable.")
+
+    try:
+        with pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                "CALL sp_signup(%s, %s, %s, %s)",
+                (
+                    entry.fullName,
+                    entry.email,
+                    entry.phone,
+                    hash_password(entry.password),
+                ),
+            )
+            (user_id,) = cur.fetchone()
+            issue_otp(cur, user_id, entry.email)
+    except errors.UniqueViolation as exc:
+        # The index name says which, so a taken number is not reported as a
+        # taken address. An address that exists but was never confirmed is
+        # still taken: its owner finishes at sign-in, where the password
+        # proves it is them.
+        if exc.diag.constraint_name == "users_phone_key":
+            raise HTTPException(409, "That phone number already has an account.")
+        raise HTTPException(409, "That email already has an account.")
+
+    set_cookie(
+        response,
+        PENDING_COOKIE,
+        sign_session(user_id, "end_user", PENDING_TTL),
+        PENDING_TTL,
+    )
+    return {"stage": "otp", "sent": True}
+
+
+class Login(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=200)
 
@@ -346,13 +459,14 @@ class AdminLogin(BaseModel):
 # ponytail: no throttle on wrong passwords. A serverless instance is frozen
 # between requests so an in-process counter buys nothing -- add a per-email
 # attempt column on `users` (or a WAF rule) if this ever faces a weak password.
-@app.post("/api/admin/login")
-def admin_login(entry: AdminLogin, response: Response) -> dict:
-    """Password sign-in.
+@app.post("/api/login")
+def login(entry: Login, response: Response) -> dict:
+    """Password sign-in for any account in SIGN_IN_ROLES.
 
-    Answers `{"stage": "done"}` with a session for a confirmed address, and
-    `{"stage": "otp"}` with a pending cookie for one that has never been
-    confirmed -- which happens once per account, right after it is created.
+    Answers `{"stage": "done", "role": ...}` with a session for a confirmed
+    address, and `{"stage": "otp"}` with a pending cookie for one that has
+    never been confirmed -- which happens once per account, right after it is
+    created.
     """
     if not DATABASE_URL or not SESSION_SECRET:
         raise HTTPException(503, "Sign-in is unavailable.")
@@ -378,7 +492,7 @@ def admin_login(entry: AdminLogin, response: Response) -> dict:
 
         # One message for both halves: naming which was wrong tells a stranger
         # which addresses exist.
-        if not ok or row[2] != "admin":
+        if not ok or row[2] not in SIGN_IN_ROLES:
             raise HTTPException(401, "That email and password do not match.")
 
         user_id, role, email, verified = row[0], row[2], row[3], row[4]
@@ -389,53 +503,25 @@ def admin_login(entry: AdminLogin, response: Response) -> dict:
             # and no way to ask for another.
             if not SMTP_HOST:
                 raise HTTPException(503, "Sign-in is unavailable.")
-            code = new_otp()
-            cur.execute(
-                "CALL sp_issue_auth_token(%s, 'signup_otp', %s, %s, %s)",
-                (
-                    user_id,
-                    otp_hash("signup_otp", user_id, code),
-                    OTP_TTL_MINUTES,
-                    OTP_RESEND_SECONDS,
-                ),
-            )
-            (token_id,) = cur.fetchone()
-
-            # Inside the transaction on purpose: a send that fails takes the
-            # token with it, so nobody is left waiting out a resend window for
-            # a code that never left the building.
-            if token_id is not None:
-                send_otp_email(email, code)
-                sent = True
+            sent = issue_otp(cur, user_id, email)
         else:
             cur.execute(
                 "update users set last_login_at = now() where id = %s", (user_id,)
             )
 
     if verified is not None:
-        response.set_cookie(
-            SESSION_COOKIE,
-            sign_session(user_id),
-            max_age=SESSION_TTL,
-            httponly=True,
-            secure=COOKIE_SECURE,
-            samesite="lax",
-            path="/",
-        )
+        set_cookie(response, SESSION_COOKIE, sign_session(user_id, role), SESSION_TTL)
         return {"stage": "done", "email": email, "role": role}
 
     # A refused re-issue is not a refused sign-in. The resend guard means a
     # code went out moments ago and is still live for another few minutes, so
     # the person needs the screen that takes it -- answering 429 here would
     # strand them on the password form holding a code with nowhere to type it.
-    response.set_cookie(
+    set_cookie(
+        response,
         PENDING_COOKIE,
-        sign_session(user_id, PENDING_TTL),
-        max_age=PENDING_TTL,
-        httponly=True,
-        secure=COOKIE_SECURE,
-        samesite="lax",
-        path="/",
+        sign_session(user_id, role, PENDING_TTL),
+        PENDING_TTL,
     )
     # The code is never in the response, and neither is anything that narrows
     # it down. `sent` says only whether fresh mail left the building, so the
@@ -447,17 +533,18 @@ class OtpCode(BaseModel):
     code: str = Field(pattern=r"^\d{6}$")
 
 
-@app.post("/api/admin/verify-otp")
-def admin_verify_otp(
+@app.post("/api/verify-otp")
+def verify_otp(
     entry: OtpCode,
     response: Response,
     gmcl_pending: Optional[str] = Cookie(default=None),
 ) -> dict:
     """Spends the confirmation code, settles the address, and issues the
     session that the password alone did not buy."""
-    user_id = read_session(gmcl_pending)
-    if user_id is None:
+    pending = read_session(gmcl_pending)
+    if pending is None:
         raise HTTPException(401, "That sign-in expired. Start again.")
+    user_id = pending[0]
 
     row = None
     with pool.connection() as conn, conn.cursor() as cur:
@@ -471,6 +558,8 @@ def admin_verify_otp(
         # attempt, and rolling that back would hand the guesser unlimited
         # tries.
         if ok:
+            # The role comes from the table, not the pending cookie: the table
+            # is the one that cannot be stale.
             cur.execute(
                 """
                 select u.email, r.name as role
@@ -481,7 +570,7 @@ def admin_verify_otp(
                 (user_id,),
             )
             row = cur.fetchone()
-            if row is not None and row[1] == "admin":
+            if row is not None and row[1] in SIGN_IN_ROLES:
                 cur.execute(
                     "update users set last_login_at = now() where id = %s",
                     (user_id,),
@@ -489,31 +578,24 @@ def admin_verify_otp(
 
     if not ok:
         raise HTTPException(401, "That code is wrong or has expired.")
-    if row is None or row[1] != "admin":
+    if row is None or row[1] not in SIGN_IN_ROLES:
         raise HTTPException(401, "That sign-in expired. Start again.")
 
-    response.set_cookie(
-        SESSION_COOKIE,
-        sign_session(user_id),
-        max_age=SESSION_TTL,
-        httponly=True,
-        secure=COOKIE_SECURE,
-        samesite="lax",
-        path="/",
-    )
+    set_cookie(response, SESSION_COOKIE, sign_session(user_id, row[1]), SESSION_TTL)
     response.delete_cookie(PENDING_COOKIE, path="/")
     return {"email": row[0], "role": row[1]}
 
 
-@app.post("/api/admin/resend-otp")
-def admin_resend_otp(gmcl_pending: Optional[str] = Cookie(default=None)) -> dict:
+@app.post("/api/resend-otp")
+def resend_otp(gmcl_pending: Optional[str] = Cookie(default=None)) -> dict:
     """A new confirmation code for the same pending sign-in. The password is
     not asked for again -- the pending cookie is the proof it was given."""
-    user_id = read_session(gmcl_pending)
-    if user_id is None:
+    pending = read_session(gmcl_pending)
+    if pending is None:
         raise HTTPException(401, "That sign-in expired. Start again.")
     if not SMTP_HOST:
         raise HTTPException(503, "Sign-in is unavailable.")
+    user_id = pending[0]
 
     sent = False
     with pool.connection() as conn, conn.cursor() as cur:
@@ -522,20 +604,7 @@ def admin_resend_otp(gmcl_pending: Optional[str] = Cookie(default=None)) -> dict
         )
         row = cur.fetchone()
         if row is not None:
-            code = new_otp()
-            cur.execute(
-                "CALL sp_issue_auth_token(%s, 'signup_otp', %s, %s, %s)",
-                (
-                    user_id,
-                    otp_hash("signup_otp", user_id, code),
-                    OTP_TTL_MINUTES,
-                    OTP_RESEND_SECONDS,
-                ),
-            )
-            (token_id,) = cur.fetchone()
-            if token_id is not None:
-                send_otp_email(row[0], code)
-                sent = True
+            sent = issue_otp(cur, user_id, row[0])
 
     if row is None:
         raise HTTPException(401, "That sign-in expired. Start again.")
@@ -544,20 +613,20 @@ def admin_resend_otp(gmcl_pending: Optional[str] = Cookie(default=None)) -> dict
     return {"ok": True}
 
 
-@app.post("/api/admin/logout")
-def admin_logout(response: Response) -> dict:
+@app.post("/api/logout")
+def logout(response: Response) -> dict:
     response.delete_cookie(SESSION_COOKIE, path="/")
     # A half-finished sign-in is still a sign-in to abandon.
     response.delete_cookie(PENDING_COOKIE, path="/")
     return {"ok": True}
 
 
-@app.get("/api/admin/me")
-def admin_me(user_id: int = Depends(require_admin)) -> dict:
+@app.get("/api/me")
+def me(user_id: int = Depends(require_user)) -> dict:
     with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
-            select u.email, r.name as role
+            select u.email, u.full_name, r.name as role
             from users u
             join user_roles r on r.id = u.role_id
             where u.id = %s and u.is_active
@@ -568,6 +637,53 @@ def admin_me(user_id: int = Depends(require_admin)) -> dict:
     if row is None:
         raise HTTPException(401, "Not signed in.")
     return row
+
+
+# --- the user's dashboard ---------------------------------------------------
+
+
+class MetaidRequest(BaseModel):
+    """One ask from the dashboard: which kind, and the address to issue it to."""
+
+    type: str = Field(pattern=r"^(demo|real)$")
+    email: EmailStr
+
+
+@app.get("/api/metaid")
+def list_metaid(user_id: int = Depends(require_user)) -> dict:
+    """Every request this person has made, newest first, so the dashboard can
+    show the latest of each kind."""
+    with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            select id, metaid_type as type, email, status, decision_note,
+                   created_at, decided_at
+            from metaid_request
+            where user_id = %s
+            order by created_at desc, id desc
+            """,
+            (user_id,),
+        )
+        rows = cur.fetchall()
+    return {"rows": rows}
+
+
+@app.post("/api/metaid", status_code=201)
+def request_metaid(
+    entry: MetaidRequest, user_id: int = Depends(require_user)
+) -> dict:
+    try:
+        with pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                "CALL sp_request_metaid(%s, %s, %s)",
+                (user_id, entry.type, entry.email),
+            )
+            (request_id,) = cur.fetchone()
+    except errors.UniqueViolation:
+        raise HTTPException(
+            409, f"Your {entry.type} MetaID request is already waiting for an answer."
+        )
+    return {"id": request_id}
 
 
 @app.get("/api/admin/stats")
@@ -769,14 +885,30 @@ if __name__ == "__main__":
             continue
         raise AssertionError(f"accepted {bad!r} as a code")
 
-    token = sign_session(7)
-    assert read_session(token) == 7
+    assert Signup(**base, password="12345678").password == "12345678"
+    for bad in ("1234567", ""):
+        try:
+            Signup(**base, password=bad)
+        except ValidationError:
+            continue
+        raise AssertionError(f"accepted {bad!r} as a password")
+
+    assert MetaidRequest(type="demo", email="alex@example.com").type == "demo"
+    for bad in ({"type": "live"}, {"type": ""}, {"email": "alex@"}):
+        try:
+            MetaidRequest(**{"type": "real", "email": "alex@example.com", **bad})
+        except ValidationError:
+            continue
+        raise AssertionError(f"accepted {bad}")
+
+    token = sign_session(7, "admin")
+    assert read_session(token) == (7, "admin")
     assert read_session(token[:-1] + ("0" if token[-1] != "0" else "1")) is None
     assert read_session("garbage") is None
     assert read_session(None) is None
 
     expired = (
-        base64.urlsafe_b64encode(f"7:{int(time.time()) - 1}".encode())
+        base64.urlsafe_b64encode(f"7:admin:{int(time.time()) - 1}".encode())
         .rstrip(b"=")
         .decode()
     )
@@ -787,8 +919,19 @@ if __name__ == "__main__":
 
     # The pending cookie is the same signature with a shorter life, so a
     # ten-minute token must still read back and a lapsed one must not.
-    assert read_session(sign_session(7, PENDING_TTL)) == 7
-    assert read_session(sign_session(7, -1)) is None
+    assert read_session(sign_session(7, "end_user", PENDING_TTL)) == (7, "end_user")
+    assert read_session(sign_session(7, "end_user", -1)) is None
+
+    # An old-format token (no role) must read as nothing, not as an admin.
+    legacy = (
+        base64.urlsafe_b64encode(f"7:{int(time.time()) + 60}".encode())
+        .rstrip(b"=")
+        .decode()
+    )
+    legacy += "." + hmac.new(
+        SESSION_SECRET.encode(), legacy.encode(), hashlib.sha256
+    ).hexdigest()
+    assert read_session(legacy) is None, "role-less token accepted"
 
     assert _page(0, 10_000) == (1, PAGE_MAX)
     assert _page(3, 25) == (3, 25)

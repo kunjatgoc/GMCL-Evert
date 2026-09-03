@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { realAccountSchema, registrationSchema } from '../src/lib/schema'
+import { realAccountSchema, registrationSchema, signupSchema } from '../src/lib/schema'
 
 const valid = {
   fullName: 'Alex Mercer',
@@ -59,5 +59,28 @@ describe('realAccountSchema', () => {
     const r = realAccountSchema.safeParse({ email: '  alex@example.com  ' })
     expect(r.success).toBe(true)
     if (r.success) expect(r.data.email).toBe('alex@example.com')
+  })
+})
+
+describe('signupSchema', () => {
+  it('is the registration form plus a password', () => {
+    expect(signupSchema.safeParse({ ...valid, password: 'correct-horse' }).success).toBe(true)
+    expect(signupSchema.safeParse(valid).success).toBe(false)
+  })
+
+  it('wants at least eight characters', () => {
+    const r = signupSchema.safeParse({ ...valid, password: 'short' })
+    expect(r.success).toBe(false)
+    if (!r.success) {
+      expect(r.error.issues.some((i) => i.path[0] === 'password')).toBe(true)
+    }
+  })
+
+  it('keeps the phone-against-country rule', () => {
+    const r = signupSchema.safeParse({ ...valid, country: 'GB', password: 'correct-horse' })
+    expect(r.success).toBe(false)
+    if (!r.success) {
+      expect(r.error.issues.some((i) => i.path[0] === 'phone')).toBe(true)
+    }
   })
 })

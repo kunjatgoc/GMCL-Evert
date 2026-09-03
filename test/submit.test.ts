@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { resendOtp, submitLogin, submitOtp } from '../src/lib/submit'
+import { resendOtp, submitLogin, submitOtp, submitSignup } from '../src/lib/submit'
 
 const respondWith = (status: number, body?: unknown) =>
   vi.stubGlobal(
@@ -26,7 +26,16 @@ afterEach(() => vi.unstubAllGlobals())
 describe('submitLogin', () => {
   it('signs a confirmed address straight in', async () => {
     respondWith(200, { stage: 'done', email: 'a@b.com', role: 'admin' })
-    expect(await submitLogin('a@b.com', 'pw')).toEqual({ ok: true, stage: 'done' })
+    expect(await submitLogin('a@b.com', 'pw')).toEqual({
+      ok: true,
+      stage: 'done',
+      role: 'admin',
+    })
+  })
+
+  it('carries the role, so an entrant lands on the dashboard', async () => {
+    respondWith(200, { stage: 'done', email: 'a@b.com', role: 'end_user' })
+    expect(await submitLogin('a@b.com', 'pw')).toMatchObject({ role: 'end_user' })
   })
 
   it('asks for a code while the address is unconfirmed', async () => {
@@ -73,9 +82,9 @@ describe('submitLogin', () => {
 })
 
 describe('submitOtp', () => {
-  it('reports success on 200', async () => {
-    respondWith(200, { email: 'a@b.com', role: 'admin' })
-    expect(await submitOtp('123456')).toEqual({ ok: true })
+  it('reports success on 200, with the role to route on', async () => {
+    respondWith(200, { email: 'a@b.com', role: 'end_user' })
+    expect(await submitOtp('123456')).toEqual({ ok: true, role: 'end_user' })
   })
 
   it('treats a wrong code as retryable, not expired', async () => {
@@ -117,5 +126,61 @@ describe('resendOtp', () => {
   it('flags a lapsed sign-in on 401', async () => {
     respondWith(401)
     expect(await resendOtp()).toMatchObject({ ok: false, expired: true })
+  })
+})
+
+const entrant = {
+  fullName: 'Alex Mercer',
+  email: 'alex@example.com',
+  country: 'IN',
+  phone: '9876543210',
+  password: 'correct-horse',
+}
+
+describe('submitSignup', () => {
+  it('reports success on 201 without pretending to be a session', async () => {
+    respondWith(201, { stage: 'otp', sent: true })
+    expect(await submitSignup(entrant)).toEqual({ ok: true })
+  })
+
+  it('posts the form as-is, password included, with the cookie jar open', async () => {
+    const fetchMock = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(JSON.stringify({ stage: 'otp' }), { status: 201 })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    await submitSignup(entrant)
+    const [url, init] = fetchMock.mock.calls[0]
+    if (!init) throw new Error('fetch was called without options')
+    expect(url).toBe('/api/signup')
+    expect(init.credentials).toBe('same-origin')
+    expect(JSON.parse(String(init.body))).toEqual(entrant)
+  })
+
+  it('passes the server wording for a 409, since email and phone need different fixes', async () => {
+    respondWith(409, { detail: 'That phone number already has an account.' })
+    const res = await submitSignup(entrant)
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error).toMatch(/phone number/i)
+  })
+
+  it('separates a mail failure from a rejected form', async () => {
+    respondWith(502)
+    const mail = await submitSignup(entrant)
+    respondWith(422)
+    const form = await submitSignup(entrant)
+    expect(mail.ok).toBe(false)
+    expect(form.ok).toBe(false)
+    if (!mail.ok && !form.ok) {
+      expect(mail.error).toMatch(/could not send/i)
+      expect(form.error).not.toMatch(/could not send/i)
+    }
+  })
+
+  it('reports a reachability problem when the request throws', async () => {
+    throwsOnFetch()
+    const res = await submitSignup(entrant)
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error).toMatch(/could not reach/i)
   })
 })

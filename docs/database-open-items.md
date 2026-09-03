@@ -63,15 +63,16 @@ Carried over from the stack review on 2 September 2026.
 
 ---
 
-## 4. Only email confirmation is built
+## 4. Forgot password and MetaID approval are not built
 
-Done: creating an admin account mails a six-digit code over SMTP, and the
-first sign-in will not issue a session until it is answered. Ordinary sign-ins
-after that send no mail at all.
+Done: creating an account -- an admin by script, an entrant at `/signup` --
+mails a six-digit code over SMTP, and no session is issued until it is
+answered. Ordinary sign-ins after that send no mail at all. The dashboard
+opens MetaID requests through `sp_request_metaid`.
 
-Still missing, and deliberately so: signup, forgot password, and the MetaID
-request and approval endpoints. `sp_reset_password` and `sp_request_metaid`
-are written and tested; nothing calls them.
+Still missing, and deliberately so: forgot password, and the admin endpoint
+that settles a request. `sp_reset_password` and `sp_decide_metaid` are written
+and tested; nothing calls them.
 
 ---
 

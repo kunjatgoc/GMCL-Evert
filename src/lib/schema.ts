@@ -18,32 +18,55 @@ export const realAccountSchema = z.object({ email: emailField })
 
 export type RealAccountRequest = z.infer<typeof realAccountSchema>
 
-export const registrationSchema = z
-  .object({
-    fullName: z
-      .string()
-      .trim()
-      .min(2, 'Please enter your full name.')
-      .max(80, 'That name is too long.')
-      // Rejects a lone surname or a string of digits without excluding
-      // single-word mononyms, which are legitimate in many countries.
-      .regex(/^[\p{L}\p{M}][\p{L}\p{M}'’.\- ]*$/u, 'Use letters only.'),
+const registrationFields = z.object({
+  fullName: z
+    .string()
+    .trim()
+    .min(2, 'Please enter your full name.')
+    .max(80, 'That name is too long.')
+    // Rejects a lone surname or a string of digits without excluding
+    // single-word mononyms, which are legitimate in many countries.
+    .regex(/^[\p{L}\p{M}][\p{L}\p{M}'’.\- ]*$/u, 'Use letters only.'),
 
-    email: emailField,
+  email: emailField,
 
-    country: z.string().min(2),
+  country: z.string().min(2),
 
-    phone: z.string().trim().min(1, 'Please enter your phone number.'),
-  })
-  .superRefine((val, ctx) => {
-    const parsed = parsePhoneNumberFromString(val.phone, val.country as CountryCode)
-    if (!parsed?.isValid()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['phone'],
-        message: 'That phone number is not valid for the selected country.',
-      })
-    }
-  })
+  phone: z.string().trim().min(1, 'Please enter your phone number.'),
+})
+
+// A number is only valid against a country, so the rule sits on the object
+// rather than on either field. Shared by both forms below.
+const phoneMatchesCountry = (
+  val: { phone: string; country: string },
+  ctx: z.RefinementCtx
+) => {
+  const parsed = parsePhoneNumberFromString(val.phone, val.country as CountryCode)
+  if (!parsed?.isValid()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['phone'],
+      message: 'That phone number is not valid for the selected country.',
+    })
+  }
+}
+
+export const registrationSchema = registrationFields.superRefine(phoneMatchesCountry)
 
 export type Registration = z.infer<typeof registrationSchema>
+
+// The signup form is the registration form plus a password. Length is the
+// whole rule -- composition rules get gamed, and the server hashes whatever
+// arrives. Mirrors `Signup` in api/index.py.
+export const PASSWORD_MIN = 8
+
+export const signupSchema = registrationFields
+  .extend({
+    password: z
+      .string()
+      .min(PASSWORD_MIN, `Use at least ${PASSWORD_MIN} characters.`)
+      .max(200, 'That password is too long.'),
+  })
+  .superRefine(phoneMatchesCountry)
+
+export type Signup = z.infer<typeof signupSchema>

@@ -77,7 +77,8 @@ settle it -- that rule is in `sp_decide_metaid`, not only in the API. A partial
 unique index allows one open request per person per type; a settled one leaves
 the way clear to ask again. The user never supplies a MetaID, only the address
 one should be issued against. External validation of a Real address is a future
-step in front of `sp_request_metaid`; the API for it does not exist yet.
+step in front of `sp_request_metaid`. The dashboard asks through
+`POST /api/metaid`; the approval endpoint does not exist yet.
 
 Pydantic owns the request shape -- types, email format, phone validity for the
 chosen country. The procedures own the write, the duplicate rules and the
@@ -102,19 +103,35 @@ calls to action -- **Create Now** to `/signup` and **Join The League Now** to
 ask for a Demo or a Real MetaID from the dashboard. The section keeps the id
 `#register`, so the hero button and the nav still land on it.
 
-`/signup` has no screen yet. Until it does, that link 404s.
+`/signup` is the old registration form plus a password: the same name, email
+and country-aware phone rules from `src/lib/schema.ts`, and the server checks
+them again because the endpoint is public. `POST /api/signup` creates the
+account through `sp_signup`, mails a six-digit code and answers with a pending
+cookie, never a session. The screen then asks for the code, and a right answer
+lands on `/dashboard`. A code that cannot be mailed rolls the account back, so
+the person simply tries again. `/api/register` and `/api/real-account` are
+untouched and still answer.
 
-`src/lib/submit.ts` and `src/lib/schema.ts` are still here and still tested.
-Nothing on the landing page calls them, so Vite leaves them out of the bundle,
-but the signup form wants exactly the same name, email and country-aware phone
-rules and the same 409-is-a-duplicate wording. `/api/register` and
-`/api/real-account` are untouched and still answer.
+`/dashboard` is the entrant's one screen: a Demo card and a Real card, each
+showing the latest request of its kind or the form to ask. Requests open as
+`pending`; newera decides in the admin panel and emails the MetaID itself, so
+nothing here ever displays one. It is a separate lazy chunk, like the admin
+panel.
 
-## Admin panel
+Sign-in, sign-up and the dashboard header share `src/components/auth/` -- the
+backdrop and lockup, the confirmation-code form with its resend countdown, and
+the password field with its show/hide toggle -- so the three screens cannot
+drift apart.
 
-`/login` signs in, `/admin` is the dashboard, `/admin/demo-users` and
-`/admin/real-users` are the two lists. Everything behind `/admin` needs a
-session, so the panel is a separate lazy chunk the marketing page never loads.
+## Signing in, and the admin panel
+
+`/login` signs everyone in and sends each role home: `admin` to `/admin`,
+`end_user` to `/dashboard`. The role rides inside the signed session cookie,
+so `require_admin` refuses an entrant's cookie without asking the database,
+and the two staff roles are refused at the door until something is built for
+them. `/admin` is the dashboard, `/admin/demo-users` and `/admin/real-users`
+are the two lists. Everything behind `/admin` needs an admin session, so the
+panel is a separate lazy chunk the marketing page never loads.
 
 ```bash
 psql "$DATABASE_URL" -f db/app_schema.sql
@@ -128,8 +145,8 @@ password is the whole of it.
 
 Until the address is confirmed, the password buys only a ten-minute
 `gmcl_pending` cookie, which is not a session and cannot reach anything behind
-`require_admin`. Answering the code trades it for the real `gmcl_admin`
-session and settles `email_verified_at` for good. If the code from account
+a session guard. Answering the code trades it for the real `gmcl_session`
+cookie and settles `email_verified_at` for good. If the code from account
 creation has expired by the time anyone signs in, that sign-in sends a fresh
 one rather than leaving them stuck.
 
@@ -161,8 +178,8 @@ update users set email_verified_at = null where email = 'you@example.com';
 Set `COOKIE_SECURE=0` locally, since dev is plain http and a Secure cookie
 would be dropped.
 
-The database carries four roles, but the sign-in endpoint still admits only
-`admin`. Staff and end-user login are not built yet; the tables they need are.
+The database carries four roles; sign-in admits `admin` and `end_user`.
+Staff login is not built yet; the tables it needs are.
 
 ## Images
 

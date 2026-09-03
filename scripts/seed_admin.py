@@ -27,14 +27,11 @@ import psycopg
 # read.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "api"))
 from index import (  # noqa: E402
-    OTP_RESEND_SECONDS,
     OTP_TTL_MINUTES,
     SESSION_SECRET,
     SMTP_HOST,
     hash_password,
-    new_otp,
-    otp_hash,
-    send_otp_email,
+    issue_otp,
 )
 
 
@@ -88,30 +85,18 @@ def main() -> int:
             )
             return 0
 
-        code = new_otp()
-        cur.execute(
-            "CALL sp_issue_auth_token(%s, 'signup_otp', %s, %s, %s)",
-            (
-                user_id,
-                otp_hash("signup_otp", user_id, code),
-                OTP_TTL_MINUTES,
-                OTP_RESEND_SECONDS,
-            ),
-        )
-        (token_id,) = cur.fetchone()
-
-        if token_id is None:
-            print("a code was sent moments ago, so this run sent none")
-            return 0
-
         # The token is rolled back with a failed send, so the next attempt is
         # not blocked for a minute by a code that never left the building.
         try:
-            send_otp_email(email, code)
+            sent = issue_otp(cur, user_id, email)
         except Exception as exc:  # noqa: BLE001 -- whatever SMTP threw
             conn.rollback()
             print(f"the account is ready, but the code could not be sent: {exc}")
             print("The first sign-in will send another.")
+            return 0
+
+        if not sent:
+            print("a code was sent moments ago, so this run sent none")
             return 0
 
     print(

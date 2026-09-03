@@ -1,4 +1,4 @@
-import type { Registration } from './schema'
+import type { Registration, Signup } from './schema'
 
 export type SubmitResult = { ok: true } | { ok: false; error: string }
 
@@ -60,25 +60,20 @@ export async function submitRealAccount(email: string): Promise<SubmitResult> {
   }
 }
 
-const LOGIN_ENDPOINT = import.meta.env.VITE_LOGIN_URL ?? '/api/admin/login'
+const LOGIN_ENDPOINT = import.meta.env.VITE_LOGIN_URL ?? '/api/login'
 
 /**
- * Admin sign-in. Same contract as the two above.
+ * Sign-in. Same contract as the two above.
  *
- * Usually this is the whole of it and the server replies with a session
- * cookie. An address that has never been confirmed gets a code in the inbox
- * and a short-lived pending cookie instead, which is not a session. Nothing
- * about either cookie is kept in JS.
- */
-/**
- * `done` is the usual answer: the password was enough and the session is set.
- *
- * `otp` happens once per account, while the address has never been confirmed.
- * `sent` is false when a code went out moments ago and is still live -- the
- * screen still advances, it just does not claim to have mailed anything.
+ * `done` is the usual answer: the password was enough, the session is set,
+ * and `role` says which panel to open. An address that has never been
+ * confirmed gets `otp` instead -- a code in the inbox and a short-lived pending
+ * cookie, which is not a session. `sent` is false when a code went out moments
+ * ago and is still live: the screen still advances, it just does not claim to
+ * have mailed anything. Nothing about either cookie is kept in JS.
  */
 export type LoginResult =
-  | { ok: true; stage: 'done' }
+  | { ok: true; stage: 'done'; role: string }
   | { ok: true; stage: 'otp'; sent: boolean }
   | { ok: false; error: string }
 
@@ -100,7 +95,7 @@ export async function submitLogin(
       const body = await res.json().catch(() => null)
       return body?.stage === 'otp'
         ? { ok: true, stage: 'otp', sent: body?.sent !== false }
-        : { ok: true, stage: 'done' }
+        : { ok: true, stage: 'done', role: String(body?.role ?? '') }
     }
 
     // One message for both, deliberately: telling a stranger which half was
@@ -127,16 +122,59 @@ export async function submitLogin(
 }
 
 /**
+ * Account creation. Always ends in the confirmation step, so a success here
+ * means "a code is in the inbox and the pending cookie is set", never a
+ * session. The server says which of email and phone is taken, because the two
+ * need different fixes.
+ */
+export async function submitSignup(data: Signup): Promise<SubmitResult> {
+  try {
+    const res = await fetch('/api/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(data),
+    })
+
+    if (res.ok) return { ok: true }
+
+    if (res.status === 409) {
+      const detail = await res.json().catch(() => null)
+      return {
+        ok: false,
+        error: String(detail?.detail ?? 'That email already has an account.'),
+      }
+    }
+    if (res.status === 422)
+      return { ok: false, error: 'Check the details above and try again.' }
+    if (res.status === 502)
+      return { ok: false, error: 'We could not send the code. Please try again.' }
+    if (res.status === 503)
+      return { ok: false, error: 'Sign-up is unavailable right now.' }
+
+    return { ok: false, error: 'Sign-up failed. Please try again.' }
+  } catch {
+    return {
+      ok: false,
+      error: 'Could not reach the server. Check your connection and try again.',
+    }
+  }
+}
+
+/**
  * The confirmation step, and the resend beside it.
  *
  * `expired` is the one distinction worth making: the pending cookie has run
  * out, so the screen has to go back and ask for the password again rather than
  * offer another code nobody can use.
  */
-export type OtpResult = { ok: true } | { ok: false; error: string; expired?: boolean }
+type OtpFailure = { ok: false; error: string; expired?: boolean }
+export type OtpResult = { ok: true } | OtpFailure
+/** A verified code is a sign-in, so it also says where to go. */
+export type VerifyResult = { ok: true; role: string } | OtpFailure
 
-const VERIFY_OTP_ENDPOINT = '/api/admin/verify-otp'
-const RESEND_OTP_ENDPOINT = '/api/admin/resend-otp'
+const VERIFY_OTP_ENDPOINT = '/api/verify-otp'
+const RESEND_OTP_ENDPOINT = '/api/resend-otp'
 
 async function postOtp(url: string, body?: unknown): Promise<Response> {
   return fetch(url, {
@@ -147,11 +185,14 @@ async function postOtp(url: string, body?: unknown): Promise<Response> {
   })
 }
 
-export async function submitOtp(code: string): Promise<OtpResult> {
+export async function submitOtp(code: string): Promise<VerifyResult> {
   try {
     const res = await postOtp(VERIFY_OTP_ENDPOINT, { code })
 
-    if (res.ok) return { ok: true }
+    if (res.ok) {
+      const body = await res.json().catch(() => null)
+      return { ok: true, role: String(body?.role ?? '') }
+    }
 
     // 401 covers both a wrong code and a lapsed pending cookie, and the server
     // says which in its detail -- deliberately, because the two need different
