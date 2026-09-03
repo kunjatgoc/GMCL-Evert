@@ -14,7 +14,11 @@ import { EASE } from '../lib/motion'
  * interest, which is GML's side of the arrangement and sits behind
  * require_admin; a reviewer is here to answer MetaID requests, so this counts
  * those and nothing else.
+ *
+ * Every tile is a link to the rows behind it. A number a reviewer wants to
+ * act on and cannot click is a number they have to go and re-find by hand.
  */
+const QUEUE = "/admin/metaid"
 export function MetaidDashboard() {
   const [stats, setStats] = useState<MetaidStats | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -59,6 +63,7 @@ export function MetaidDashboard() {
             icon={Clock}
             index={0}
             accent
+            href={`${QUEUE}?status=pending`}
           />
           <Card
             label="Approved"
@@ -66,6 +71,7 @@ export function MetaidDashboard() {
             sub={`${stats.today} asked today`}
             icon={CheckCircle2}
             index={1}
+            href={`${QUEUE}?status=approved`}
           />
           <Card
             label="Rejected"
@@ -73,6 +79,7 @@ export function MetaidDashboard() {
             sub="Refused so far"
             icon={XCircle}
             index={2}
+            href={`${QUEUE}?status=rejected`}
           />
           <Card
             label="All requests"
@@ -80,6 +87,7 @@ export function MetaidDashboard() {
             sub="Demo and real combined"
             icon={ClipboardList}
             index={3}
+            href={QUEUE}
           />
         </div>
       )}

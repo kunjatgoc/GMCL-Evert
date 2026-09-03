@@ -16,6 +16,7 @@ export function Card({
   icon: Icon,
   index,
   accent = false,
+  href,
 }: {
   label: string
   value: number
@@ -25,10 +26,20 @@ export function Card({
   /** The one card whose number is green. Rule 2: one green accent per view --
    *  four identical green numbers is four accents, which is none. */
   accent?: boolean
+  /** Given, the whole card becomes the link to the rows it counted. A plain
+   *  anchor: the destination is a different screen with its own filters, and
+   *  it reads them from the URL on mount. */
+  href?: string
 }) {
+  const Root = href ? motion.a : motion.div
   return (
-    <motion.div
-      className="glass glass-lip group relative overflow-hidden rounded-2xl bg-[var(--admin-card)] p-5"
+    <Root
+      {...(href ? { href } : {})}
+      className={`glass glass-lip group relative block overflow-hidden rounded-2xl bg-[var(--admin-card)] p-5 ${
+        href
+          ? 'cursor-pointer transition-colors duration-300 hover:border-[rgba(62,230,138,0.3)]'
+          : ''
+      }`}
       variants={depthIn}
       custom={index}
       initial="hidden"
@@ -69,6 +80,6 @@ export function Card({
         }`}
       />
       <p className={`${TEXT.label} relative mt-2.5 text-[var(--admin-muted)]`}>{sub}</p>
-    </motion.div>
+    </Root>
   )
 }

@@ -1121,8 +1121,11 @@ def admin_metaid(
     where = [w.replace("created_at", "m.created_at") for w in where]
 
     if q.strip():
-        where.append("(m.email ilike %s or u.email ilike %s or u.phone ilike %s)")
-        params += [f"%{q.strip()}%"] * 3
+        where.append(
+            "(m.email ilike %s or u.email ilike %s or u.phone ilike %s"
+            " or u.full_name ilike %s)"
+        )
+        params += [f"%{q.strip()}%"] * 4
     # Both bound, not interpolated, and a value the check constraints would
     # reject simply matches nothing.
     if status.strip():
@@ -1145,9 +1148,9 @@ def admin_metaid(
         total = cur.fetchone()["total"]
         cur.execute(
             f"""
-            select m.id, m.user_id, u.phone, u.email as account_email,
-                   m.email, m.metaid_type as type, m.status, m.decision_note,
-                   m.created_at, m.decided_at
+            select m.id, m.user_id, u.full_name, u.phone,
+                   u.email as account_email, m.email, m.metaid_type as type,
+                   m.status, m.decision_note, m.created_at, m.decided_at
             from metaid_request m
             join users u on u.id = m.user_id
             {clause}

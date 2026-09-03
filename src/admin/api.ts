@@ -61,6 +61,8 @@ export type MetaidStatus = 'pending' | 'approved' | 'rejected'
 export type MetaidRow = {
   id: number
   user_id: number
+  /** Null on staff accounts, which are seeded without one. */
+  full_name: string | null
   phone: string
   /** The address on the account, which is not necessarily the one below. */
   account_email: string

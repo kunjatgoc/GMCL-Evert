@@ -73,6 +73,17 @@ type Draft = Record<string, string>
 const emptyDraft = (filters: readonly Filter[]): Draft =>
   Object.fromEntries(filters.map((f) => [f.name, '']))
 
+/** The same shape, filled from `?status=pending` and friends.
+ *
+ *  Only declared filters are read, so a hand-typed parameter this screen does
+ *  not offer cannot reach the endpoint. It is what lets a dashboard tile link
+ *  straight to the rows it counted, and it makes a filtered list a URL someone
+ *  can send to a colleague. */
+const draftFromUrl = (filters: readonly Filter[]): Draft => {
+  const params = new URLSearchParams(window.location.search)
+  return Object.fromEntries(filters.map((f) => [f.name, params.get(f.name) ?? '']))
+}
+
 /** Every list has a created_at, so these two are worth offering on all of
  *  them -- which is not the same as offering them by default to a screen that
  *  never asked. A screen still has to list them. */
@@ -109,8 +120,8 @@ function UserList<T extends { id: number }>({
   // `draft` is what the inputs hold; `applied` is what the last search asked
   // for. Splitting them is what lets the query fire on submit instead of on
   // every keystroke -- no debounce, no request per character.
-  const [draft, setDraft] = useState<Draft>(() => emptyDraft(filters))
-  const [applied, setApplied] = useState<Draft>(() => emptyDraft(filters))
+  const [draft, setDraft] = useState<Draft>(() => draftFromUrl(filters))
+  const [applied, setApplied] = useState<Draft>(() => draftFromUrl(filters))
   const [page, setPage] = useState(1)
 
   const [data, setData] = useState<Page<T> | null>(null)
@@ -611,7 +622,7 @@ export function MetaidQueue() {
               { value: 'real', label: 'Real' },
             ],
           },
-          { name: 'q', label: 'Search', placeholder: 'Email or phone' },
+          { name: 'q', label: 'Search', placeholder: 'Name, email or phone' },
           ...DATE_RANGE,
         ]}
         columns={[
@@ -625,6 +636,14 @@ export function MetaidQueue() {
             skeleton: 'w-16',
             cell: (r) => <span className="tabular text-[var(--admin-muted)]">#{r.id}</span>,
             hideOnMobile: true,
+          },
+          {
+            header: 'Name',
+            skeleton: 'w-36',
+            cell: (r) =>
+              r.full_name ?? (
+                <span className="text-[var(--admin-muted)]">&mdash;</span>
+              ),
           },
           {
             header: 'Phone',
