@@ -1,4 +1,3 @@
-import { scrollToId } from '../lib/scroll'
 
 // Illustrative only. These are the instrument classes the league trades, not
 // a quote feed  the strip is labelled as such so nobody reads it as live
@@ -113,9 +112,8 @@ export function Nav() {
             the leftover width instead of the gap between them drifting. */}
         <div className="ml-auto flex shrink-0 items-center gap-1 sm:ml-0 sm:gap-2">
           {/* Text-only on purpose. Two pill buttons side by side read as two
-              equal offers; registration is the one this page is selling, so
-              sign-in stays the quieter of the pair. A real navigation, not an
-              anchor jump -- /login is its own screen. */}
+              equal offers; signing up is the one this page is selling, so
+              sign-in stays the quieter of the pair. */}
           <a
             href="/login"
             className="rounded-full px-3 py-1.5 text-[13.5px] font-medium text-[#E4EAE7] transition-colors duration-300 hover:text-white"
@@ -123,13 +121,14 @@ export function Nav() {
             Sign in
           </a>
 
-          <button
-            type="button"
-            onClick={() => scrollToId('register')}
+          {/* Straight to the form, not down to the section that holds one
+              button to the same place. */}
+          <a
+            href="/signup"
             className="rounded-full border border-[rgba(0,255,135,0.32)] bg-[rgba(0,255,135,0.07)] px-4 py-1.5 text-[13.5px] font-semibold text-[#00FF87] transition-colors duration-300 hover:bg-[rgba(0,255,135,0.14)]"
           >
-            Join
-          </button>
+            Sign up
+          </a>
         </div>
       </div>
     </header>
