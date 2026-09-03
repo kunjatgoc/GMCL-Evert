@@ -1,4 +1,4 @@
-import { ArrowRight, LogIn, ShieldCheck } from 'lucide-react'
+import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { GlowButton } from './ui/GlowButton'
 import { Eyebrow } from './ui/Eyebrow'
 import { SectionReveal } from './ui/SectionReveal'
@@ -54,10 +54,10 @@ export function JoinCta() {
 
         <SectionReveal className="mt-12">
           <div className="glass glass-lip relative overflow-hidden rounded-3xl p-8 sm:p-11">
-            {/* Stacked on a phone so neither reads as the secondary of a pair
-                that has wrapped; side by side from `sm`, where the solid fill
-                and the outline do the ranking instead of the order. */}
-            <div className="flex flex-col gap-3.5 sm:flex-row sm:justify-center">
+            {/* One button. Two of equal weight made the visitor choose before
+                they had anything to choose between; signing in is a link for
+                the few who already have an account. */}
+            <div className="flex justify-center">
               <GlowButton
                 href="/signup"
                 magnetic={false}
@@ -66,22 +66,18 @@ export function JoinCta() {
                 }
                 className="w-full sm:w-auto"
               >
-                Create Now
-              </GlowButton>
-
-              <GlowButton
-                href="/login"
-                variant="ghost"
-                magnetic={false}
-                icon={<LogIn className="size-4" />}
-                className="w-full sm:w-auto"
-              >
-                Join The League Now
+                Sign up
               </GlowButton>
             </div>
 
             <p className="mt-6 text-center text-[15px] leading-relaxed text-white/85">
-              New here? Create an account. Already have one? Sign in.
+              Already have an account?{' '}
+              <a
+                href="/login"
+                className="font-medium text-[#00FF87] underline-offset-4 hover:underline"
+              >
+                Sign in
+              </a>
             </p>
 
             {/* items-start, because on a phone this wraps to three lines and a

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { ArrowRight, ShieldCheck } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { GlowButton, holdDone } from './ui/GlowButton'
 import { field, label } from '../lib/fieldStyles'
 import { submitLogin } from '../lib/submit'
@@ -79,12 +79,7 @@ export function Login() {
           </>
         )
       }
-      footer={
-        <>
-          <ShieldCheck className="mr-1.5 inline size-4 -translate-y-px text-[#00FF87]" />
-          All sign-ins are recorded
-        </>
-      }
+
     >
       {stage.name === 'form' && (
         <form onSubmit={onSubmit} className="relative space-y-5">

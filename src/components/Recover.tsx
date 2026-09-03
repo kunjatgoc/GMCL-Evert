@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { ArrowRight, ShieldCheck } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { GlowButton, holdDone } from './ui/GlowButton'
 import { field, label } from '../lib/fieldStyles'
 import { submitForgotPassword, submitResetPassword } from '../lib/submit'
@@ -56,12 +56,7 @@ export function ForgotPassword() {
           </>
         )
       }
-      footer={
-        <>
-          <ShieldCheck className="mr-1.5 inline size-4 -translate-y-px text-[#00FF87]" />
-          The link expires in 30 minutes and works once
-        </>
-      }
+
     >
       {sentTo ? (
         // Worded around "if": the server will not say whether the address has
@@ -190,12 +185,7 @@ export function ResetPassword() {
           </>
         )
       }
-      footer={
-        <>
-          <ShieldCheck className="mr-1.5 inline size-4 -translate-y-px text-[#00FF87]" />
-          This link stops working once it is used
-        </>
-      }
+
     >
       {changed ? (
         <div className="relative space-y-5">
