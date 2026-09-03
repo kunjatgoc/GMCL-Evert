@@ -4,7 +4,7 @@ import { Check, LogOut, X, type LucideIcon } from 'lucide-react'
 import { getMe, homeFor, logout, Unauthorized, type Me } from '../lib/api'
 import { EASE } from '../lib/motion'
 import { PALETTE } from './palette'
-import { TEXT } from './type'
+import { TEXT, btnGhost, btnSecondary } from './type'
 import { PanelSkeleton, useDelayed } from './Skeleton'
 
 /**
@@ -230,7 +230,7 @@ export function PanelShell({ routes, subtitle, role }: Props) {
                       type="button"
                       onClick={signOut}
                       autoFocus
-                      className={`${TEXT.label} inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[rgba(62,230,138,0.35)] bg-[rgba(62,230,138,0.12)] px-3 py-2 font-semibold text-[#3EE68A] transition-colors duration-200 hover:bg-[rgba(62,230,138,0.2)]`}
+                      className={btnSecondary}
                     >
                       <Check className="size-4" />
                       Yes
@@ -238,7 +238,7 @@ export function PanelShell({ routes, subtitle, role }: Props) {
                     <button
                       type="button"
                       onClick={() => setConfirmingOut(false)}
-                      className={`${TEXT.label} inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-[#E4EAE7]/75 transition-colors duration-200 hover:text-white`}
+                      className={btnGhost}
                     >
                       <X className="size-4" />
                       Cancel

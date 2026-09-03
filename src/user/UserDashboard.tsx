@@ -15,7 +15,7 @@ import {
 import { Unauthorized, type Me } from '../lib/api'
 import { listMetaid, requestMetaid, type MetaidRequest, type MetaidType } from './api'
 import { PanelShell, type PanelRoute } from '../panel/PanelShell'
-import { TEXT, control, fieldLabel, primaryAction } from '../panel/type'
+import { TEXT, btnIcon, btnPrimary, btnSecondary, control, fieldLabel } from '../panel/type'
 import { ErrorAlert } from '../components/auth/FormAlert'
 import { EASE } from '../lib/motion'
 
@@ -101,7 +101,7 @@ function useRequests() {
 
 function Loading() {
   return (
-    <p className={`${TEXT.body} mt-16 text-center text-[var(--admin-muted)]`} role="status">
+    <p className={`${TEXT.body} mt-10 text-center text-[var(--admin-muted)]`} role="status">
       <Loader2 className="mx-auto size-6 animate-spin" />
     </p>
   )
@@ -113,7 +113,7 @@ function DashboardScreen({ me }: { me: Me }) {
   const firstName = me.full_name?.trim().split(/\s+/)[0]
 
   return (
-    <div className="mx-auto w-full max-w-4xl">
+    <div>
       <h1 className={heading}>
         {firstName ? (
           <>
@@ -126,7 +126,7 @@ function DashboardScreen({ me }: { me: Me }) {
         )}
       </h1>
 
-      <dl className="mt-7 grid gap-x-10 gap-y-4 sm:grid-cols-2">
+      <dl className="mt-6 grid gap-x-10 gap-y-3 sm:grid-cols-2">
         <div>
           <dt className={fieldLabel}>Account email</dt>
           <dd className={`${TEXT.body} mt-1 break-words`}>{me.email}</dd>
@@ -137,25 +137,25 @@ function DashboardScreen({ me }: { me: Me }) {
         </div>
       </dl>
 
-      {error && <div className="mt-8"><ErrorAlert>{error}</ErrorAlert></div>}
+      {error && <div className="mt-6"><ErrorAlert>{error}</ErrorAlert></div>}
 
-      <h2 className={`${TEXT.body} mt-12 font-semibold`}>Your requests</h2>
+      <h2 className={`${TEXT.body} mt-8 font-semibold`}>Your requests</h2>
 
       {!rows ? (
         <Loading />
       ) : rows.length === 0 ? (
-        <div className={`${card} mt-4 p-6`}>
+        <div className={`${card} mt-4 p-6 xl:max-w-5xl`}>
           <p className={`${TEXT.body} text-[#E4EAE7]`}>
             You have not asked for a MetaID yet. Pick one and we will take it
             from there.
           </p>
-          <a href="/request-metaid" className={`${primaryAction} mt-5`}>
+          <a href="/request-metaid" className={`${btnPrimary} mt-5`}>
             <Send className="size-4" />
             Request a MetaID
           </a>
         </div>
       ) : (
-        <ul className="mt-4 space-y-3">
+        <ul className="mt-4 space-y-3 xl:max-w-5xl">
           {rows.map((r, i) => (
             <motion.li
               key={r.id}
@@ -202,21 +202,21 @@ function RequestScreen({ me }: { me: Me }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl">
+    <div>
       <h1 className={heading}>
         Pick your <span className="text-[#3EE68A]">MetaID</span>
       </h1>
-      <p className={`${TEXT.body} mt-5 max-w-xl text-[#E4EAE7]`}>
+      <p className={`${TEXT.body} mt-4 max-w-2xl text-[#E4EAE7]`}>
         Choose one, tell us the address it should go to, and newera takes it
         from there.
       </p>
 
-      {error && <div className="mt-8"><ErrorAlert>{error}</ErrorAlert></div>}
+      {error && <div className="mt-6"><ErrorAlert>{error}</ErrorAlert></div>}
 
       {!rows ? (
         <Loading />
       ) : (
-        <div className="mt-9 grid gap-5 sm:grid-cols-2">
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:max-w-5xl">
           {KINDS.map((kind, i) => {
             const latest = latestOf(kind.type)
             const Icon = kind.icon
@@ -240,12 +240,12 @@ function RequestScreen({ me }: { me: Me }) {
                   {kind.blurb}
                 </p>
 
-                <div className="mt-auto pt-6">
+                <div className="mt-auto pt-5">
                   {canAsk(kind.type) ? (
                     <button
                       type="button"
                       onClick={() => setOpen(kind)}
-                      className={`${primaryAction} w-full`}
+                      className={`${btnPrimary} w-full`}
                     >
                       <Send className="size-4" />
                       Request {kind.title}
@@ -337,7 +337,7 @@ function RequestModal({ kind, defaultEmail, onClose, onChanged }: ModalProps) {
           type="button"
           onClick={() => ref.current?.close()}
           aria-label="Close"
-          className="absolute right-4 top-4 grid size-9 cursor-pointer place-items-center rounded-full border border-white/10 bg-white/[0.03] text-[var(--admin-muted)] transition-colors duration-200 hover:border-white/25 hover:text-white"
+          className={`${btnIcon} absolute right-4 top-4`}
         >
           <X className="size-4" />
         </button>
@@ -352,7 +352,7 @@ function RequestModal({ kind, defaultEmail, onClose, onChanged }: ModalProps) {
             <button
               type="button"
               onClick={() => ref.current?.close()}
-              className={`${primaryAction} w-full`}
+              className={`${btnSecondary} w-full`}
             >
               Done
             </button>
@@ -382,7 +382,7 @@ function RequestModal({ kind, defaultEmail, onClose, onChanged }: ModalProps) {
 
             {error && <ErrorAlert>{error}</ErrorAlert>}
 
-            <button type="submit" disabled={busy} className={`${primaryAction} w-full`}>
+            <button type="submit" disabled={busy} className={`${btnPrimary} w-full`}>
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
               {busy ? 'Sending' : 'Submit request'}
             </button>

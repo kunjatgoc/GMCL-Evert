@@ -3,7 +3,7 @@ import { motion } from 'motion/react'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { COUNTRIES } from '../lib/countries'
 import { EASE } from '../lib/motion'
-import { TEXT, control, fieldLabel } from '../panel/type'
+import { TEXT, btnGhost, btnIcon, btnPrimary, control, fieldLabel } from '../panel/type'
 import { RowsSkeleton } from '../panel/Skeleton'
 import {
   listDemoUsers,
@@ -189,16 +189,7 @@ function UserList<T extends { id: number }>({
         </label>
 
         <div className="flex items-center gap-2">
-        <button
-          type="submit"
-          className={`${TEXT.body} group relative inline-flex items-center gap-2 overflow-hidden cursor-pointer rounded-xl bg-[linear-gradient(180deg,#7DF7B8_0%,#3EE68A_38%,#22A968_100%)] px-4 py-2.5 font-semibold text-black shadow-[0_8px_28px_-8px_rgba(62,230,138,0.55)] transition-[filter] duration-300 hover:brightness-110`}
-        >
-          {/* The GlowButton sweep, kept inline: this is a rectangle, not a
-              pill, and the shared component bakes its own radius in. */}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -inset-y-8 -left-1/3 w-1/3 rotate-12 bg-white/40 opacity-0 blur-md transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:left-[110%] group-hover:opacity-100"
-          />
+        <button type="submit" className={btnPrimary}>
           <Search className="relative size-4" />
           <span className="relative">Search</span>
         </button>
@@ -206,7 +197,7 @@ function UserList<T extends { id: number }>({
         <button
           type="button"
           onClick={reset}
-          className={`${TEXT.body} cursor-pointer rounded-xl px-3 py-2.5 text-[#E4EAE7]/70 transition-colors duration-300 hover:text-white`}
+          className={btnGhost}
         >
           Reset
         </button>
@@ -310,7 +301,7 @@ function UserList<T extends { id: number }>({
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1 || loading}
             aria-label="Previous page"
-            className="grid size-10 cursor-pointer place-items-center rounded-xl border border-white/10 bg-white/[0.03] transition-colors duration-300 hover:border-[rgba(62,230,138,0.4)] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-white/10"
+            className={btnIcon}
           >
             <ChevronLeft className="size-4" />
           </button>
@@ -322,7 +313,7 @@ function UserList<T extends { id: number }>({
             onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
             disabled={page >= lastPage || loading}
             aria-label="Next page"
-            className="grid size-10 cursor-pointer place-items-center rounded-xl border border-white/10 bg-white/[0.03] transition-colors duration-300 hover:border-[rgba(62,230,138,0.4)] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-white/10"
+            className={btnIcon}
           >
             <ChevronRight className="size-4" />
           </button>

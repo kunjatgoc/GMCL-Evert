@@ -31,9 +31,48 @@ export const control =
 
 export const fieldLabel = `${TEXT.label} font-semibold uppercase tracking-[0.12em] text-[var(--admin-muted)]`
 
-/** The panel's one primary action. Green is for actions and active state. */
-export const primaryAction =
-  `${TEXT.body} inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl ` +
-  'border border-[rgba(62,230,138,0.35)] bg-[rgba(62,230,138,0.12)] px-5 py-3 font-semibold ' +
-  'text-[#3EE68A] transition-colors duration-300 hover:bg-[rgba(62,230,138,0.2)] ' +
-  'disabled:cursor-not-allowed disabled:opacity-50'
+/**
+ * The panel's four buttons. Four, not "whatever each screen wrote": the same
+ * ghost button had two radii and two text opacities before this existed, and
+ * the icon button was a 40px square in one place and a 36px circle in another.
+ *
+ * Which to reach for:
+ *
+ *   btnPrimary    the one action a screen exists for. One per view.
+ *   btnSecondary  a real action that is not that one -- confirming, dismissing
+ *                 a finished state.
+ *   btnGhost      cancel, reset, sign out. Anything that undoes or leaves.
+ *   btnIcon       a square with only a glyph in it, where the glyph is obvious.
+ *
+ * Green is for actions and active state, never decoration -- so only the top
+ * two are green at all.
+ */
+const btnBase =
+  'inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap ' +
+  'rounded-xl transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50'
+
+/**
+ * The light sweep is a `before:` pseudo-element rather than a child <span>, so
+ * the whole button is a class string and nothing has to remember to nest an
+ * extra element to get the shine. Needs `group` on the button itself.
+ */
+export const btnPrimary =
+  `${TEXT.body} ${btnBase} group relative overflow-hidden px-5 py-2.5 font-semibold text-black ` +
+  'bg-[linear-gradient(180deg,#7DF7B8_0%,#3EE68A_38%,#22A968_100%)] ' +
+  'shadow-[0_8px_28px_-8px_rgba(62,230,138,0.55)] hover:brightness-110 ' +
+  "before:pointer-events-none before:absolute before:-inset-y-8 before:-left-1/3 before:w-1/3 " +
+  "before:rotate-12 before:bg-white/40 before:opacity-0 before:blur-md before:content-[''] " +
+  'before:transition-all before:duration-700 before:ease-[cubic-bezier(0.16,1,0.3,1)] ' +
+  'hover:before:left-[110%] hover:before:opacity-100'
+
+export const btnSecondary =
+  `${TEXT.body} ${btnBase} border border-[rgba(62,230,138,0.35)] bg-[rgba(62,230,138,0.12)] ` +
+  'px-5 py-2.5 font-semibold text-[#3EE68A] hover:bg-[rgba(62,230,138,0.2)]'
+
+export const btnGhost =
+  `${TEXT.body} ${btnBase} px-3.5 py-2.5 text-[#E4EAE7]/70 hover:text-white`
+
+export const btnIcon =
+  `${btnBase} size-10 shrink-0 border border-white/10 bg-white/[0.03] text-[#E4EAE7] ` +
+  'hover:border-[rgba(62,230,138,0.4)] hover:text-white ' +
+  'disabled:hover:border-white/10'
