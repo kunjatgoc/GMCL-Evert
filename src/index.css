@@ -11,13 +11,16 @@
 
   --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 :root {
   color-scheme: dark;
   --glow: rgba(0, 255, 135, 0.35);
+  /* The site's one ease-out (EASE in lib/motion.ts), and a strong in-out for
+     a thing crossing the screen. Here rather than in @theme so they reach
+     the keyframes below whether or not a utility ever uses them. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
   /* Height of the fixed top bar. Anything that has to clear it reads this
      rather than repeating a magic number. */
   --nav-h: 3.25rem;
@@ -64,6 +67,13 @@ h3 {
   outline: 2px solid var(--color-accent);
   outline-offset: 3px;
   border-radius: 4px;
+}
+
+/* The confirmation-code field is transparent: six drawn boxes stand in for
+   it, and the box waiting for the next digit carries the focus indication. A
+   ring on the input itself would draw a second box around all six. */
+#otp:focus-visible {
+  outline: none;
 }
 
 /* --- layout ------------------------------------------------------------ */
@@ -182,6 +192,66 @@ h3 {
   to {
     transform: translate3d(-50%, 0, 0);
   }
+}
+
+/* --- GlowButton: the glyph ride ----------------------------------------
+   A busy button's glyph leaves through the right edge and comes back in
+   through the left, the way a cart crosses an add-to-cart pill, until the
+   work is done. The two distances depend on the label beside it, so the
+   component measures them and hands them in as --to-exit and --from-left;
+   only transform moves. A link's glyph departs the same way, once, and the
+   page follows it. Done: the tick pops and the new label rises in. */
+@keyframes glyph-ride {
+  0% {
+    transform: translate3d(0, 0, 0);
+    animation-timing-function: var(--ease-in-out-strong);
+  }
+  44% {
+    transform: translate3d(var(--to-exit), 0, 0);
+  }
+  44.01% {
+    transform: translate3d(var(--from-left), 0, 0);
+    animation-timing-function: var(--ease-out-expo);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes glyph-depart {
+  to {
+    transform: translate3d(var(--to-exit), 0, 0);
+  }
+}
+
+@keyframes glyph-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes label-rise {
+  from {
+    transform: translate3d(0, 55%, 0);
+    opacity: 0;
+  }
+}
+
+[data-state='busy'] [data-glyph] {
+  animation: glyph-ride 1.1s infinite;
+}
+
+[data-departing] [data-glyph] {
+  animation: glyph-depart 0.26s var(--ease-in-out-strong) forwards;
+}
+
+[data-state='done'] [data-glyph] {
+  animation: glyph-pop 0.22s var(--ease-out-expo);
+}
+
+[data-state='done'] [data-label] {
+  animation: label-rise 0.22s var(--ease-out-expo);
 }
 
 @keyframes rail-pulse {

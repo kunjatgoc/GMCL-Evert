@@ -65,16 +65,13 @@ const LOGIN_ENDPOINT = import.meta.env.VITE_LOGIN_URL ?? '/api/login'
 /**
  * Sign-in. Same contract as the two above.
  *
- * `done` is the usual answer: the password was enough, the session is set,
- * and `role` says which panel to open. An address that has never been
- * confirmed gets `otp` instead -- a code in the inbox and a short-lived pending
- * cookie, which is not a session. `sent` is false when a code went out moments
- * ago and is still live: the screen still advances, it just does not claim to
- * have mailed anything. Nothing about either cookie is kept in JS.
+ * A password and nothing else: the session cookie comes back set and `role`
+ * says which panel to open. The confirmation code belongs to account
+ * creation, so an address that never answered one is refused here rather than
+ * being offered a second chance to. Nothing about the cookie is kept in JS.
  */
 export type LoginResult =
-  | { ok: true; stage: 'done'; role: string }
-  | { ok: true; stage: 'otp'; sent: boolean }
+  | { ok: true; role: string }
   | { ok: false; error: string }
 
 export async function submitLogin(
@@ -93,9 +90,7 @@ export async function submitLogin(
 
     if (res.ok) {
       const body = await res.json().catch(() => null)
-      return body?.stage === 'otp'
-        ? { ok: true, stage: 'otp', sent: body?.sent !== false }
-        : { ok: true, stage: 'done', role: String(body?.role ?? '') }
+      return { ok: true, role: String(body?.role ?? '') }
     }
 
     // One message for both, deliberately: telling a stranger which half was
@@ -103,10 +98,13 @@ export async function submitLogin(
     if (res.status === 401 || res.status === 400)
       return { ok: false, error: 'That email and password do not match.' }
 
-    if (res.status === 502)
+    // The password was right, the address was never confirmed. Worth its own
+    // wording: the fix is in their inbox, not in the form.
+    if (res.status === 403)
       return {
         ok: false,
-        error: 'We could not send the code. Please try again.',
+        error:
+          'Confirm your email first. Use the code we sent when you created the account.',
       }
 
     if (res.status === 503)

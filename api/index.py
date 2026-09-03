@@ -25,6 +25,7 @@ import hmac
 import os
 import secrets
 import smtplib
+import sys
 import time
 from datetime import date
 from email.message import EmailMessage
@@ -202,6 +203,32 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", "")
 SMTP_TIMEOUT = 10
 
+# Prints every confirmation code to the terminal. A development switch, and a
+# real credential leak anywhere else: a code in a log is a code anyone with log
+# access can sign in with, and Vercel's function logs are not a private place.
+#
+# Off unless it is explicitly turned on, so forgetting to unset it is not
+# possible -- it has to be set to be dangerous. Never put OTP_ECHO in the
+# Vercel project environment.
+#
+# With no SMTP host configured it also stands in for the mail server, so the
+# whole sign-up flow can be walked through locally before SES credentials
+# exist. That substitution only ever happens when this is on.
+OTP_ECHO = os.environ.get("OTP_ECHO", "") == "1"
+
+# A code can reach the person either by mail or, in development, by being
+# printed. The endpoints ask this rather than asking about SMTP directly.
+CAN_SEND_OTP = bool(SMTP_HOST) or OTP_ECHO
+
+if OTP_ECHO:
+    print(
+        "[OTP_ECHO] ON -- every confirmation code will be printed below.\n"
+        "[OTP_ECHO] Development only. Never set OTP_ECHO in the Vercel "
+        "environment.",
+        file=sys.stderr,
+        flush=True,
+    )
+
 
 def hash_password(password: str) -> str:
     """`pbkdf2$<rounds>$<salt hex>$<key hex>`. hashlib covers this, so no passlib."""
@@ -258,11 +285,26 @@ def otp_hash(purpose: str, user_id: int, code: str) -> str:
 def send_otp_email(to_email: str, code: str) -> None:
     """Mails one code. Raises HTTPException(502) if it cannot.
 
-    Nothing here is logged -- not the code, not the body. The caller sends
-    inside its database transaction, so a failure here rolls the token back and
-    the person can try again immediately rather than waiting out a resend
-    window for a mail that never left.
+    Nothing is logged unless OTP_ECHO is on, which is a development switch and
+    is off by default. The caller sends inside its database transaction, so a
+    failure here rolls the token back and the person can try again immediately
+    rather than waiting out a resend window for a mail that never left.
     """
+    if OTP_ECHO:
+        # stderr, not stdout: uvicorn's own log goes there, so the code lands
+        # in the same stream as the request that caused it and stays out of
+        # anything parsing stdout.
+        print(
+            f"[OTP_ECHO] {to_email} -> {code}  "
+            f"(expires in {OTP_TTL_MINUTES} minutes)",
+            file=sys.stderr,
+            flush=True,
+        )
+        # No mail server to hand it to, and the code is already on screen, so
+        # the send is done. Only reachable with the switch on.
+        if not SMTP_HOST:
+            return
+
     msg = EmailMessage()
     msg["Subject"] = "Confirm your Global Market League email"
     msg["From"] = SMTP_FROM_EMAIL
@@ -417,7 +459,7 @@ def signup(entry: Signup, response: Response) -> dict:
     again rather than owning an address they can neither confirm nor
     re-register.
     """
-    if not DATABASE_URL or not SESSION_SECRET or not SMTP_HOST:
+    if not DATABASE_URL or not SESSION_SECRET or not CAN_SEND_OTP:
         raise HTTPException(503, "Sign-up is unavailable.")
 
     try:
@@ -463,15 +505,13 @@ class Login(BaseModel):
 def login(entry: Login, response: Response) -> dict:
     """Password sign-in for any account in SIGN_IN_ROLES.
 
-    Answers `{"stage": "done", "role": ...}` with a session for a confirmed
-    address, and `{"stage": "otp"}` with a pending cookie for one that has
-    never been confirmed -- which happens once per account, right after it is
-    created.
+    A password and nothing else. The confirmation code belongs to account
+    creation and is asked for there; an address that never answered it cannot
+    sign in at all, so no code is issued or checked on this path.
     """
     if not DATABASE_URL or not SESSION_SECRET:
         raise HTTPException(503, "Sign-in is unavailable.")
 
-    sent = False
     with pool.connection() as conn, conn.cursor() as cur:
         cur.execute(
             """
@@ -497,36 +537,22 @@ def login(entry: Login, response: Response) -> dict:
 
         user_id, role, email, verified = row[0], row[2], row[3], row[4]
 
+        # Only a confirmed address gets in. Said after the password check, so
+        # the answer still tells a stranger nothing they did not already
+        # supply, and worded so the owner knows where to look.
         if verified is None:
-            # The code from account creation may well have expired by now, so
-            # send a fresh one rather than leaving them stuck with a dead code
-            # and no way to ask for another.
-            if not SMTP_HOST:
-                raise HTTPException(503, "Sign-in is unavailable.")
-            sent = issue_otp(cur, user_id, email)
-        else:
-            cur.execute(
-                "update users set last_login_at = now() where id = %s", (user_id,)
+            raise HTTPException(
+                403,
+                "Confirm your email first. Use the code we sent when the "
+                "account was created.",
             )
 
-    if verified is not None:
-        set_cookie(response, SESSION_COOKIE, sign_session(user_id, role), SESSION_TTL)
-        return {"stage": "done", "email": email, "role": role}
+        cur.execute(
+            "update users set last_login_at = now() where id = %s", (user_id,)
+        )
 
-    # A refused re-issue is not a refused sign-in. The resend guard means a
-    # code went out moments ago and is still live for another few minutes, so
-    # the person needs the screen that takes it -- answering 429 here would
-    # strand them on the password form holding a code with nowhere to type it.
-    set_cookie(
-        response,
-        PENDING_COOKIE,
-        sign_session(user_id, role, PENDING_TTL),
-        PENDING_TTL,
-    )
-    # The code is never in the response, and neither is anything that narrows
-    # it down. `sent` says only whether fresh mail left the building, so the
-    # next screen can word itself honestly.
-    return {"stage": "otp", "sent": sent}
+    set_cookie(response, SESSION_COOKIE, sign_session(user_id, role), SESSION_TTL)
+    return {"email": email, "role": role}
 
 
 class OtpCode(BaseModel):
@@ -593,7 +619,7 @@ def resend_otp(gmcl_pending: Optional[str] = Cookie(default=None)) -> dict:
     pending = read_session(gmcl_pending)
     if pending is None:
         raise HTTPException(401, "That sign-in expired. Start again.")
-    if not SMTP_HOST:
+    if not CAN_SEND_OTP:
         raise HTTPException(503, "Sign-in is unavailable.")
     user_id = pending[0]
 
@@ -935,5 +961,25 @@ if __name__ == "__main__":
 
     assert _page(0, 10_000) == (1, PAGE_MAX)
     assert _page(3, 25) == (3, 25)
+
+    # The one property that matters about the echo switch: with it off, a code
+    # never reaches the log. Checked by running the real sender and reading
+    # what it wrote, not by trusting the branch above it.
+    if not OTP_ECHO:
+        import contextlib
+        import io
+
+        captured = io.StringIO()
+        with contextlib.redirect_stderr(captured), contextlib.redirect_stdout(
+            captured
+        ):
+            try:
+                send_otp_email("nobody@example.com", "424242")
+            except HTTPException:
+                # No SMTP host in a self-check, which is the point: it got as
+                # far as trying to send without ever printing.
+                pass
+        assert "424242" not in captured.getvalue(), "a code reached the log"
+        assert not CAN_SEND_OTP or SMTP_HOST, "codes can be issued with no way to send"
 
     print("ok")

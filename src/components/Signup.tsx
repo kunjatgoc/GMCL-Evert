@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { AlertCircle, Loader2, ShieldCheck } from 'lucide-react'
-import { GlowButton } from './ui/GlowButton'
+import { AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react'
+import { GlowButton, holdDone } from './ui/GlowButton'
 import { COUNTRIES, signupSchema, type Signup as SignupData } from '../lib/schema'
 import { submitSignup } from '../lib/submit'
 import { homeFor } from '../lib/api'
@@ -43,6 +43,7 @@ type Stage =
 export function Signup() {
   const [stage, setStage] = useState<Stage>({ name: 'form' })
   const [formError, setFormError] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
 
   const {
     register,
@@ -77,6 +78,8 @@ export function Signup() {
       setFormError(res.error)
       return
     }
+    setDone(true)
+    await holdDone()
     setStage({ name: 'otp', address: data.email })
   }
 
@@ -200,17 +203,12 @@ export function Signup() {
           <GlowButton
             type="submit"
             magnetic={false}
-            disabled={isSubmitting}
+            icon={<ArrowRight className="size-4" />}
+            state={done ? 'done' : isSubmitting ? 'busy' : 'idle'}
+            doneLabel="Account created"
             className="mt-2 w-full cursor-pointer"
           >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                Creating your account…
-              </>
-            ) : (
-              'Create account'
-            )}
+            Create account
           </GlowButton>
 
           <p className="text-center text-[14px] leading-relaxed text-[#E4EAE7]/80">
@@ -250,7 +248,12 @@ export function Signup() {
             Your account is saved, but the code has lapsed. Sign in with your
             password and we will send a fresh one.
           </p>
-          <GlowButton href="/login" magnetic={false} className="w-full">
+          <GlowButton
+            href="/login"
+            magnetic={false}
+            icon={<ArrowRight className="size-4" />}
+            className="w-full"
+          >
             Sign in
           </GlowButton>
         </div>

@@ -58,18 +58,24 @@ export function JoinCta() {
                 that has wrapped; side by side from `sm`, where the solid fill
                 and the outline do the ranking instead of the order. */}
             <div className="flex flex-col gap-3.5 sm:flex-row sm:justify-center">
-              <GlowButton href="/signup" magnetic={false} className="w-full sm:w-auto">
+              <GlowButton
+                href="/signup"
+                magnetic={false}
+                icon={
+                  <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+                }
+                className="w-full sm:w-auto"
+              >
                 Create Now
-                <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
               </GlowButton>
 
               <GlowButton
                 href="/login"
                 variant="ghost"
                 magnetic={false}
+                icon={<LogIn className="size-4" />}
                 className="w-full sm:w-auto"
               >
-                <LogIn className="size-4" />
                 Join The League Now
               </GlowButton>
             </div>

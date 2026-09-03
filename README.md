@@ -112,6 +112,19 @@ lands on `/dashboard`. A code that cannot be mailed rolls the account back, so
 the person simply tries again. `/api/register` and `/api/real-account` are
 untouched and still answer.
 
+The confirmation code's answer is told as one turn, in
+`src/components/auth/orbit.ts`. The six boxes curl off their row onto a dotted
+ring, the ring winds up and turns a turn and a quarter while the server is
+asked, and it then either goes green and screws down into a single verified
+tile or unwinds back into the row carrying a red edge. The turn is two
+keyframes and no trigonometry: the row's `transform-origin` moves to the hub
+and a plain `rotate()` draws the circle, with the tiles left to tumble rather
+than counter-rotated. It is Web Animations rather than CSS keyframes because
+the turn has to be interrupted whenever the server answers and picked up from
+whatever angle it had reached. A slow answer keeps the ring turning instead of
+freezing it. Under `prefers-reduced-motion` none of it runs and the button's
+plain busy state answers instead.
+
 `/dashboard` is the entrant's one screen: a Demo card and a Real card, each
 showing the latest request of its kind or the form to ask. Requests open as
 `pending`; newera decides in the admin panel and emails the MetaID itself, so
@@ -138,13 +151,19 @@ psql "$DATABASE_URL" -f db/app_schema.sql
 .venv/bin/python scripts/seed_admin.py you@example.com   # prompts for the password
 ```
 
-Signing in is a password. The one exception is an address that has never been
-confirmed: creating an account mails it a six-digit code, and the first
-sign-in asks for that code before it issues a session. After that, the
-password is the whole of it.
+An admin made by that script is confirmed on the spot and is mailed nothing:
+running it means holding the database credential, which is a stronger claim on
+the address than a code in an inbox. The code is for people signing themselves
+up at `/signup`, who hold neither.
 
-Until the address is confirmed, the password buys only a ten-minute
-`gmcl_pending` cookie, which is not a session and cannot reach anything behind
+Signing in is a password and nothing else. The six-digit code belongs to
+account creation: `/signup` mails one and asks for it there, and an address
+that never answered it cannot sign in at all -- the password is checked first,
+then the attempt is refused with a message pointing at the inbox. No code is
+issued or checked on the sign-in path.
+
+During signup, before the code is answered, the account holds only a
+ten-minute `gmcl_pending` cookie, which is not a session and cannot reach anything behind
 a session guard. Answering the code trades it for the real `gmcl_session`
 cookie and settles `email_verified_at` for good. If the code from account
 creation has expired by the time anyone signs in, that sign-in sends a fresh
@@ -177,6 +196,21 @@ update users set email_verified_at = null where email = 'you@example.com';
 
 Set `COOKIE_SECURE=0` locally, since dev is plain http and a Secure cookie
 would be dropped.
+
+`OTP_ECHO=1` prints every confirmation code to the terminal the API is running
+in, and with `SMTP_HOST` empty it stands in for the mail server entirely, so
+the whole sign-up flow can be walked through before SES credentials exist:
+
+```
+[OTP_ECHO] you@example.com -> 850315  (expires in 5 minutes)
+```
+
+It is a development switch. A code in a log is a credential anyone with log
+access can sign in with, so it must never be set in the Vercel project
+environment. It is off unless it is exactly `1`, the server prints a warning at
+boot whenever it is on, and the self-check in `api/index.py` asserts that with
+it off a code never reaches the log. With both it and `SMTP_HOST` unset,
+sign-up answers 503 rather than issuing a code nobody can receive.
 
 The database carries four roles; sign-in admits `admin` and `end_user`.
 Staff login is not built yet; the tables it needs are.

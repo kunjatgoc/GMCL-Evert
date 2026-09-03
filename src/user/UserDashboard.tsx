@@ -6,6 +6,7 @@ import {
   LineChart,
   Loader2,
   LogOut,
+  Send,
   Wallet,
   XCircle,
   type LucideIcon,
@@ -19,7 +20,7 @@ import {
 } from './api'
 import { AuthBackdrop, Lockup } from '../components/auth/AuthShell'
 import { ErrorAlert } from '../components/auth/FormAlert'
-import { GlowButton } from '../components/ui/GlowButton'
+import { GlowButton, holdDone } from '../components/ui/GlowButton'
 import { Eyebrow } from '../components/ui/Eyebrow'
 import { field, label } from '../lib/fieldStyles'
 import { EASE, depthIn } from '../lib/motion'
@@ -183,6 +184,7 @@ const STATUS = {
 
 function MetaidCard({ kind, index, latest, accountEmail, onChanged }: CardProps) {
   const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const Icon = kind.icon
 
@@ -198,6 +200,9 @@ function MetaidCard({ kind, index, latest, accountEmail, onChanged }: CardProps)
     setError(null)
     try {
       await requestMetaid(kind.type, email)
+      setBusy(false)
+      setDone(true)
+      await holdDone()
       await onChanged()
     } catch (err: unknown) {
       if (err instanceof Unauthorized) window.location.href = '/login'
@@ -293,17 +298,12 @@ function MetaidCard({ kind, index, latest, accountEmail, onChanged }: CardProps)
           <GlowButton
             type="submit"
             magnetic={false}
-            disabled={busy}
+            icon={<Send className="size-4" />}
+            state={done ? 'done' : busy ? 'busy' : 'idle'}
+            doneLabel="Requested"
             className="w-full cursor-pointer px-6 py-3.5 text-[15px]"
           >
-            {busy ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                Sending…
-              </>
-            ) : (
-              `Request ${kind.title}`
-            )}
+            Request {kind.title}
           </GlowButton>
         </form>
       )}

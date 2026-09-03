@@ -65,14 +65,27 @@ Carried over from the stack review on 2 September 2026.
 
 ## 4. Forgot password and MetaID approval are not built
 
-Done: creating an account -- an admin by script, an entrant at `/signup` --
-mails a six-digit code over SMTP, and no session is issued until it is
-answered. Ordinary sign-ins after that send no mail at all. The dashboard
-opens MetaID requests through `sp_request_metaid`.
+Done: signing up at `/signup` mails a six-digit code over SMTP and no session
+is issued until it is answered. Sign-in never mails anything -- it is a
+password, and an unconfirmed address is refused. An admin made by
+`scripts/seed_admin.py` is confirmed on the spot. The dashboard opens MetaID
+requests through `sp_request_metaid`.
 
 Still missing, and deliberately so: forgot password, and the admin endpoint
 that settles a request. `sp_reset_password` and `sp_decide_metaid` are written
 and tested; nothing calls them.
+
+**One gap this leaves.** Someone who closes the tab during signup, before
+answering the code, owns an account they cannot sign in to and cannot
+re-register (the address is taken). There is no self-serve way back. Today the
+fix is one UPDATE by hand:
+
+```sql
+update users set email_verified_at = now() where email = 'them@example.com';
+```
+
+Worth a real recovery path -- re-entering the confirm step from `/signup` on a
+matching password -- if it happens to anyone in practice.
 
 ---
 
