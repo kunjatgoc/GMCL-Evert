@@ -79,8 +79,17 @@ export type MetaidRow = {
 
 export const listMetaidQueue = (qs: string) => admin<Page<MetaidRow>>(`/metaid?${qs}`)
 
-export const decideMetaid = (id: number, status: 'approved' | 'rejected') =>
-  postJson<{ id: number; status: MetaidStatus }>(`/api/admin/metaid/${id}`, { status })
+/** The note is the reason a refusal gives; the entrant reads it on their
+ *  dashboard. An approval has nothing to explain, so it sends none. */
+export const decideMetaid = (
+  id: number,
+  status: 'approved' | 'rejected',
+  note?: string
+) =>
+  postJson<{ id: number; status: MetaidStatus }>(`/api/admin/metaid/${id}`, {
+    status,
+    note: note?.trim() || null,
+  })
 
 /** The queue in five numbers -- the newera staff dashboard. */
 export type MetaidStats = {

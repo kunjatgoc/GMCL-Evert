@@ -486,10 +486,11 @@ function ConfirmDecision({
 }: {
   pending: Pending
   busy: boolean
-  onConfirm: () => void
+  onConfirm: (note: string) => void
   onClose: () => void
 }) {
   const ref = useRef<HTMLDialogElement>(null)
+  const [note, setNote] = useState('')
   const { row, status } = pending
   const approving = status === 'approved'
 
@@ -507,20 +508,58 @@ function ConfirmDecision({
       style={{ colorScheme: 'dark' }}
     >
       <div className={modalCard}>
-        <h2 id="decide-title" className={`${TEXT.body} font-semibold`}>
-          {approving ? 'Approve this request?' : 'Reject this request?'}
-        </h2>
+        {/* The decision states itself in the header -- colour, icon and verb
+            together, so the two dialogs are told apart before they are read. */}
+        <div className="flex items-start gap-3.5">
+          <span
+            aria-hidden
+            className={`grid size-11 shrink-0 place-items-center rounded-xl border ${
+              approving
+                ? 'border-[rgba(62,230,138,0.3)] bg-[rgba(62,230,138,0.08)] text-[#3EE68A]'
+                : 'border-[rgba(228,85,60,0.3)] bg-[rgba(228,85,60,0.08)] text-[var(--admin-destructive)]'
+            }`}
+          >
+            {approving ? <Check className="size-5" /> : <X className="size-5" />}
+          </span>
+          <div className="min-w-0">
+            <h2 id="decide-title" className={`${TEXT.body} font-semibold`}>
+              {approving ? 'Approve this request?' : 'Reject this request?'}
+            </h2>
+            <p className={`${TEXT.label} mt-1 text-[var(--admin-muted)]`}>
+              {row.full_name ?? `User #${row.user_id}`} &middot;{' '}
+              <span className="capitalize">{row.type}</span> MetaID
+            </p>
+          </div>
+        </div>
 
-        <dl className={`${TEXT.label} mt-5 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2`}>
+        <dl
+          className={`${TEXT.label} mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3.5`}
+        >
           <dt className="text-[var(--admin-muted)]">Request</dt>
           <dd className="tabular">#{row.id}</dd>
-          <dt className="text-[var(--admin-muted)]">User</dt>
-          <dd className="tabular">#{row.user_id}</dd>
-          <dt className="text-[var(--admin-muted)]">Type</dt>
-          <dd className="capitalize">{row.type}</dd>
           <dt className="text-[var(--admin-muted)]">Issue to</dt>
           <dd className="break-all">{row.email}</dd>
         </dl>
+
+        {/* Only a refusal owes a reason. It is optional, because a request can
+            be wrong in ways nobody wants written down, but it is the only
+            thing the entrant will see besides the word "Rejected". */}
+        {!approving && (
+          <div className="mt-5">
+            <label className={`${fieldLabel} mb-2 block`} htmlFor="decision-note">
+              Reason <span className="font-normal normal-case">(optional)</span>
+            </label>
+            <textarea
+              id="decision-note"
+              rows={3}
+              maxLength={500}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Shown to the entrant on their dashboard."
+              className={`${control} w-full resize-none`}
+            />
+          </div>
+        )}
 
         <p className={`${TEXT.label} mt-5 text-[var(--admin-muted)]`}>
           This cannot be undone, and the entrant sees the result on their
@@ -542,7 +581,7 @@ function ConfirmDecision({
           <button
             type="button"
             disabled={busy}
-            onClick={onConfirm}
+            onClick={() => onConfirm(note)}
             className={approving ? btnSecondary : btnDestructive}
           >
             {busy ? (
@@ -573,12 +612,12 @@ export function MetaidQueue() {
     [version]
   )
 
-  const decide = async () => {
+  const decide = async (note: string) => {
     if (!pending) return
     setDeciding(pending.row.id)
     setFailed(null)
     try {
-      await decideMetaid(pending.row.id, pending.status)
+      await decideMetaid(pending.row.id, pending.status, note)
       setPending(null)
       setVersion((v) => v + 1)
     } catch (e) {
