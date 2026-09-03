@@ -24,3 +24,8 @@ export const listMetaid = () =>
 
 export const requestMetaid = (type: MetaidType, email: string) =>
   postJson<{ id: number }>('/api/metaid', { type, email })
+
+/** Whether Gspice already holds an account against this address. Real only --
+ *  a Demo MetaID is issued against the account's own address and asks nothing. */
+export const checkMetaidEmail = (email: string) =>
+  postJson<{ available: boolean }>('/api/metaid/check', { email })

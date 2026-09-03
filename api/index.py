@@ -939,24 +939,44 @@ def list_metaid(user_id: int = Depends(require_user)) -> dict:
     return {"rows": rows}
 
 
-def validate_real_email(email: str) -> None:
-    """The external check a Real MetaID's address is meant to pass.
+def real_email_available(email: str) -> bool:
+    """Whether Gspice already holds an account against this address.
 
-    Nothing is called yet, because the API does not exist. When it does it
-    goes in this body and nowhere else: raise HTTPException to refuse the
-    address, return to let it through. The row is written `pending` either
-    way -- passing this is not a decision, it is only a reason to accept the
-    request at all.
+    True means the address is free to issue a Real MetaID against. False sends
+    the screen back to ask for a different one.
+
+    ponytail: the call is not written -- Gspice's endpoint, auth and response
+    shape have not been supplied, and inventing them would mean deleting a
+    guess later rather than filling a hole. Everything above this line is
+    finished and reaches here; this body is the whole of what is left, and
+    until it does something real every address is treated as free.
     """
-    return
+    return True
+
+
+class MetaidCheck(BaseModel):
+    email: EmailStr
+
+
+@app.post("/api/metaid/check")
+def check_metaid_email(entry: MetaidCheck, _: int = Depends(require_user)) -> dict:
+    """Asks before the request is made, because the answer changes what the
+    screen asks for next rather than whether the request failed.
+
+    Demo never comes here: it is issued against the account's own address and
+    has nothing to check.
+    """
+    return {"available": real_email_available(entry.email)}
 
 
 @app.post("/api/metaid", status_code=201)
 def request_metaid(
     entry: MetaidRequest, user_id: int = Depends(require_user)
 ) -> dict:
-    if entry.type == "real":
-        validate_real_email(entry.email)
+    # Checked again here, not only on the screen: /api/metaid/check is
+    # advisory and a caller can simply not ask it.
+    if entry.type == "real" and not real_email_available(entry.email):
+        raise HTTPException(409, "That address already has an account.")
 
     try:
         with pool.connection() as conn, conn.cursor() as cur:

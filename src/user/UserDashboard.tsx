@@ -13,10 +13,17 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { Unauthorized, type Me } from '../lib/api'
-import { listMetaid, requestMetaid, type MetaidRequest, type MetaidType } from './api'
+import {
+  checkMetaidEmail,
+  listMetaid,
+  requestMetaid,
+  type MetaidRequest,
+  type MetaidType,
+} from './api'
 import { PanelShell, type PanelRoute } from '../panel/PanelShell'
 import {
   TEXT,
+  btnGhost,
   btnIcon,
   btnPrimary,
   btnSecondary,
@@ -202,7 +209,7 @@ function DashboardScreen({ me }: { me: Me }) {
 }
 
 /** The two options, and the modal that takes the address for either. */
-function RequestScreen() {
+function RequestScreen({ me }: { me: Me }) {
   const { rows, error, reload } = useRequests()
   const [open, setOpen] = useState<Kind | null>(null)
 
@@ -281,7 +288,12 @@ function RequestScreen() {
       )}
 
       {open && (
-        <RequestModal kind={open} onClose={() => setOpen(null)} onChanged={reload} />
+        <RequestModal
+          kind={open}
+          accountEmail={me.email}
+          onClose={() => setOpen(null)}
+          onChanged={reload}
+        />
       )}
     </div>
   )
@@ -289,85 +301,213 @@ function RequestScreen() {
 
 type ModalProps = {
   kind: Kind
+  /** The account's own address. Demo is issued against it without asking, and
+   *  Real starts by checking whether it can be. */
+  accountEmail: string
   onClose: () => void
   onChanged: () => Promise<void>
 }
 
 /**
- * A native <dialog>, opened with showModal(). Escape to close, focus trapped,
- * the page behind it inert, and a real ::backdrop -- all of it free, and none
- * of it worth hand-rolling.
+ * What each kind asks for, which is as little as it can.
+ *
+ * Demo asks nothing: it is issued against the address the account already
+ * signed in with, so the dialog opens, files the request and says how long the
+ * answer takes.
+ *
+ * Real starts the same way but has to check first, because the address may
+ * already have an account on the broker's side. If it is free the dialog says
+ * which address it will use and asks only for a confirmation; if it is not,
+ * that is the one case where a different address is asked for.
  */
-function RequestModal({ kind, onClose, onChanged }: ModalProps) {
+type Step =
+  | { name: 'checking' }
+  | { name: 'confirm'; email: string }
+  | { name: 'taken'; email: string }
+  | { name: 'sent' }
+
+function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
+  const [step, setStep] = useState<Step>({ name: 'checking' })
   const [busy, setBusy] = useState(false)
-  const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     ref.current?.showModal()
   }, [])
 
-  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const email = String(new FormData(e.currentTarget).get('email') ?? '')
+  const fail = (e: unknown) => {
+    if (e instanceof Unauthorized) window.location.href = '/login'
+    else setError(e instanceof Error ? e.message : 'Something went wrong.')
+  }
 
+  const file = async (email: string) => {
     setBusy(true)
     setError(null)
     try {
       await requestMetaid(kind.type, email)
-      setSent(true)
+      setStep({ name: 'sent' })
       // Refreshed behind the open dialog, so closing lands on the new status.
       await onChanged()
-    } catch (err: unknown) {
-      if (err instanceof Unauthorized) window.location.href = '/login'
-      else setError(err instanceof Error ? err.message : 'Request failed.')
+    } catch (e) {
+      fail(e)
     } finally {
       setBusy(false)
     }
   }
 
+  // Demo files straight away; Real asks the broker about the address first.
+  useEffect(() => {
+    let cancelled = false
+    const open = async () => {
+      if (kind.type === 'demo') {
+        await file(accountEmail)
+        return
+      }
+      try {
+        const { available } = await checkMetaidEmail(accountEmail)
+        if (cancelled) return
+        setStep(
+          available
+            ? { name: 'confirm', email: accountEmail }
+            : { name: 'taken', email: accountEmail }
+        )
+      } catch (e) {
+        if (!cancelled) fail(e)
+      }
+    }
+    open()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /** The one case a different address is asked for: the account's own is taken. */
+  const onSubmitOther = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const email = String(new FormData(e.currentTarget).get('email') ?? '')
+    setBusy(true)
+    setError(null)
+    try {
+      const { available } = await checkMetaidEmail(email)
+      if (!available) {
+        setStep({ name: 'taken', email })
+        setError('That address already has an account too. Try another.')
+        return
+      }
+      await file(email)
+    } catch (err) {
+      fail(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const title =
+    step.name === 'sent'
+      ? 'Request received'
+      : step.name === 'taken'
+        ? 'That address is taken'
+        : kind.title
+
   return (
     <dialog
       ref={ref}
       onClose={onClose}
-      // Native dialogs do not close on a backdrop click. The target is the
-      // dialog itself only when the click landed outside its content.
-      onClick={(e) => e.target === ref.current && ref.current?.close()}
+      onClick={(e) => e.target === ref.current && !busy && ref.current?.close()}
       aria-labelledby="request-modal-title"
       className={modalShell}
       style={{ colorScheme: 'dark' }}
     >
       <div className={modalCard}>
-        <button
-          type="button"
-          onClick={() => ref.current?.close()}
-          aria-label="Close"
-          className={`${btnIcon} absolute right-5 top-5`}
-        >
-          <X className="size-4" />
-        </button>
-
-        <h2 id="request-modal-title" className={`${TEXT.body} pr-12 font-semibold`}>
-          {sent ? 'Request received' : kind.title}
-        </h2>
-
-        {sent ? (
-          <div className="mt-5 space-y-5">
-            <p className={`${TEXT.body} leading-relaxed`}>{AFTER_SUBMIT}</p>
-            <button
-              type="button"
-              onClick={() => ref.current?.close()}
-              className={`${btnSecondary} w-full`}
-            >
-              Done
-            </button>
+        <div className="flex items-start gap-3.5">
+          <span
+            aria-hidden
+            className={`grid size-11 shrink-0 place-items-center rounded-xl border ${
+              step.name === 'taken'
+                ? 'border-[rgba(228,85,60,0.3)] bg-[rgba(228,85,60,0.08)] text-[var(--admin-destructive)]'
+                : 'border-[rgba(62,230,138,0.3)] bg-[rgba(62,230,138,0.08)] text-[#3EE68A]'
+            }`}
+          >
+            {step.name === 'sent' ? (
+              <CheckCircle2 className="size-5" />
+            ) : step.name === 'taken' ? (
+              <XCircle className="size-5" />
+            ) : (
+              <kind.icon className="size-5" />
+            )}
+          </span>
+          <div className="min-w-0">
+            <h2 id="request-modal-title" className={`${TEXT.body} font-semibold`}>
+              {title}
+            </h2>
+            {/* Only when the heading is not already the kind's name. */}
+            {title !== kind.title && (
+              <p className={`${TEXT.label} mt-1 text-[var(--admin-muted)]`}>
+                {kind.title}
+              </p>
+            )}
           </div>
-        ) : (
-          <form onSubmit={onSubmit} className="mt-5 space-y-5">
-            <div>
+          <button
+            type="button"
+            onClick={() => ref.current?.close()}
+            aria-label="Close"
+            className={`${btnIcon} ml-auto`}
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        {step.name === 'checking' && (
+          <p className={`${TEXT.body} mt-6 flex items-center gap-3 text-[#E4EAE7]`} role="status">
+            <Loader2 className="size-4 animate-spin" />
+            {kind.type === 'demo' ? 'Filing your request' : 'Checking your address'}
+          </p>
+        )}
+
+        {step.name === 'confirm' && (
+          <>
+            <p className={`${TEXT.body} mt-6 leading-relaxed text-[#E4EAE7]`}>
+              Your {kind.title} will be issued to this address.
+            </p>
+            <p
+              className={`${TEXT.body} mt-3 break-all rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 font-medium`}
+            >
+              {step.email}
+            </p>
+            {error && <div className="mt-4"><ErrorAlert>{error}</ErrorAlert></div>}
+            <div className="mt-6 flex justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => ref.current?.close()}
+                className={btnGhost}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => file(step.email)}
+                className={btnPrimary}
+              >
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                Confirm
+              </button>
+            </div>
+          </>
+        )}
+
+        {step.name === 'taken' && (
+          <form onSubmit={onSubmitOther} className="mt-6">
+            <p className={`${TEXT.body} leading-relaxed text-[#E4EAE7]`}>
+              <span className="break-all font-medium">{step.email}</span> already
+              has an account. Give us another address for your {kind.title}.
+            </p>
+            <div className="mt-5">
               <label className={`${fieldLabel} mb-2 block`} htmlFor="metaid-email">
-                Send the MetaID to
+                Another address
               </label>
               <input
                 id="metaid-email"
@@ -380,19 +520,46 @@ function RequestModal({ kind, onClose, onChanged }: ModalProps) {
                 placeholder="you@example.com"
                 className={`${control} w-full`}
               />
-              <p className={`${TEXT.label} mt-2 leading-relaxed text-[var(--admin-muted)]`}>
-                The address newera issues the MetaID against. It does not have
-                to be your sign-in address.
-              </p>
             </div>
-
-            {error && <ErrorAlert>{error}</ErrorAlert>}
-
-            <button type="submit" disabled={busy} className={`${btnPrimary} w-full`}>
-              {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-              {busy ? 'Sending' : 'Submit request'}
-            </button>
+            {error && <div className="mt-4"><ErrorAlert>{error}</ErrorAlert></div>}
+            <div className="mt-6 flex justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => ref.current?.close()}
+                className={btnGhost}
+              >
+                Cancel
+              </button>
+              <button type="submit" disabled={busy} className={btnPrimary}>
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                Use this address
+              </button>
+            </div>
           </form>
+        )}
+
+        {step.name === 'sent' && (
+          <>
+            <p className={`${TEXT.body} mt-6 leading-relaxed text-[#E4EAE7]`}>
+              {AFTER_SUBMIT}
+            </p>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => ref.current?.close()}
+                className={btnSecondary}
+              >
+                Done
+              </button>
+            </div>
+          </>
+        )}
+
+        {error && step.name === 'checking' && (
+          <div className="mt-5">
+            <ErrorAlert>{error}</ErrorAlert>
+          </div>
         )}
       </div>
     </dialog>
