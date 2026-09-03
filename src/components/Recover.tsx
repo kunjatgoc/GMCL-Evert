@@ -149,7 +149,16 @@ export function ResetPassword() {
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const password = String(new FormData(e.currentTarget).get('password') ?? '')
+    const data = new FormData(e.currentTarget)
+    const password = String(data.get('password') ?? '')
+
+    // Checked here rather than as you type: a password you are halfway through
+    // typing does not match the one above it, and saying so on every keystroke
+    // is noise. Nothing is sent when they differ, so the button never spins.
+    if (password !== String(data.get('confirm') ?? '')) {
+      setError('Those two passwords do not match.')
+      return
+    }
 
     setBusy(true)
     setError(null)
@@ -229,6 +238,23 @@ export function ResetPassword() {
               autoFocus
               autoComplete="new-password"
               placeholder={`At least ${MIN_PASSWORD} characters`}
+            />
+          </div>
+
+          <div>
+            <label className={label} htmlFor="confirm-password">
+              Confirm new password
+            </label>
+            <PasswordField
+              id="confirm-password"
+              name="confirm"
+              required
+              minLength={MIN_PASSWORD}
+              // Same token as the field above, so a manager offers to fill
+              // both with the one it just generated rather than treating this
+              // as a second, different password.
+              autoComplete="new-password"
+              placeholder="Type it again"
             />
           </div>
 
