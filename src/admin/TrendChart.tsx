@@ -7,7 +7,7 @@ import {
   useTransform,
 } from 'motion/react'
 import { EASE } from '../lib/motion'
-import { TEXT } from './type'
+import { TEXT } from '../panel/type'
 
 export type DayPoint = { day: string; demo: number; real_requests: number }
 

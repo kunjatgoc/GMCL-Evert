@@ -3,8 +3,8 @@ import { motion } from 'motion/react'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { COUNTRIES } from '../lib/countries'
 import { EASE } from '../lib/motion'
-import { TEXT } from './type'
-import { RowsSkeleton } from './Skeleton'
+import { TEXT, control, fieldLabel } from '../panel/type'
+import { RowsSkeleton } from '../panel/Skeleton'
 import {
   listDemoUsers,
   listRealUsers,
@@ -20,14 +20,6 @@ const PER_PAGE = 25
  *  a pleasant cascade, 25 rows at 60ms is a page that takes a second to
  *  finish arriving. */
 const ROW_STAGGER = 0.022
-
-const control =
-  `${TEXT.body} rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-white ` +
-  'placeholder:text-white/30 outline-none transition-all duration-300 ' +
-  'focus:border-[rgba(62,230,138,0.5)] focus:bg-white/[0.05] ' +
-  'focus:shadow-[0_0_0_3px_rgba(62,230,138,0.1)]'
-
-const fieldLabel = `${TEXT.label} font-semibold uppercase tracking-[0.12em] text-[var(--admin-muted)]`
 
 type Column<T> = {
   header: string

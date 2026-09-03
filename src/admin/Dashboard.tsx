@@ -5,8 +5,8 @@ import { Counter } from '../components/ui/Counter'
 import { COUNTRIES } from '../lib/countries'
 import { EASE, depthIn } from '../lib/motion'
 import { getStats, type Stats } from './api'
-import { TEXT } from './type'
-import { StatsSkeleton, useDelayed } from './Skeleton'
+import { TEXT } from '../panel/type'
+import { StatsSkeleton, useDelayed } from '../panel/Skeleton'
 import { TrendChart } from './TrendChart'
 
 const nameFor = (code: string) =>
