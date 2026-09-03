@@ -242,6 +242,11 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", "")
 SMTP_TIMEOUT = 10
 
+# Optional. SES groups a message under a configuration set when this header is
+# present, which is where bounce and complaint tracking is switched on. Unset
+# means SES applies whatever default the identity carries.
+EMAIL_CONFIGURATION_SET = os.environ.get("EMAIL_CONFIGURATION_SET", "")
+
 # Prints every confirmation code to the terminal. A development switch, and a
 # real credential leak anywhere else: a code in a log is a code anyone with log
 # access can sign in with, and Vercel's function logs are not a private place.
@@ -346,6 +351,8 @@ def send_mail(to_email: str, subject: str, body: str) -> None:
     msg["Subject"] = subject
     msg["From"] = SMTP_FROM_EMAIL
     msg["To"] = to_email
+    if EMAIL_CONFIGURATION_SET:
+        msg["X-SES-CONFIGURATION-SET"] = EMAIL_CONFIGURATION_SET
     msg.set_content(body)
 
     try:

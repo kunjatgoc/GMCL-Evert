@@ -19,6 +19,7 @@ and `test/submit.test.ts`.
 
 import json
 import os
+import pathlib
 import re
 import sys
 import time
@@ -26,6 +27,35 @@ import urllib.error
 import urllib.request
 
 BASE = os.environ.get("API_BASE", "http://localhost:8000")
+
+
+def refuse_to_send_real_mail() -> None:
+    """Stop when the server would put these test addresses through real SMTP.
+
+    Every account this script makes is @example.com, which is reserved and
+    bounces every time. A hard bounce is charged against the sending domain's
+    reputation, so running this against a configured SES host quietly damages
+    the thing it is checking. Comment SMTP_HOST out for local work -- OTP_ECHO
+    stands in for the mail server, which is what it is for.
+    """
+    if os.environ.get("ALLOW_REAL_MAIL") == "1":
+        return
+    try:
+        env = pathlib.Path(".env").read_text()
+    except OSError:
+        return
+    for line in env.splitlines():
+        line = line.strip()
+        if line.startswith("SMTP_HOST=") and line.split("=", 1)[1].strip():
+            sys.exit(
+                "SMTP_HOST is set, so this would send real mail to "
+                "@example.com addresses and bounce every one.\n"
+                "Comment SMTP_HOST out in .env (OTP_ECHO covers local runs), "
+                "or set ALLOW_REAL_MAIL=1 if you mean it."
+            )
+
+
+refuse_to_send_real_mail()
 
 
 def post(path: str, body: dict, cookie: str = "") -> tuple[int, dict, str]:
