@@ -5,12 +5,14 @@ import { COUNTRIES } from '../lib/countries'
 import { EASE } from '../lib/motion'
 import {
   TEXT,
+  SELECT_CHEVRON,
   btnGhost,
   btnIcon,
   btnPrimary,
   btnSecondary,
   control,
   fieldLabel,
+  selectControl,
 } from '../panel/type'
 import { RowsSkeleton } from '../panel/Skeleton'
 import {
@@ -186,7 +188,8 @@ function UserList<T extends { id: number }>({
                 <select
                   value={draft[f.name]}
                   onChange={(e) => set(e.target.value)}
-                  className={`${control} ${f.width ?? 'w-[11.5rem]'} cursor-pointer`}
+                  style={SELECT_CHEVRON}
+                  className={`${selectControl} ${f.width ?? 'w-[11.5rem]'}`}
                 >
                   <option value="" className="bg-[#121212]">
                     {f.all ?? 'All'}
@@ -501,7 +504,7 @@ export function MetaidQueue() {
           {
             name: 'type',
             label: 'Type',
-            all: 'Demo and real',
+            all: 'All types',
             width: 'w-[10.5rem]',
             options: [
               { value: 'demo', label: 'Demo' },

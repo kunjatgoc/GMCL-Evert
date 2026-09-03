@@ -32,6 +32,28 @@ export const control =
 export const fieldLabel = `${TEXT.label} font-semibold uppercase tracking-[0.12em] text-[var(--admin-muted)]`
 
 /**
+ * A <select> wearing the same skin. `appearance-none` is the whole point: left
+ * on `auto` the browser draws its own control, which came out 44px tall beside
+ * 47.5px inputs and with macOS's own arrow box on the end -- two reasons the
+ * filter bar did not line up.
+ *
+ * Losing the native arrow means drawing one, and a <select> cannot hold a
+ * pseudo-element, so it is a background image. As an inline style rather than
+ * a Tailwind arbitrary value because the SVG is full of spaces and quotes that
+ * the class scanner would need escaping for -- and an escaped one-off is
+ * harder to read than the style it replaces.
+ */
+export const selectControl = `${control} cursor-pointer appearance-none pr-10`
+
+export const SELECT_CHEVRON = {
+  backgroundImage:
+    "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%23A6B3AC' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'right 0.9rem center',
+  backgroundSize: '0.72rem',
+} as const
+
+/**
  * The panel's four buttons. Four, not "whatever each screen wrote": the same
  * ghost button had two radii and two text opacities before this existed, and
  * the icon button was a 40px square in one place and a 36px circle in another.

@@ -60,20 +60,17 @@ function usePath() {
   return [path, go] as const
 }
 
-/** The panel's own plate -- a near-empty room with one screen still awake --
- *  rather than the hero's particle scatter. Fixed rather than absolute so it
- *  does not scroll away underneath a long table. */
+/** The panel's ground: a low horizon glow and grain, nothing else.
+ *
+ *  There was a photographic plate here -- a blurred skyline whose lit windows
+ *  read as smeared rows of text once it sat behind a real table. Decoration
+ *  that looks like a rendering fault is worse than no decoration, so it is
+ *  gone. Fixed rather than absolute so the glow does not scroll away
+ *  underneath a long list. */
 function Backdrop() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-[var(--admin-bg)]">
-      <img
-        src="/img/admin-plate.webp"
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover object-bottom opacity-55"
-        onError={(e) => (e.currentTarget.style.display = 'none')}
-      />
-      {/* Breathes on a slow cycle so the room is not perfectly still. The
-          plate already carries the light; this only makes it move. */}
+      {/* Breathes on a slow cycle so the room is not perfectly still. */}
       <div className="absolute inset-x-0 bottom-0 h-[30rem] [animation:horizon-glow_13s_ease-in-out_infinite] [background:radial-gradient(55%_60%_at_25%_100%,rgba(62,230,138,0.1),transparent_72%)]" />
       <div className="grain absolute inset-0" />
     </div>
