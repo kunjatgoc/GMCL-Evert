@@ -72,16 +72,8 @@ type Props = {
   wide?: boolean
 }
 
-/** The way out, opposite the brand. Sign-in offers sign-up and the reverse;
- *  the password screens offer the way back in. */
-function navFor(path: string) {
-  if (path === '/signup') return { href: '/login', label: 'Sign in' }
-  if (path === '/login') return { href: '/signup', label: 'Create account' }
-  return { href: '/login', label: 'Sign in' }
-}
-
 export function AuthShell({ eyebrow, title, children, footer, wide }: Props) {
-  const nav = navFor(window.location.pathname.replace(/\/+$/, '') || '/')
+  const here = window.location.pathname.replace(/\/+$/, '') || '/'
 
   return (
     <main className="grain relative isolate flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 py-16">
@@ -104,12 +96,29 @@ export function AuthShell({ eyebrow, title, children, footer, wide }: Props) {
           <Lockup />
         </a>
 
-        <a
-          href={nav.href}
-          className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-5 text-[14.5px] font-medium text-[#E4EAE7] backdrop-blur-md transition-colors duration-300 hover:border-[rgba(0,255,135,0.45)] hover:bg-white/[0.07] hover:text-white"
-        >
-          {nav.label}
-        </a>
+        {/* The landing nav's pair, and its ranking: text-only for sign-in,
+            a pill for sign-up. Two pills side by side read as two equal
+            offers, and creating an account is the one being asked for.
+
+            The screen you are on drops out rather than linking to itself. */}
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          {here !== '/login' && (
+            <a
+              href="/login"
+              className="rounded-full px-3.5 py-2 text-[14px] font-medium text-[#E4EAE7] transition-colors duration-300 hover:text-white"
+            >
+              Sign in
+            </a>
+          )}
+          {here !== '/signup' && (
+            <a
+              href="/signup"
+              className="rounded-full border border-[rgba(0,255,135,0.32)] bg-[rgba(0,255,135,0.07)] px-4.5 py-2 text-[14px] font-semibold text-[#00FF87] transition-colors duration-300 hover:bg-[rgba(0,255,135,0.14)]"
+            >
+              Sign up
+            </a>
+          )}
+        </div>
       </motion.nav>
 
       {/* depthIn rotates on X, which is inert without a perspective ancestor. */}
