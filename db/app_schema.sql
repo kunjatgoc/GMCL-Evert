@@ -236,7 +236,14 @@ begin
 end;
 $$;
 
--- One entry per person. A unique index rather than a check in the API, so two
--- taps on a slow button cannot both get through.
-create unique index if not exists league_entry_user_key
-    on league_entry (user_id);
+-- One entry per account number per person. A person may enter more than one
+-- MetaID -- they can hold a demo and a real account, and newera issues a
+-- number for each -- so the old unique index on (user_id) alone is dropped
+-- here rather than left to fail every second entry.
+--
+-- Still a unique index rather than a check in the API, for the reason it
+-- always was: two taps on a slow button cannot both get through.
+drop index if exists league_entry_user_key;
+
+create unique index if not exists league_entry_user_metaid_key
+    on league_entry (user_id, metaid);

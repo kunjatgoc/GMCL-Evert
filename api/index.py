@@ -358,7 +358,7 @@ GML_CHECK_READY = bool(GML_CHECK_URL and GML_CHECK_KEY)
 if not GML_CHECK_READY:
     print(
         "[GML] check-user is not configured (GML_CHECK_URL, GML_CHECK_KEY); "
-        "every address will be treated as free.",
+        "no Real account request will be checked for duplicates.",
         file=sys.stderr,
         flush=True,
     )
@@ -1182,37 +1182,55 @@ def list_metaid(user_id: int = Depends(require_user)) -> dict:
     return {"rows": rows}
 
 
-def email_is_connected(payload: dict) -> bool:
-    """Reads one GOC check-user body as an answer about the email alone.
+def said_yes(value: object) -> bool:
+    """One GOC flag, read as a match.
 
-    The body carries three fields: an overall `status`, and a per-field
-    `mobileNumber` / `email` saying which of the values sent actually matched.
-    This reads the per-field one. Only an address is sent below, so today the
-    two agree -- but `status` is "Connected" if *either* input matched, so a
-    later caller that also sends a phone would otherwise get a phone's answer
-    to an email's question.
-
-    Anything that is not a plain "yes" is a no. An unfamiliar body is not a
-    match, and inventing a third state for it would only push the question up
-    to a caller that has even less to go on.
+    Their fields are the strings "Yes" and "no". Anything else -- a missing
+    field, a body that is not theirs -- is not a match: an unfamiliar answer is
+    no evidence that an account exists, and inventing a third state for it only
+    pushes the question up to a caller with even less to go on.
     """
-    return str(payload.get("email", "")).strip().lower() == "yes"
+    return str(value).strip().lower() == "yes"
 
 
-def goc_check_user(email: str) -> Optional[dict]:
-    """One POST to GOC's check-user, or None when the question could not be put.
+def national_digits(phone: str) -> str:
+    """`+919876543210` -> `9876543210`.
 
-    None is "no answer", never "no record" -- the two are different and only
-    the caller knows what to do about the first. Every failure lands here: a
-    refused key, a timeout, an unreachable host, a body that is not JSON.
+    GOC's spec shows a bare ten-digit number, so that is what goes out. This
+    side stores E.164, which is the same number with a country code welded on
+    the front, and sending it verbatim would be a string their records cannot
+    match -- the failure being silent, since a non-match reads exactly like an
+    honest "no such user".
 
-    stdlib rather than a client library. It is one POST with one header, and
-    the alternative is a dependency to install, pin and update for that.
+    Falls back to the digits as given. A number that will not parse is already
+    past the validator that put it in the database, so this is for the shape
+    of a stored value changing, not for user input.
     """
-    body = json.dumps({"email": email}).encode()
+    try:
+        return phonenumbers.national_significant_number(phonenumbers.parse(phone, None))
+    except phonenumbers.NumberParseException:
+        return re.sub(r"\D", "", phone)
+
+
+def goc_check_user(email: str, phone: str) -> dict:
+    """One POST to GOC's check-user. Raises rather than guessing.
+
+    Every failure is an error here, never a quiet "no match": a refused key, a
+    rejected body, a timeout, a reply that is not JSON. The caller is deciding
+    whether to file an account request, and a check that could not be made is
+    not a check that passed -- answering False would file the duplicate this
+    call exists to stop.
+
+    502 rather than the code GOC gave us. Their 401 is about our key and their
+    400 is about our body; neither is a sentence to put in front of somebody
+    asking for a trading account, and our own 401 already means "sign in".
+
+    stdlib rather than a client library: one POST, one header.
+    """
+    body = json.dumps({"mobileNumber": national_digits(phone), "email": email})
     req = urllib.request.Request(
         GML_CHECK_URL,
-        data=body,
+        data=body.encode(),
         method="POST",
         headers={
             GML_CHECK_HEADER: GML_CHECK_KEY,
@@ -1221,54 +1239,70 @@ def goc_check_user(email: str) -> Optional[dict]:
     )
     try:
         with urllib.request.urlopen(req, timeout=GML_CHECK_TIMEOUT) as res:
-            return json.loads(res.read())
+            payload = json.loads(res.read())
     except urllib.error.HTTPError as exc:
-        # 401 is our key, not their user: the header is missing or wrong, and
-        # every later call will fail the same way until someone fixes .env.
-        # Worth saying plainly, because the symptom on the screen is nothing
-        # at all -- the flow carries on treating addresses as free.
-        note = "check the verification key" if exc.code == 401 else "unexpected reply"
+        # 401 is our key and 400 is our body -- both are configuration, both
+        # will happen on every call until someone fixes them, and the symptom
+        # on the screen is only "try again". Worth saying plainly here.
+        note = {
+            401: "check GML_CHECK_KEY",
+            400: "neither mobileNumber nor email reached them",
+        }.get(exc.code, "unexpected reply")
         print(
             f"[GML] check-user returned {exc.code} ({note}).",
             file=sys.stderr,
             flush=True,
         )
+        raise HTTPException(502, "We could not check your details. Try again.") from exc
     except (urllib.error.URLError, OSError, ValueError) as exc:
-        # Class name only. The text of a transport error carries the host it
+        # Class name only: the text of a transport error carries the host it
         # could not reach, and the log is not the place to widen that.
         print(
             f"[GML] check-user did not answer ({exc.__class__.__name__}).",
             file=sys.stderr,
             flush=True,
         )
-    return None
+        raise HTTPException(502, "We could not check your details. Try again.") from exc
+
+    if not isinstance(payload, dict):
+        raise HTTPException(502, "We could not check your details. Try again.")
+    return payload
 
 
-def real_email_available(email: str) -> bool:
-    """Whether the address is free to issue a Real MetaID against.
+def goc_duplicates(email: str, phone: str) -> dict:
+    """Which of the two identifiers GOC already holds an account against.
 
-    True lets the request be filed. False sends the screen back to ask for a
-    different address, which is the only remedy the dialog offers -- so only
-    something the applicant can actually fix by typing another address is
-    allowed to return False. That is why the phone is not sent: a person
-    connected under a number they cannot change here would be refused with no
-    way forward.
+    Both flags are read from the body rather than from `status`, which is
+    "Connected" when *either* input matched and so cannot say which. GOC's own
+    sample (b) is exactly that case: a phone on record, an address that is not.
 
-    Two states answer True without asking anybody:
-
-    - No configuration. The same state this function was born in, and the one
-      every environment without GOC's key is in.
-    - Asked, but no answer came back. Failing open: a request that should have
-      been stopped still lands in the admin queue, where a person decides it.
-      Failing closed would turn GOC's outage into this product refusing every
-      real account, which is the worse of the two.
+    No configuration means no duplicates, which is the state every environment
+    without GOC's key is in -- the same answer this gave before the endpoint
+    existed. The API says so on stderr at startup so it is not mistaken for a
+    check that passed.
     """
     if not GML_CHECK_READY:
-        return True
-    payload = goc_check_user(email)
-    if payload is None:
-        return True
-    return not email_is_connected(payload)
+        return {"phone_taken": False, "email_taken": False}
+    payload = goc_check_user(email, phone)
+    return {
+        "phone_taken": said_yes(payload.get("mobileNumber")),
+        "email_taken": said_yes(payload.get("email")),
+    }
+
+
+def phone_of(user_id: int) -> str:
+    """The account's own number, read here rather than accepted from the page.
+
+    A duplicate check the caller can choose the inputs for is not a check. The
+    address is the browser's to choose -- that is the whole of what the dialog
+    asks for -- but the number is the account's.
+    """
+    with pool.connection() as conn, conn.cursor() as cur:
+        cur.execute("select phone from users where id = %s", (user_id,))
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(401, "Not signed in.")
+    return row[0]
 
 
 class MetaidCheck(BaseModel):
@@ -1276,24 +1310,31 @@ class MetaidCheck(BaseModel):
 
 
 @app.post("/api/metaid/check")
-def check_metaid_email(entry: MetaidCheck, _: int = Depends(require_user)) -> dict:
-    """Asks before the request is made, because the answer changes what the
-    screen asks for next rather than whether the request failed.
+def check_metaid_email(entry: MetaidCheck, user_id: int = Depends(require_user)) -> dict:
+    """Asked when Confirm is pressed, because the answer changes what the
+    dialog says next rather than whether a request failed.
+
+    Two flags rather than one verdict: the dialog names the identifier that
+    matched, and only the two of them together can say "both".
 
     Demo never comes here: it is issued against the account's own address and
     has nothing to check.
     """
-    return {"available": real_email_available(entry.email)}
+    return goc_duplicates(entry.email, phone_of(user_id))
 
 
 @app.post("/api/metaid", status_code=201)
 def request_metaid(
     entry: MetaidRequest, user_id: int = Depends(require_user)
 ) -> dict:
-    # Checked again here, not only on the screen: /api/metaid/check is
-    # advisory and a caller can simply not ask it.
-    if entry.type == "real" and not real_email_available(entry.email):
-        raise HTTPException(409, "This email already has a newera account.")
+    # Asked again here, not only on the screen. /api/metaid/check is advisory:
+    # a caller can skip it, answer it themselves, or race it. This is the one
+    # that decides whether a row is written, and it runs before the insert, so
+    # a refusal leaves nothing behind.
+    if entry.type == "real":
+        dup = goc_duplicates(entry.email, phone_of(user_id))
+        if dup["phone_taken"] or dup["email_taken"]:
+            raise HTTPException(409, "These details already have a newera account.")
 
     try:
         with pool.connection() as conn, conn.cursor() as cur:
@@ -1343,16 +1384,44 @@ class LeagueJoin(BaseModel):
         return self
 
 
-@app.get("/api/league")
-def my_league_entry(user_id: int = Depends(require_user)) -> dict:
-    """The caller's entry, or null. The screen has two states, and this says
-    which one it is in."""
-    with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+def has_approved_metaid(user_id: int) -> bool:
+    """Whether newera has answered yes to this account, for either kind.
+
+    The one rule about who may enter the league, written once. Both the screen
+    and the endpoint that writes the row ask this, so a form cannot offer what
+    a POST is about to refuse.
+
+    Approved only. A pending request is newera still thinking about it, and a
+    rejected one is them having said no.
+    """
+    with pool.connection() as conn, conn.cursor() as cur:
         cur.execute(
-            "select metaid, email, created_at from league_entry where user_id = %s",
+            "select 1 from metaid_request "
+            "where user_id = %s and status = 'approved' limit 1",
             (user_id,),
         )
-        return {"entry": cur.fetchone()}
+        return cur.fetchone() is not None
+
+
+@app.get("/api/league")
+def my_league_entries(user_id: int = Depends(require_user)) -> dict:
+    """Every entry the caller holds, and whether they may make another.
+
+    A list because one person may enter more than one account -- newera issues
+    a number per account, and a demo and a real one are two of them.
+
+    `can_join` is here rather than left for the screen to work out from the
+    request rows: the rule belongs on this side, and a screen that reasons its
+    own way to an answer is a second copy of it waiting to drift.
+    """
+    with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            "select id, metaid, email, created_at from league_entry "
+            "where user_id = %s order by created_at, id",
+            (user_id,),
+        )
+        entries = cur.fetchall()
+    return {"entries": entries, "can_join": has_approved_metaid(user_id)}
 
 
 @app.post("/api/league", status_code=201)
@@ -1361,16 +1430,57 @@ def join_league(entry: LeagueJoin, user_id: int = Depends(require_user)) -> dict
 
     The address is not read from the request body: sp_join_league takes the
     one the MetaID was approved against, so the browser cannot decide what is
-    recorded against a person. Who is allowed to enter is not checked -- there
-    is no rule for that yet, and inventing one here would put it somewhere
-    nobody would look for it.
+    recorded against a person.
+
+    Step one before step two. An account number is issued by newera, so a
+    person with no approved request has nothing to type here -- and whatever
+    they did type would be somebody else's, or invented. Checked here rather
+    than only on the screen, which is where the two entries that already exist
+    without one came from.
     """
+    if not has_approved_metaid(user_id):
+        raise HTTPException(
+            409,
+            "newera has to approve your MetaTrader5 account before you can "
+            "join the league.",
+        )
+
     try:
         with pool.connection() as conn, conn.cursor() as cur:
             cur.execute("CALL sp_join_league(%s, %s)", (user_id, entry.metaid))
             (row_id,) = cur.fetchone()
     except errors.UniqueViolation:
-        raise HTTPException(409, "You have already joined the league.")
+        # The index is on (user_id, metaid) now, so this is the same number
+        # twice rather than a second entry of any kind.
+        raise HTTPException(409, "That account is already entered in the league.")
+    return {"id": row_id}
+
+
+@app.patch("/api/league/{entry_id}")
+def edit_league_entry(
+    entry_id: int, entry: LeagueJoin, user_id: int = Depends(require_user)
+) -> dict:
+    """Corrects the account number on one entry.
+
+    The same body as joining, because the same single thing is being said. The
+    entry is found by id and owner together inside the procedure -- an id
+    reaching this endpoint came out of a browser, and on its own it is a
+    number anyone can type.
+
+    Editing rather than replacing: the row keeps its address and its joined
+    date, which is what makes this a correction and not a new entry.
+    """
+    try:
+        with pool.connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                "CALL sp_edit_league_metaid(%s, %s, %s)",
+                (user_id, entry_id, entry.metaid),
+            )
+            (row_id,) = cur.fetchone()
+    except errors.UniqueViolation:
+        raise HTTPException(409, "That account is already entered in the league.")
+    if row_id is None:
+        raise HTTPException(404, "No such entry.")
     return {"id": row_id}
 
 
@@ -1860,21 +1970,32 @@ if __name__ == "__main__":
         "a prose line runs past the wrap width"
     )
 
-    # GOC's three documented bodies, verbatim from their spec, read as the one
-    # thing this side asks: is this address already connected?
-    assert email_is_connected(
-        {"status": "Connected", "mobileNumber": "Yes", "email": "Yes"}
+    # GOC's three documented bodies, verbatim from their spec, read as the two
+    # flags the dialog needs.
+    reads = lambda b: (said_yes(b.get("mobileNumber")), said_yes(b.get("email")))
+
+    assert reads({"status": "Connected", "mobileNumber": "Yes", "email": "Yes"}) == (
+        True,
+        True,
     )
     # Their sample (b): the phone matched and the address did not. "Connected"
     # overall, free as an address -- the case reading `status` would get wrong.
-    assert not email_is_connected(
-        {"status": "Connected", "mobileNumber": "Yes", "email": "no"}
+    assert reads({"status": "Connected", "mobileNumber": "Yes", "email": "no"}) == (
+        True,
+        False,
     )
-    assert not email_is_connected(
-        {"status": "notconnected", "mobileNumber": "no", "email": "no"}
+    assert reads({"status": "notconnected", "mobileNumber": "no", "email": "no"}) == (
+        False,
+        False,
     )
-    # A body with nothing to read is not a match.
-    assert not email_is_connected({})
-    assert not email_is_connected({"message": "Invalid verification key."})
+    # Nothing to read is not a match.
+    assert reads({}) == (False, False)
+    assert reads({"message": "Invalid verification key."}) == (False, False)
+
+    # What goes out as mobileNumber is the bare number GOC's spec shows, not
+    # the E.164 this side stores.
+    assert national_digits("+919876543210") == "9876543210"
+    assert national_digits("+14155552671") == "4155552671"
+    assert national_digits("not a number") == ""
 
     print("ok")

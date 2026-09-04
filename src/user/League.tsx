@@ -1,15 +1,30 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Loader2 } from 'lucide-react'
 import CalendarEvent from '~icons/tabler/calendar-event'
 import ChartCandle from '~icons/tabler/chart-candle'
+import Lock from '~icons/tabler/lock'
 import Moneybag from '~icons/tabler/moneybag'
+import Pencil from '~icons/tabler/pencil'
+import Plus from '~icons/tabler/plus'
 import Trophy from '~icons/tabler/trophy-filled'
-import { getLeagueEntry, joinLeague, type LeagueEntry } from './api'
+import {
+  editLeagueEntry,
+  getLeagueStatus,
+  joinLeague,
+  type LeagueEntry,
+} from './api'
 import { Unauthorized } from '../lib/api'
 import { EASE, viewportOnce } from '../lib/motion'
 import { prefersReducedMotion } from '../lib/motionPreference'
-import { TEXT, btnPrimary, control, fieldLabel } from '../panel/type'
+import {
+  TEXT,
+  btnGhost,
+  btnPrimary,
+  btnSecondary,
+  control,
+  fieldLabel,
+} from '../panel/type'
 import { ErrorAlert } from '../components/auth/FormAlert'
 
 /**
@@ -96,15 +111,6 @@ const money = (n: number) => `$${n.toLocaleString('en-US')}`
 /** Named once: the hero's button scrolls to it and the band answers to it. */
 const JOIN_ID = 'join'
 
-/** The seven dates themselves. Built from the start date so the strip cannot
- *  drift out of step with the window above it. */
-const DAYS = Array.from(
-  { length: LEAGUE_DAYS },
-  (_, i) => new Date(2026, 8, LEAGUE_START.getDate() + i)
-)
-
-const weekday = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'short' })
-
 const longDate = (d: Date) =>
   d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
 
@@ -144,8 +150,8 @@ const STEPS = [
  * A landing page argues in order, but this reader is already signed in and
  * already holds an account -- most of the argument is won before they arrive.
  * Three screens of scroll asks them to work for a form they came here to
- * fill in. So the week folds into the hero where the dates already are, and
- * the steps sit beside the prizes rather than above them.
+ * fill in. So the window stays a line of text in the hero rather than a
+ * calendar, and the steps sit beside the prizes rather than above them.
  *
  * Bands meet through gradient rather than a rule. A hard border says "new
  * document"; a wash says "same page, further down", which is what a landing
@@ -192,45 +198,6 @@ function PhaseLine({ phase }: { phase: Phase }) {
   )
 }
 
-/** The window, inside the hero. One tile per day because the count is a fact
- *  about this league and not a layout that happened to fit. */
-function DayStrip({ phase }: { phase: Phase }) {
-  return (
-    <ol className="grid grid-cols-6 gap-1.5 sm:grid-cols-12 sm:gap-2">
-      {DAYS.map((d, i) => {
-        const today = phase.name === 'running' && phase.day === i + 1
-        const done =
-          phase.name === 'after' || (phase.name === 'running' && i + 1 < phase.day)
-        return (
-          <motion.li
-            key={d.toISOString()}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: EASE, delay: 0.25 + i * 0.03 }}
-            aria-current={today ? 'date' : undefined}
-            className={`rounded-xl border py-3 text-center backdrop-blur-sm ${
-              today
-                ? 'border-[rgba(62,230,138,0.55)] bg-[linear-gradient(180deg,rgba(62,230,138,0.22),rgba(62,230,138,0.06))]'
-                : 'border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.015))]'
-            } ${done && !today ? 'opacity-40' : ''}`}
-          >
-            <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--admin-muted)]">
-              {weekday(d)}
-            </span>
-            <span
-              className={`tabular mt-0.5 block font-[family-name:var(--font-display)] text-[clamp(1.3rem,2vw,1.75rem)] font-bold leading-none ${
-                today ? 'text-[var(--admin-primary)]' : 'text-white'
-              }`}
-            >
-              {d.getDate()}
-            </span>
-          </motion.li>
-        )
-      })}
-    </ol>
-  )
-}
-
 /**
  * Band 1. The announcement, the week, and one way on.
  *
@@ -247,7 +214,7 @@ function Hero({
   onJump: () => void
 }) {
   return (
-    <section className="relative isolate flex min-h-[34rem] flex-col justify-center gap-10 overflow-hidden px-6 py-14 md:min-h-[min(82vh,54rem)] xl:px-16">
+    <section className="relative isolate flex min-h-[34rem] flex-col justify-center overflow-hidden px-6 py-14 md:min-h-[min(82vh,54rem)] xl:px-16">
       {/* Every image on this screen is optional and hides itself if absent,
           so the page is complete before a single one is generated. Paths are
           the League set in design/prompts.md -- nothing here points at an
@@ -308,13 +275,6 @@ function Hero({
           <PhaseLine phase={phase} />
         </div>
       </motion.div>
-
-      {/* The week lives here rather than in a band of its own: it is the
-          dates, and the dates are the announcement. */}
-      <div className="max-w-3xl">
-        <p className={`${fieldLabel} mb-2.5`}>{LEAGUE_DAYS} days</p>
-        <DayStrip phase={phase} />
-      </div>
     </section>
   )
 }
@@ -521,32 +481,189 @@ function Congrats({ show, onDone }: { show: boolean; onDone: () => void }) {
   )
 }
 
+/**
+ * The account number field, and the one button that acts on it.
+ *
+ * Written once because it appears twice -- adding an entry and correcting one
+ * -- and the rule it states to the browser is the part that must not differ
+ * between them.
+ */
+function MetaidForm({
+  initial = '',
+  submitLabel,
+  busy,
+  onSubmit,
+  onCancel,
+}: {
+  initial?: string
+  submitLabel: string
+  busy: boolean
+  onSubmit: (metaid: string) => void
+  /** Present on a correction, absent on the first entry: there is nothing to
+   *  go back to when the list is empty. */
+  onCancel?: () => void
+}) {
+  const [metaid, setMetaid] = useState(initial)
+  const id = useId()
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        onSubmit(metaid.trim())
+      }}
+      className="text-left"
+    >
+      <label className={`${fieldLabel} mb-2 block`} htmlFor={id}>
+        MetaTrader5 Account
+      </label>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        {/* The rule is stated to the browser rather than checked in an effect:
+            pattern blocks the submit, inputMode brings up a number pad on a
+            phone, and title is what the browser reads out when it refuses. The
+            server checks it again -- this is a convenience, not the guard. */}
+        <input
+          id={id}
+          name="metaid"
+          required
+          autoFocus
+          inputMode="numeric"
+          pattern="[0-9]{4,6}"
+          maxLength={6}
+          title="An account number is 4 to 6 digits"
+          aria-describedby={`${id}-hint`}
+          autoComplete="off"
+          spellCheck={false}
+          value={metaid}
+          onChange={(e) => setMetaid(e.target.value)}
+          placeholder="e.g. 43563"
+          className={`${control} tabular w-full text-[20px] sm:flex-1`}
+        />
+        <button
+          type="submit"
+          disabled={busy || !METAID_RE.test(metaid.trim())}
+          className={`${btnPrimary} shrink-0`}
+        >
+          {busy ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Trophy className="size-4" />
+          )}
+          {submitLabel}
+        </button>
+        {onCancel && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onCancel}
+            className={`${btnGhost} shrink-0`}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+      <p id={`${id}-hint`} className={`${TEXT.label} mt-2.5 text-[var(--admin-muted)]`}>
+        4 to 6 digits, no letters.
+      </p>
+    </form>
+  )
+}
+
+/**
+ * One entry, and the correction of it.
+ *
+ * Reading and editing in the same place rather than a dialog: there is one
+ * field, and a dialog for one field is a second screen to dismiss. Editing
+ * only -- an entry is never removed, so what was recorded stays recorded and
+ * a mistyped number is corrected rather than erased and re-made.
+ */
+function EntryRow({
+  entry,
+  editing,
+  busy,
+  onEdit,
+  onCancel,
+  onSave,
+}: {
+  entry: LeagueEntry
+  editing: boolean
+  busy: boolean
+  onEdit: () => void
+  onCancel: () => void
+  onSave: (metaid: string) => void
+}) {
+  return (
+    <li className="bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] px-6 py-5">
+      {editing ? (
+        <MetaidForm
+          initial={entry.metaid}
+          submitLabel="Save"
+          busy={busy}
+          onSubmit={onSave}
+          onCancel={onCancel}
+        />
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="tabular text-[24px] font-bold leading-none text-white">
+              {entry.metaid}
+            </p>
+            <p className={`${TEXT.label} mt-2 break-words text-[var(--admin-muted)]`}>
+              {entry.email} &middot; joined {joinedOn(entry.created_at)}
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onEdit}
+            className={`${btnGhost} shrink-0`}
+          >
+            <Pencil className="size-4" />
+            Edit
+          </button>
+        </div>
+      )}
+    </li>
+  )
+}
+
 /** Band 3. The whole point of the page. */
 function JoinBand({
-  entry,
-  onJoined,
+  entries,
+  canJoin,
+  onChanged,
   onCelebrate,
 }: {
-  entry: LeagueEntry | null | undefined
-  onJoined: (e: LeagueEntry) => void
-  /** Fired only on the join that succeeds, never on a reload that finds one. */
+  /** Undefined until the server answers. */
+  entries: LeagueEntry[] | undefined
+  /** False until newera has approved an account. Undefined while asking. */
+  canJoin: boolean | undefined
+  onChanged: (entries: LeagueEntry[]) => void
+  /** Fired only on the entry that succeeds, never on a reload that finds one. */
   onCelebrate: () => void
 }) {
-  const [metaid, setMetaid] = useState('')
+  /** Which row is being corrected, if any. One at a time: two open fields on
+   *  the same list is two answers to the same question. */
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault()
+  /**
+   * Both writes end the same way, so they share the ending.
+   *
+   * The list is read back rather than patched in place: the address on a row
+   * is chosen by the database, and the screen would otherwise be guessing at
+   * it. `done` runs only on the write that succeeded.
+   */
+  const run = async (write: () => Promise<unknown>, done: () => void) => {
     setBusy(true)
     setError(null)
     try {
-      await joinLeague(metaid)
-      // Read it back rather than assume: the address on the row is chosen by
-      // the database, so the screen would otherwise be guessing at it.
-      const saved = await getLeagueEntry()
-      if (saved) onJoined(saved)
-      onCelebrate()
+      await write()
+      const { entries: saved } = await getLeagueStatus()
+      onChanged(saved)
+      done()
     } catch (err) {
       if (err instanceof Unauthorized) window.location.href = '/login'
       else setError(err instanceof Error ? err.message : 'Something went wrong.')
@@ -554,6 +671,15 @@ function JoinBand({
       setBusy(false)
     }
   }
+
+  const add = (metaid: string) =>
+    run(() => joinLeague(metaid), () => {
+      setAdding(false)
+      onCelebrate()
+    })
+
+  const save = (id: number, metaid: string) =>
+    run(() => editLeagueEntry(id, metaid), () => setEditingId(null))
 
   return (
     <section
@@ -580,9 +706,46 @@ function JoinBand({
       />
 
       <div className="mx-auto max-w-2xl text-center">
-        {entry === undefined ? (
+        {entries === undefined || canJoin === undefined ? (
           <div className="mx-auto h-40 w-full animate-pulse rounded-2xl border border-white/8 bg-white/[0.02]" />
-        ) : entry ? (
+        ) : !canJoin ? (
+          /* There is nothing to type yet. The number comes from newera, so a
+             form here would only collect a guess -- and the server refuses
+             the entry anyway. Same band, same shape as the entry above it. */
+          <>
+            <span
+              aria-hidden
+              className="mx-auto grid size-14 place-items-center rounded-2xl border border-white/12 bg-white/[0.04] text-[var(--admin-muted)]"
+            >
+              <Lock className="size-6" />
+            </span>
+            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(1.8rem,3.2vw,2.7rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
+              One step before this one
+            </h2>
+            <p className={`${TEXT.body} mx-auto mt-3 max-w-lg text-[#E4EAE7]`}>
+              You enter the league with a MetaTrader5 account number, and
+              newera issues that once they have approved your account. Ask for
+              one first, then come back here.
+            </p>
+            <a href="/request-metaid" className={`${btnPrimary} mt-8`}>
+              <Moneybag className="size-4" />
+              Request an account
+            </a>
+          </>
+        ) : entries.length === 0 ? (
+          <>
+            <h2 className="font-[family-name:var(--font-display)] text-[clamp(1.8rem,3.2vw,2.7rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
+              Enter with your MetaTrader5 Account
+            </h2>
+            <p className={`${TEXT.body} mx-auto mt-3 max-w-lg text-[#E4EAE7]`}>
+              The one newera approved for you. Find it on the MetaTrader
+              Accounts screen if you are not sure. You can enter more than one.
+            </p>
+            <div className="mx-auto mt-8 max-w-lg">
+              <MetaidForm submitLabel="Join the league" busy={busy} onSubmit={add} />
+            </div>
+          </>
+        ) : (
           <>
             <span
               aria-hidden
@@ -594,88 +757,69 @@ function JoinBand({
               You are in the league
             </h2>
             <p className={`${TEXT.body} mt-3 text-[#E4EAE7]`}>
-              Joined {joinedOn(entry.created_at)}. Nothing else to do until{' '}
-              {longDate(LEAGUE_START)}.
+              {entries.length === 1
+                ? 'One account entered'
+                : `${entries.length} accounts entered`}
+              . Nothing else to do until {longDate(LEAGUE_START)}.
+            </p>
+            {/* Said here rather than left to be discovered from the buttons.
+                Two things are not obvious from a list: that a second account
+                is allowed at all, and that a wrong number can be corrected
+                instead of lived with. */}
+            <p className={`${TEXT.label} mx-auto mt-2 max-w-lg text-[var(--admin-muted)]`}>
+              You can enter more than one account. Add another below, or press
+              Edit to correct a number.
             </p>
 
-            <dl className="mt-8 grid gap-px overflow-hidden rounded-2xl border border-white/12 text-left sm:grid-cols-2">
-              <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] px-6 py-5">
-                <dt className={`${TEXT.label} text-[var(--admin-muted)]`}>MetaTrader5 Account</dt>
-                <dd className="tabular mt-1 break-words text-[24px] font-bold text-white">
-                  {entry.metaid}
-                </dd>
-              </div>
-              <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] px-6 py-5">
-                <dt className={`${TEXT.label} text-[var(--admin-muted)]`}>Email</dt>
-                <dd className={`${TEXT.body} mt-1 break-words text-[#E4EAE7]`}>
-                  {entry.email}
-                </dd>
-              </div>
-            </dl>
-          </>
-        ) : (
-          <>
-            <h2 className="font-[family-name:var(--font-display)] text-[clamp(1.8rem,3.2vw,2.7rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
-              Enter with your MetaTrader5 Account
-            </h2>
-            <p className={`${TEXT.body} mx-auto mt-3 max-w-lg text-[#E4EAE7]`}>
-              The one newera approved for you. Find it on the Request an
-              Account screen if you are not sure.
-            </p>
-
-            <form onSubmit={submit} className="mx-auto mt-8 max-w-lg text-left">
-              <label className={`${fieldLabel} mb-2 block`} htmlFor="league-metaid">
-                MetaTrader5 Account
-              </label>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                {/* The rule is stated to the browser rather than checked in an
-                    effect: pattern blocks the submit, inputMode brings up a
-                    number pad on a phone, and title is what the browser reads
-                    out when it refuses. The server checks it again -- this is a
-                    convenience, not the guard. */}
-                <input
-                  id="league-metaid"
-                  name="metaid"
-                  required
-                  inputMode="numeric"
-                  pattern="[0-9]{4,6}"
-                  maxLength={6}
-                  title="An account number is 4 to 6 digits"
-                  aria-describedby="league-metaid-hint"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={metaid}
-                  onChange={(e) => setMetaid(e.target.value)}
-                  placeholder="e.g. 43563"
-                  className={`${control} tabular w-full text-[20px] sm:flex-1`}
+            <ul className="mt-8 space-y-px overflow-hidden rounded-2xl border border-white/12 text-left">
+              {entries.map((e) => (
+                <EntryRow
+                  key={e.id}
+                  entry={e}
+                  editing={editingId === e.id}
+                  busy={busy}
+                  onEdit={() => {
+                    setError(null)
+                    setAdding(false)
+                    setEditingId(e.id)
+                  }}
+                  onCancel={() => setEditingId(null)}
+                  onSave={(metaid) => save(e.id, metaid)}
                 />
-                <button
-                  type="submit"
-                  disabled={busy || !METAID_RE.test(metaid.trim())}
-                  className={`${btnPrimary} shrink-0`}
-                >
-                  {busy ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Trophy className="size-4" />
-                  )}
-                  Join the league
-                </button>
-              </div>
-              <p
-                id="league-metaid-hint"
-                className={`${TEXT.label} mt-2.5 text-[var(--admin-muted)]`}
-              >
-                4 to 6 digits, no letters.
-              </p>
+              ))}
+            </ul>
 
-              {error && (
-                <div className="mt-4">
-                  <ErrorAlert>{error}</ErrorAlert>
-                </div>
-              )}
-            </form>
+            {adding ? (
+              <div className="mx-auto mt-5 max-w-lg rounded-2xl border border-white/12 bg-white/[0.03] px-6 py-5">
+                <MetaidForm
+                  submitLabel="Add"
+                  busy={busy}
+                  onSubmit={add}
+                  onCancel={() => setAdding(false)}
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setError(null)
+                  setEditingId(null)
+                  setAdding(true)
+                }}
+                className={`${btnSecondary} mt-5`}
+              >
+                <Plus className="size-4" />
+                Add another account
+              </button>
+            )}
           </>
+        )}
+
+        {error && (
+          <div className="mt-5 text-left">
+            <ErrorAlert>{error}</ErrorAlert>
+          </div>
         )}
       </div>
     </section>
@@ -683,19 +827,27 @@ function JoinBand({
 }
 
 export function LeagueScreen() {
-  const [entry, setEntry] = useState<LeagueEntry | null | undefined>(undefined)
+  const [entries, setEntries] = useState<LeagueEntry[] | undefined>(undefined)
+  /** Whether newera has approved an account for this person. Undefined until
+   *  the server says, so the form is not offered to somebody who will be
+   *  refused it a moment later. */
+  const [canJoin, setCanJoin] = useState<boolean | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
   // Read once, at mount. The window does not move while the screen is open.
   const [phase] = useState(() => leaguePhase(new Date()))
   const [celebrating, setCelebrating] = useState(false)
 
   useEffect(() => {
-    getLeagueEntry()
-      .then(setEntry)
+    getLeagueStatus()
+      .then(({ entries, can_join }) => {
+        setEntries(entries)
+        setCanJoin(can_join)
+      })
       .catch((e) => {
         if (e instanceof Unauthorized) window.location.href = '/login'
         else {
-          setEntry(null)
+          setEntries([])
+          setCanJoin(false)
           setError('We could not check whether you have joined. Try again.')
         }
       })
@@ -711,7 +863,7 @@ export function LeagueScreen() {
 
   return (
     <div className="-m-5 bg-[#0A100E] sm:-m-6 xl:-m-8">
-      <Hero phase={phase} joined={Boolean(entry)} onJump={jump} />
+      <Hero phase={phase} joined={Boolean(entries?.length)} onJump={jump} />
       <StepsAndPrizes />
 
       {error && (
@@ -721,8 +873,9 @@ export function LeagueScreen() {
       )}
 
       <JoinBand
-        entry={entry}
-        onJoined={setEntry}
+        entries={entries}
+        canJoin={canJoin}
+        onChanged={setEntries}
         onCelebrate={() => setCelebrating(true)}
       />
       <Congrats show={celebrating} onDone={() => setCelebrating(false)} />

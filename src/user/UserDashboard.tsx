@@ -23,14 +23,15 @@ import ChartCandle from '~icons/tabler/chart-candle'
 import { IconArt, type IconComponent } from '../components/ui/IconArt'
 import { changePassword, updateName, Unauthorized, type Me } from '../lib/api'
 import {
-  checkMetaidEmail,
+  checkMetaidDuplicates,
   listMetaid,
   requestMetaid,
+  type MetaidDuplicates,
   type MetaidRequest,
   type MetaidType,
 } from './api'
 import { LeagueScreen } from './League'
-import { getLeagueEntry, type LeagueEntry } from './api'
+import { getLeagueStatus, type LeagueEntry } from './api'
 import { PanelShell, type PanelRoute } from '../panel/PanelShell'
 import {
   TEXT,
@@ -106,8 +107,11 @@ const STATUS = {
   rejected: { icon: XCircle, tone: 'text-[var(--admin-destructive)]', label: 'Rejected' },
 } as const
 
-/** What the screen says once a request is in. Asked for word for word. */
-const AFTER_SUBMIT = 'Your verification will be done soon within 24hr to 48hr.'
+/** What the screen says once a request is in. Asked for word for word, and
+ *  used twice: the dialog says it on the submit that succeeds, and the request
+ *  screen keeps saying it for as long as the row is pending. */
+const AFTER_SUBMIT =
+  'Thanks! Your request has been received. Please wait 24 to 48 hours.'
 
 const card = 'rounded-2xl border border-white/8 bg-[var(--admin-card)]'
 const heading = `${TEXT.display} font-[family-name:var(--font-display)] font-bold leading-[1.05]`
@@ -221,14 +225,21 @@ function StepCard({
 function DashboardScreen({ me }: { me: Me }) {
   const { rows, error } = useRequests()
   const firstName = me.full_name?.trim().split(/\s+/)[0]
-  const [joined, setJoined] = useState<LeagueEntry | null | undefined>(undefined)
+  /** Every account this person has entered. Undefined until the server says. */
+  const [entries, setEntries] = useState<LeagueEntry[] | undefined>(undefined)
+  /** The server's answer to whether step two is open yet, not this screen's.
+   *  It reads the same rule the League screen and the join endpoint read. */
+  const [canJoin, setCanJoin] = useState(false)
 
   useEffect(() => {
     // A failure here only costs the second card its tick, so it is swallowed
     // rather than shown: the dashboard is not where you would fix it.
-    getLeagueEntry()
-      .then(setJoined)
-      .catch(() => setJoined(null))
+    getLeagueStatus()
+      .then(({ entries, can_join }) => {
+        setEntries(entries)
+        setCanJoin(can_join)
+      })
+      .catch(() => setEntries([]))
   }, [])
 
   const approved = rows?.find((r) => r.status === 'approved')
@@ -286,25 +297,45 @@ function DashboardScreen({ me }: { me: Me }) {
         <StepCard
           step={2}
           delay={0.13}
-          done={Boolean(joined)}
+          done={Boolean(entries?.length)}
           title="Join the League"
           body="Join the upcoming league from 7th Sept to 18th Sept for a chance to win $1,000 USD."
         >
-          {joined === undefined ? (
+          {entries === undefined ? (
             <Loading />
-          ) : joined ? (
+          ) : entries.length ? (
             <p className={`${TEXT.body} text-[#E4EAE7]`}>
-              You are in, under account{' '}
-              <span className="tabular font-semibold text-white">
-                {joined.metaid}
-              </span>
+              You are in, under{' '}
+              {entries.length === 1 ? 'account ' : `${entries.length} accounts: `}
+              {entries.map((e, i) => (
+                <span key={e.id}>
+                  {i > 0 && ', '}
+                  <span className="tabular font-semibold text-white">
+                    {e.metaid}
+                  </span>
+                </span>
+              ))}
+              .{' '}
+              <a href="/league" className="underline underline-offset-4">
+                Add or edit
+              </a>
               .
             </p>
-          ) : (
+          ) : canJoin ? (
             <a href="/league" className={btnPrimary}>
               <Trophy className="size-4" />
               Join the league
             </a>
+          ) : (
+            /* Offered only once step one is done. The number typed on the
+               League screen is the one newera issues, so before that there is
+               nothing to enter with -- and the join endpoint says so too. */
+            <p
+              className={`${TEXT.label} rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 leading-relaxed text-[var(--admin-muted)]`}
+            >
+              Finish step 1 first. You enter the league with the account number
+              newera issues.
+            </p>
           )}
         </StepCard>
       </div>
@@ -419,20 +450,33 @@ type ModalProps = {
  * signed in with, so the dialog opens, files the request and says how long the
  * answer takes.
  *
- * Real starts the same way but has to check first, because the address may
- * already have an account on the broker's side. If it is free the dialog says
- * which address it will use and asks only for a confirmation; if it is not,
- * that is the one case where a different address is asked for.
+ * Real opens on the address it will use and asks for a confirmation. The check
+ * happens on that press rather than on opening, so nothing is asked of newera
+ * for a dialog somebody opened to read and closed again -- and so the answer
+ * is as old as the press, not as old as the dialog.
  */
 type Step =
   | { name: 'checking' }
   | { name: 'confirm'; email: string }
-  | { name: 'taken'; email: string }
+  | { name: 'taken'; email: string; dup: MetaidDuplicates }
   | { name: 'sent' }
+
+/** Three ways to be refused, because newera answers about two identifiers.
+ *  Each names the one that matched rather than saying "these details". */
+const takenTitle = ({ phone_taken, email_taken }: MetaidDuplicates) =>
+  phone_taken && email_taken
+    ? 'This email and phone number are already in use'
+    : phone_taken
+      ? 'This phone number is already in use'
+      : 'This email is already in use'
 
 function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
-  const [step, setStep] = useState<Step>({ name: 'checking' })
+  const [step, setStep] = useState<Step>(() =>
+    kind.type === 'demo'
+      ? { name: 'checking' }
+      : { name: 'confirm', email: accountEmail }
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -445,10 +489,27 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
     else setError(e instanceof Error ? e.message : 'Something went wrong.')
   }
 
+  /**
+   * Check, then file. Every route to a filed request comes through here --
+   * Demo on opening, Confirm, and the different address the duplicate step
+   * asks for -- so there is one place where the order of those two is decided.
+   *
+   * A duplicate returns before the request is made rather than after it fails,
+   * and an unanswered check throws, so neither ends on the sent step. The
+   * server asks newera again before it writes anything: this is what the
+   * dialog says next, not what decides.
+   */
   const file = async (email: string) => {
     setBusy(true)
     setError(null)
     try {
+      if (kind.type === 'real') {
+        const dup = await checkMetaidDuplicates(email)
+        if (dup.phone_taken || dup.email_taken) {
+          setStep({ name: 'taken', email, dup })
+          return
+        }
+      }
       await requestMetaid(kind.type, email)
       setStep({ name: 'sent' })
       // Refreshed behind the open dialog, so closing lands on the new status.
@@ -460,59 +521,23 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
     }
   }
 
-  // Demo files straight away; Real asks the broker about the address first.
+  // Demo has nothing to confirm, so it files on opening.
   useEffect(() => {
-    let cancelled = false
-    const open = async () => {
-      if (kind.type === 'demo') {
-        await file(accountEmail)
-        return
-      }
-      try {
-        const { available } = await checkMetaidEmail(accountEmail)
-        if (cancelled) return
-        setStep(
-          available
-            ? { name: 'confirm', email: accountEmail }
-            : { name: 'taken', email: accountEmail }
-        )
-      } catch (e) {
-        if (!cancelled) fail(e)
-      }
-    }
-    open()
-    return () => {
-      cancelled = true
-    }
+    if (kind.type === 'demo') file(accountEmail)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /** The one case a different address is asked for: the account's own is taken. */
-  const onSubmitOther = async (e: FormEvent<HTMLFormElement>) => {
+  /** The different address the duplicate step asks for. Same two moves. */
+  const onSubmitOther = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const email = String(new FormData(e.currentTarget).get('email') ?? '')
-    setBusy(true)
-    setError(null)
-    try {
-      const { available } = await checkMetaidEmail(email)
-      if (!available) {
-        setStep({ name: 'taken', email })
-        setError('This email also has an account. Try a different one.')
-        return
-      }
-      await file(email)
-    } catch (err) {
-      fail(err)
-    } finally {
-      setBusy(false)
-    }
+    return file(String(new FormData(e.currentTarget).get('email') ?? ''))
   }
 
   const title =
     step.name === 'sent'
       ? 'Request sent'
       : step.name === 'taken'
-        ? 'This email is already in use'
+        ? takenTitle(step.dup)
         : kind.title
 
   return (
@@ -566,7 +591,7 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
         {step.name === 'checking' && (
           <p className={`${TEXT.body} mt-6 flex items-center gap-3 text-[#E4EAE7]`} role="status">
             <Loader2 className="size-4 animate-spin" />
-            {kind.type === 'demo' ? 'Sending your request' : 'Checking your email'}
+            Sending your request
           </p>
         )}
 
@@ -606,8 +631,20 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
         {step.name === 'taken' && (
           <form onSubmit={onSubmitOther} className="mt-6">
             <p className={`${TEXT.body} leading-relaxed text-[#E4EAE7]`}>
-              <span className="break-all font-medium">{step.email}</span> already
-              has a newera account. Enter a different email for your {kind.title}.
+              {step.dup.phone_taken && step.dup.email_taken ? (
+                <>
+                  <span className="break-all font-medium">{step.email}</span> and
+                  your phone number both already have a newera account.
+                </>
+              ) : step.dup.phone_taken ? (
+                <>Your phone number already has a newera account.</>
+              ) : (
+                <>
+                  <span className="break-all font-medium">{step.email}</span>{' '}
+                  already has a newera account.
+                </>
+              )}{' '}
+              Enter a different email for your {kind.title}.
             </p>
             <div className="mt-5">
               <label className={`${fieldLabel} mb-2 block`} htmlFor="metaid-email">
