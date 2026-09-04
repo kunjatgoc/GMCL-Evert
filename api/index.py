@@ -23,6 +23,7 @@ import base64
 import hashlib
 import hmac
 import os
+import re
 import secrets
 import smtplib
 import sys
@@ -1177,19 +1178,29 @@ def request_metaid(
 # MetaID and `metaid_request` never does.
 
 
+# A MetaID is four to six digits, e.g. 43563. Newera's format, not ours, so
+# the rule is written down once here and mirrored by a check constraint on
+# league_entry -- the API is not the only thing that will ever hold that
+# connection.
+METAID_RE = re.compile(r"^[0-9]{4,6}$")
+
+
 class LeagueJoin(BaseModel):
     """The whole of what the League screen posts."""
 
-    metaid: str = Field(min_length=1, max_length=120)
+    # Generous next to the real rule below: this only stops a megabyte of
+    # string reaching the regex. Surrounding spaces are trimmed after it, so
+    # the allowance has to leave room for them.
+    metaid: str = Field(min_length=1, max_length=32)
 
     @model_validator(mode="after")
-    def trim(self):
-        """A MetaID is Newera's identifier, so it is trimmed and nothing else:
-        no lowering, no reformatting. Blank is caught here rather than by the
-        table's check constraint, which would reach the browser as a 500."""
+    def check(self):
+        """Trimmed first, then matched. A pattern on the field itself would run
+        before the trim and reject " 43563 ", which a person pasting an ID out
+        of an email will produce every time."""
         self.metaid = self.metaid.strip()
-        if not self.metaid:
-            raise ValueError("metaid is required")
+        if not METAID_RE.match(self.metaid):
+            raise ValueError("a MetaID is 4 to 6 digits")
         return self
 
 
@@ -1595,6 +1606,18 @@ if __name__ == "__main__":
         pass
     else:
         raise AssertionError("accepted a short new password")
+
+    # Four to six digits, and the trim happens before the match so a pasted
+    # ID with spaces around it is accepted rather than bounced.
+    assert LeagueJoin(metaid="4356").metaid == "4356"
+    assert LeagueJoin(metaid="  43563  ").metaid == "43563"
+    assert LeagueJoin(metaid="435631").metaid == "435631"
+    for bad in ("435", "4356312", "", "   ", "43a63", "NW-4356", "4356.1", "-4356"):
+        try:
+            LeagueJoin(metaid=bad)
+        except ValidationError:
+            continue
+        raise AssertionError(f"accepted {bad!r} as a MetaID")
 
     assert Decision(status="approved").note is None
     assert Decision(status="rejected", note="no").status == "rejected"

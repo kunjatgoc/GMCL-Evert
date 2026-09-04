@@ -195,9 +195,11 @@ create index if not exists metaid_request_user_key
 -- One row per person who joins the league, holding the MetaID they entered.
 --
 -- The MetaID itself is issued outside this system; `metaid_request` is only
--- the ask and the answer. This is the first table that stores the value, and
--- it is stored as typed rather than lowered, because it is somebody else's
--- identifier and its case is not ours to change.
+-- the ask and the answer. This is the first table that stores the value.
+--
+-- Text and not an integer: it is Newera's identifier, it is never counted or
+-- summed, and a leading zero on a four-digit ID would be lost the moment it
+-- became a number. The shape is enforced by a check instead.
 --
 -- `email` is copied in rather than read through user_id: it records which
 -- address the MetaID was under at the moment of joining, and a later change
@@ -218,6 +220,18 @@ begin
         alter table league_entry add constraint league_entry_no_blank_text check (
             btrim(metaid) <> '' and btrim(email) <> ''
         );
+    end if;
+end;
+$$;
+
+-- Four to six digits, e.g. 43563. Newera's format, mirrored from
+-- METAID_RE in api/index.py: the API rejects a bad one with a readable 422,
+-- and this is what stops anything else putting a wrong one in.
+do $$
+begin
+    if not exists (select 1 from pg_constraint where conname = 'league_entry_metaid_digits') then
+        alter table league_entry add constraint league_entry_metaid_digits
+            check (metaid ~ '^[0-9]{4,6}$');
     end if;
 end;
 $$;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { LEAGUE_DAYS, leaguePhase, phaseLabel } from '../src/user/League'
+import { LEAGUE_DAYS, METAID_RE, leaguePhase, phaseLabel } from '../src/user/League'
 
 /**
  * The League screen is static except for one thing: where today sits against
@@ -38,5 +38,19 @@ describe('leaguePhase', () => {
     const early = new Date(2026, 8, 4, 0, 1)
     const late = new Date(2026, 8, 4, 23, 59)
     expect(leaguePhase(early)).toEqual(leaguePhase(late))
+  })
+})
+
+describe('METAID_RE', () => {
+  test('accepts four to six digits', () => {
+    for (const ok of ['4356', '43563', '435631']) {
+      expect(METAID_RE.test(ok)).toBe(true)
+    }
+  })
+
+  test('rejects anything shorter, longer, or not a digit', () => {
+    for (const bad of ['435', '4356312', '', '43a63', 'NW-4356', '4356.1', '-4356', ' 43563 ']) {
+      expect(METAID_RE.test(bad)).toBe(false)
+    }
   })
 })

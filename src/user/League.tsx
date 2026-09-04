@@ -22,6 +22,10 @@ import { ErrorAlert } from '../components/auth/FormAlert'
  * Five equal cards would say five equal things.
  */
 
+/** Four to six digits, e.g. 43563. Mirrors METAID_RE in api/index.py and the
+ *  check constraint on league_entry; this copy only greys out the button. */
+export const METAID_RE = /^[0-9]{4,6}$/
+
 /** Local midnight, so a comparison counts days and not hours. */
 const midnight = (d: Date) =>
   new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
@@ -243,27 +247,41 @@ function JoinBox({
           MetaID
         </label>
         <div className="flex flex-col gap-3 sm:flex-row">
+          {/* The rule is stated to the browser rather than checked in an
+              effect: pattern blocks the submit, inputMode brings up a number
+              pad on a phone, and title is what the browser reads out when it
+              refuses. `title` doubles as the message, so there is no second
+              copy of the rule to fall out of step. The server checks it again
+              -- this is a convenience, not the guard. */}
           <input
             id="league-metaid"
             name="metaid"
             required
-            maxLength={120}
+            inputMode="numeric"
+            pattern="[0-9]{4,6}"
+            maxLength={6}
+            title="A MetaID is 4 to 6 digits"
+            aria-describedby="league-metaid-hint"
             autoComplete="off"
             spellCheck={false}
             value={metaid}
             onChange={(e) => setMetaid(e.target.value)}
-            placeholder="e.g. NW-4821903"
-            className={`${control} w-full sm:flex-1`}
+            placeholder="e.g. 43563"
+            className={`${control} tabular w-full sm:flex-1`}
           />
           <button
             type="submit"
-            disabled={busy || !metaid.trim()}
+            disabled={busy || !METAID_RE.test(metaid.trim())}
             className={`${btnPrimary} shrink-0`}
           >
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Trophy className="size-4" />}
             Join the league
           </button>
         </div>
+        <p id="league-metaid-hint" className={`${TEXT.label} mt-2.5 text-[var(--admin-muted)]`}>
+          4 to 6 digits, no letters.
+        </p>
+
         {error && (
           <div className="mt-4">
             <ErrorAlert>{error}</ErrorAlert>
