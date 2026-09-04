@@ -22,6 +22,7 @@ sees the original path.
 import base64
 import hashlib
 import hmac
+import json
 import os
 import re
 import secrets
@@ -29,8 +30,11 @@ import smtplib
 import ssl
 import sys
 import time
+import urllib.error
+import urllib.request
 from datetime import date
 from email.message import EmailMessage
+from email.utils import formatdate, make_msgid
 from typing import Optional
 
 import phonenumbers
@@ -317,6 +321,36 @@ if OTP_ECHO:
     )
 
 
+# GOC's check-user API, which answers whether an address is already connected
+# to GOC Global Algo. Read from the environment for the same reasons the mail
+# config is: a URL in the source outlives the deployment it was written for,
+# and a key in the source is a key in the repository.
+GML_CHECK_URL = os.environ.get("GML_CHECK_URL", "")
+GML_CHECK_KEY = os.environ.get("GML_CHECK_KEY", "")
+
+# Spelled the way GOC spells it, typo included. This is their header name, not
+# ours, and a corrected copy is simply a header they do not read -- which
+# comes back 401, not as a spelling complaint.
+GML_CHECK_HEADER = "goc-gml-varification"
+
+# Long enough for a round trip to another company's API, short enough that
+# their bad day is not also a hung request on this side.
+GML_CHECK_TIMEOUT = int(os.environ.get("GML_CHECK_TIMEOUT") or 8)
+
+# Both halves or nothing. A URL without a key is answered 401 every time, and
+# treating that as "the address is taken" would lock out every applicant. An
+# unset config is a supported state: see real_email_available.
+GML_CHECK_READY = bool(GML_CHECK_URL and GML_CHECK_KEY)
+
+if not GML_CHECK_READY:
+    print(
+        "[GML] check-user is not configured (GML_CHECK_URL, GML_CHECK_KEY); "
+        "every address will be treated as free.",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 def hash_password(password: str) -> str:
     """`pbkdf2$<rounds>$<salt hex>$<key hex>`. hashlib covers this, so no passlib."""
     salt = secrets.token_bytes(16)
@@ -464,6 +498,16 @@ def send_mail(to_email: str, subject: str, body: str, html: str = "") -> None:
     msg["Subject"] = subject
     msg["From"] = SMTP_FROM_EMAIL
     msg["To"] = to_email
+    # EmailMessage adds neither of these and send_message does not either, so
+    # without them the message goes out with no Date and no Message-ID. A
+    # missing Date is one of the oldest spam heuristics there is, and a missing
+    # Message-ID leaves the receiver nothing to thread or de-duplicate on.
+    # The id is stamped with the sender's own domain so it aligns with From.
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid(domain=SMTP_FROM_EMAIL.rsplit("@", 1)[-1].rstrip(">"))
+    # Somewhere for a reply to land. A transactional address that bounces
+    # replies is itself a negative reputation signal.
+    msg["Reply-To"] = SMTP_FROM_EMAIL
     if EMAIL_CONFIGURATION_SET:
         msg["X-SES-CONFIGURATION-SET"] = EMAIL_CONFIGURATION_SET
     msg.set_content(body)
@@ -1129,19 +1173,93 @@ def list_metaid(user_id: int = Depends(require_user)) -> dict:
     return {"rows": rows}
 
 
-def real_email_available(email: str) -> bool:
-    """Whether Gspice already holds an account against this address.
+def email_is_connected(payload: dict) -> bool:
+    """Reads one GOC check-user body as an answer about the email alone.
 
-    True means the address is free to issue a Real MetaID against. False sends
-    the screen back to ask for a different one.
+    The body carries three fields: an overall `status`, and a per-field
+    `mobileNumber` / `email` saying which of the values sent actually matched.
+    This reads the per-field one. Only an address is sent below, so today the
+    two agree -- but `status` is "Connected" if *either* input matched, so a
+    later caller that also sends a phone would otherwise get a phone's answer
+    to an email's question.
 
-    ponytail: the call is not written -- Gspice's endpoint, auth and response
-    shape have not been supplied, and inventing them would mean deleting a
-    guess later rather than filling a hole. Everything above this line is
-    finished and reaches here; this body is the whole of what is left, and
-    until it does something real every address is treated as free.
+    Anything that is not a plain "yes" is a no. An unfamiliar body is not a
+    match, and inventing a third state for it would only push the question up
+    to a caller that has even less to go on.
     """
-    return True
+    return str(payload.get("email", "")).strip().lower() == "yes"
+
+
+def goc_check_user(email: str) -> Optional[dict]:
+    """One POST to GOC's check-user, or None when the question could not be put.
+
+    None is "no answer", never "no record" -- the two are different and only
+    the caller knows what to do about the first. Every failure lands here: a
+    refused key, a timeout, an unreachable host, a body that is not JSON.
+
+    stdlib rather than a client library. It is one POST with one header, and
+    the alternative is a dependency to install, pin and update for that.
+    """
+    body = json.dumps({"email": email}).encode()
+    req = urllib.request.Request(
+        GML_CHECK_URL,
+        data=body,
+        method="POST",
+        headers={
+            GML_CHECK_HEADER: GML_CHECK_KEY,
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=GML_CHECK_TIMEOUT) as res:
+            return json.loads(res.read())
+    except urllib.error.HTTPError as exc:
+        # 401 is our key, not their user: the header is missing or wrong, and
+        # every later call will fail the same way until someone fixes .env.
+        # Worth saying plainly, because the symptom on the screen is nothing
+        # at all -- the flow carries on treating addresses as free.
+        note = "check the verification key" if exc.code == 401 else "unexpected reply"
+        print(
+            f"[GML] check-user returned {exc.code} ({note}).",
+            file=sys.stderr,
+            flush=True,
+        )
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        # Class name only. The text of a transport error carries the host it
+        # could not reach, and the log is not the place to widen that.
+        print(
+            f"[GML] check-user did not answer ({exc.__class__.__name__}).",
+            file=sys.stderr,
+            flush=True,
+        )
+    return None
+
+
+def real_email_available(email: str) -> bool:
+    """Whether the address is free to issue a Real MetaID against.
+
+    True lets the request be filed. False sends the screen back to ask for a
+    different address, which is the only remedy the dialog offers -- so only
+    something the applicant can actually fix by typing another address is
+    allowed to return False. That is why the phone is not sent: a person
+    connected under a number they cannot change here would be refused with no
+    way forward.
+
+    Two states answer True without asking anybody:
+
+    - No configuration. The same state this function was born in, and the one
+      every environment without GOC's key is in.
+    - Asked, but no answer came back. Failing open: a request that should have
+      been stopped still lands in the admin queue, where a person decides it.
+      Failing closed would turn GOC's outage into this product refusing every
+      real account, which is the worse of the two.
+    """
+    if not GML_CHECK_READY:
+        return True
+    payload = goc_check_user(email)
+    if payload is None:
+        return True
+    return not email_is_connected(payload)
 
 
 class MetaidCheck(BaseModel):
@@ -1726,5 +1844,22 @@ if __name__ == "__main__":
     assert 'href="https://x/y"' in reset_html
     # No feature block when neither is given, rather than an empty box.
     assert "letter-spacing:10px" not in render_email("h", "i", "o")
+
+    # GOC's three documented bodies, verbatim from their spec, read as the one
+    # thing this side asks: is this address already connected?
+    assert email_is_connected(
+        {"status": "Connected", "mobileNumber": "Yes", "email": "Yes"}
+    )
+    # Their sample (b): the phone matched and the address did not. "Connected"
+    # overall, free as an address -- the case reading `status` would get wrong.
+    assert not email_is_connected(
+        {"status": "Connected", "mobileNumber": "Yes", "email": "no"}
+    )
+    assert not email_is_connected(
+        {"status": "notconnected", "mobileNumber": "no", "email": "no"}
+    )
+    # A body with nothing to read is not a match.
+    assert not email_is_connected({})
+    assert not email_is_connected({"message": "Invalid verification key."})
 
     print("ok")
