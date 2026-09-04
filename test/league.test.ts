@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'vitest'
-import { LEAGUE_DAYS, METAID_RE, leaguePhase, phaseLabel } from '../src/user/League'
+import {
+  LEAGUE_DAYS,
+  METAID_RE,
+  PRIZES,
+  PRIZE_PLACES,
+  PRIZE_POOL,
+  leaguePhase,
+  phaseLabel,
+} from '../src/user/League'
 
 /**
  * The League screen is static except for one thing: where today sits against
@@ -52,5 +60,17 @@ describe('METAID_RE', () => {
     for (const bad of ['435', '4356312', '', '43a63', 'NW-4356', '4356.1', '-4356', ' 43563 ']) {
       expect(METAID_RE.test(bad)).toBe(false)
     }
+  })
+})
+
+describe('prize totals', () => {
+  test('the pool is the sum of the tiers, not a number typed twice', () => {
+    expect(PRIZE_POOL).toBe(1000 + 500 + 250 + 47 * 50)
+    expect(PRIZE_POOL).toBe(4100)
+  })
+
+  test('the places add up to the fiftieth', () => {
+    expect(PRIZE_PLACES).toBe(50)
+    expect(PRIZES.at(-1)?.places).toBe(47)
   })
 })

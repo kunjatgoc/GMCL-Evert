@@ -264,6 +264,18 @@ h3 {
   }
 }
 
+/* The league page's scroll cue. A short travel, not a bounce: it has to read
+   as "there is more below" without competing with the headline above it. */
+@keyframes nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
