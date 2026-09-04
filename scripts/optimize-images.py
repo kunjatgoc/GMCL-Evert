@@ -55,6 +55,12 @@ TARGETS = {
     "league-plinth":     (1200, 1200, True,  85),
     "league-gate":       (2400,  800, False, 78),
     "league-lanes":      (1800, 1050, False, 74),
+    # The MetaTrader mark, drawn at 18px in the rail. The source is 47px, so
+    # this is a cap it never reaches rather than an upscale.
+    "mt5-icon":          (  96,   96, True,  90),
+    # Atmosphere behind every panel screen, at 40% over the ground, so it can
+    # take the lowest quality of anything here without it showing.
+    "panel-plate":       (2000, 1150, False, 72),
     "empty-state":       ( 900,  700, True,  88),
 }
 

@@ -594,6 +594,57 @@ across the whole frame. Fills the frame corner to corner. Texture only, no
 focal point.
 ```
 
+## 22. Panel plate  the replacement for 17
+
+**Path:** `public/img/panel-plate.webp` **Size:** 2560 x 1440 (16:9)
+**Fallback if skipped:** the horizon glow and grain shipping now. The panel is
+complete without it.
+
+Prompt 17 was generated and then removed in `b877004`. It is worth saying
+exactly why, because the failure is repeatable: it asked for *"faint horizontal
+bands of spring green light... like data on a distant screen."* Behind an empty
+mockup that read as depth. Behind a real table of 600 names it read as smeared
+rows of text, and a background that looks like text is not atmosphere, it is a
+rendering fault.
+
+So the one rule this replacement has: **no horizontal structure of any kind.**
+No bands, no rows, no lines, no repeating anything. The light falls on a
+diagonal, which cannot be mistaken for a row of type no matter what sits in
+front of it.
+
+This is a lighting study, not a picture. If you can describe an object in it,
+it is too busy.
+
+**Feeling:** quiet command, the same as 17. A very large dark room, one light a
+long way off, nothing in it. The panel is a back office, not a shop window.
+
+```
+[PROMPT]
+An enormous dark empty interior volume, photographed as pure atmosphere. A
+single broad shaft of soft spring green light falls diagonally from the upper
+right toward the lower left, spreading and dissipating as it goes, catching
+faint haze on the way down. Where it lands there is only a soft undefined
+bloom -- no floor line, no walls, no horizon, no edges, no objects. Everything
+else falls away to near black. Extremely low contrast throughout, no bright
+highlight anywhere, nothing sharp, nothing in focus. Vast, still, and almost
+empty. A lighting study rather than a photograph of a place.
+```
+
+**NEGATIVE  this one especially**
+
+```
+horizontal bands, horizontal lines, stripes, rows, grid, scanlines, text,
+letters, numbers, data, charts, graphs, screens, monitors, windows, buildings,
+skyline, city, architecture, floor, horizon line, edges, objects, people,
+repeating pattern, high contrast, bright highlights, sharp focus, detail,
+noise, vignette, blue tint, cyan, teal, purple, gold, orange
+```
+
+**How to judge it before sending it back:** open it, then put any screenshot of
+a table on top at full opacity. If your eye finds structure in the background
+behind the table, it has failed the same way 17 did. It should read as nothing
+at all until you look for it.
+
 ## Format notes
 
 - **Transparent PNG matters** for items 3–7, 10, 11, 14, 15  they composite over live WebGL and CSS glow. A baked black background will show as an ugly rectangle. If your generator can't do alpha, generate on pure black `#000000` and tell me  I'll key it out.

@@ -1,7 +1,8 @@
 import { useEffect, useState, type ComponentType } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
-import { Check, LogOut, X, type LucideIcon } from 'lucide-react'
+import { Check, LogOut, X } from 'lucide-react'
 import { getMe, homeFor, logout, Unauthorized, type Me } from '../lib/api'
+import type { IconComponent } from '../components/ui/IconArt'
 import { EASE } from '../lib/motion'
 import { PALETTE } from './palette'
 import { Lockup } from '../components/ui/Lockup'
@@ -19,7 +20,9 @@ import { PanelSkeleton, useDelayed } from './Skeleton'
 export type PanelRoute = {
   path: string
   label: string
-  icon: LucideIcon
+  /** A lucide icon, or anything else that draws itself from a className --
+   *  the MetaTrader mark is an <img>, not a glyph. */
+  icon: IconComponent
   /** Views that do not care about the account may take no props at all. */
   view: ComponentType<{ me: Me }>
   /** Renders beside the address and Sign out instead of in the main list.
@@ -64,16 +67,35 @@ function usePath() {
   return [path, go] as const
 }
 
-/** The panel's ground: a low horizon glow and grain, nothing else.
+/**
+ * The panel's ground.
  *
- *  There was a photographic plate here -- a blurred skyline whose lit windows
- *  read as smeared rows of text once it sat behind a real table. Decoration
- *  that looks like a rendering fault is worse than no decoration, so it is
- *  gone. Fixed rather than absolute so the glow does not scroll away
- *  underneath a long list. */
+ * A photographic plate lived here once -- a blurred skyline whose lit windows
+ * read as smeared rows of text the moment a real table sat in front of it.
+ * Decoration that looks like a rendering fault is worse than no decoration, so
+ * it went in b877004, and `panel-plate.webp` is its replacement: the same
+ * atmosphere with every horizontal structure removed, since horizontal is what
+ * a row of type looks like. See prompt 22 in design/prompts.md.
+ *
+ * The plate is optional and hides itself when absent, so the CSS underneath it
+ * has to stand on its own -- which is why there are two washes and not one.
+ * Fixed rather than absolute, so none of it scrolls away under a long list.
+ */
 function Backdrop() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-[var(--admin-bg)]">
+      <img
+        src="/img/panel-plate.webp"
+        alt=""
+        loading="lazy"
+        className="absolute inset-0 size-full object-cover opacity-[0.22]"
+        onError={(e) => (e.currentTarget.style.display = 'none')}
+      />
+
+      {/* Falls on a diagonal for the same reason the plate does: nothing that
+          crosses the screen level with a table row can be mistaken for one. */}
+      <div className="absolute inset-0 [background:linear-gradient(203deg,rgba(62,230,138,0.07)_0%,transparent_42%)]" />
+
       {/* Breathes on a slow cycle so the room is not perfectly still. */}
       <div className="absolute inset-x-0 bottom-0 h-[30rem] [animation:horizon-glow_13s_ease-in-out_infinite] [background:radial-gradient(55%_60%_at_25%_100%,rgba(62,230,138,0.1),transparent_72%)]" />
       <div className="grain absolute inset-0" />

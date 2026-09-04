@@ -20,7 +20,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import ChartCandle from '~icons/tabler/chart-candle'
-import type { IconComponent } from '../components/ui/IconArt'
+import { IconArt, type IconComponent } from '../components/ui/IconArt'
 import { changePassword, updateName, Unauthorized, type Me } from '../lib/api'
 import {
   checkMetaidEmail,
@@ -46,17 +46,28 @@ import {
 import { ErrorAlert, Notice } from '../components/auth/FormAlert'
 import { EASE } from '../lib/motion'
 
+/** The MetaTrader mark, for the rail. IconArt already draws an image and
+ *  falls back to a glyph when the file is missing, so this is a src and a
+ *  name; `Send` is what shows if the asset ever goes astray. */
+const Mt5Mark = ({ className }: { className?: string }) => (
+  <IconArt src="/img/mt5-icon.webp" fallback={Send} className={className} />
+)
+
 /** What an entrant can reach, drawn by the same rail the admin panel uses --
  *  the list is what differs between roles, never the shell.
  *
- *  League sits under the request screen because that is the order the two are
- *  done in: Newera answers for the address first, and the number that comes
- *  back is what the League screen asks for. */
+ *  The main list is the work, in the order it is done: get an account, then
+ *  enter the league with it. The footer is the account itself, which is why
+ *  My Profile sits down there beside the address and the sign-out control. */
 const ROUTES: readonly PanelRoute[] = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, view: DashboardScreen },
-  { path: '/request-metaid', label: 'Request an Account', icon: Send, view: RequestScreen },
-  // Footer order is this array's order: My Profile, then League, then the
-  // sign-out control the shell draws last.
+  {
+    path: '/request-metaid',
+    label: 'MetaTrader Account',
+    icon: Mt5Mark,
+    view: RequestScreen,
+  },
+  { path: '/league', label: 'League', icon: Trophy, view: LeagueScreen },
   {
     path: '/profile',
     label: 'My Profile',
@@ -64,7 +75,6 @@ const ROUTES: readonly PanelRoute[] = [
     view: ProfileScreen,
     atBottom: true,
   },
-  { path: '/league', label: 'League', icon: Trophy, view: LeagueScreen, atBottom: true },
 ]
 
 export default function UserDashboard() {
