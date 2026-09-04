@@ -18,6 +18,16 @@ const UserDashboard = lazy(() => import('./user/UserDashboard'))
 
 const fallback = <div className="min-h-dvh" />
 
+// The entrant panel's own screens. A set rather than a chain of comparisons,
+// because the list grows and the chain does not read once it does. Keep in
+// step with ROUTES in src/user/UserDashboard.tsx.
+const ENTRANT_PATHS = new Set([
+  '/dashboard',
+  '/request-metaid',
+  '/league',
+  '/profile',
+])
+
 const screen = path.startsWith('/admin') ? (
   <Suspense fallback={fallback}>
     <AdminApp />
@@ -26,7 +36,7 @@ const screen = path.startsWith('/admin') ? (
   <Suspense fallback={fallback}>
     <GmlApp />
   </Suspense>
-) : path === '/dashboard' || path === '/request-metaid' || path === '/profile' ? (
+) : ENTRANT_PATHS.has(path) ? (
   <Suspense fallback={fallback}>
     <UserDashboard />
   </Suspense>

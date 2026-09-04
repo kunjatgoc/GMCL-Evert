@@ -29,3 +29,17 @@ export const requestMetaid = (type: MetaidType, email: string) =>
  *  a Demo MetaID is issued against the account's own address and asks nothing. */
 export const checkMetaidEmail = (email: string) =>
   postJson<{ available: boolean }>('/api/metaid/check', { email })
+
+/** One row of `league_entry`: who joined, under which MetaID, and when. */
+export type LeagueEntry = {
+  metaid: string
+  /** The address the MetaID was approved against, as it stood on joining. */
+  email: string
+  created_at: string
+}
+
+export const getLeagueEntry = () =>
+  request<{ entry: LeagueEntry | null }>('/api/league').then((r) => r.entry)
+
+export const joinLeague = (metaid: string) =>
+  postJson<{ id: number }>('/api/league', { metaid })

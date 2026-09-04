@@ -191,3 +191,38 @@ create index if not exists metaid_request_user_key
 -- an online ALTER on this table; adding them now would only be columns nobody
 -- writes. Notifications are the same story -- nothing sends one today, so
 -- there is no table for them yet.
+
+-- One row per person who joins the league, holding the MetaID they entered.
+--
+-- The MetaID itself is issued outside this system; `metaid_request` is only
+-- the ask and the answer. This is the first table that stores the value, and
+-- it is stored as typed rather than lowered, because it is somebody else's
+-- identifier and its case is not ours to change.
+--
+-- `email` is copied in rather than read through user_id: it records which
+-- address the MetaID was under at the moment of joining, and a later change
+-- to the account must not rewrite an entry that has already been counted.
+create table if not exists league_entry (
+    id          bigserial   primary key,
+    user_id     bigint      not null references users (id),
+    metaid      text        not null,
+    email       text        not null,
+    created_at  timestamptz not null default now()
+);
+
+-- btrim in sp_join_league turns "   " into "", not into null, so a blank
+-- would pass NOT NULL. Guarded here, the last place before the disk.
+do $$
+begin
+    if not exists (select 1 from pg_constraint where conname = 'league_entry_no_blank_text') then
+        alter table league_entry add constraint league_entry_no_blank_text check (
+            btrim(metaid) <> '' and btrim(email) <> ''
+        );
+    end if;
+end;
+$$;
+
+-- One entry per person. A unique index rather than a check in the API, so two
+-- taps on a slow button cannot both get through.
+create unique index if not exists league_entry_user_key
+    on league_entry (user_id);

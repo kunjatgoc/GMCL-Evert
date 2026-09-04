@@ -58,6 +58,7 @@ Every file is idempotent, so re-running the lot is safe.
 | `users` | Everyone who signs in, one row per account, one role per row |
 | `auth_token` | Email-confirmation codes and password-reset links -- one shape, told apart by `purpose` |
 | `metaid_request` | A Demo or Real MetaID asked for, and the answer |
+| `league_entry` | Who entered the league, under which MetaID. One row per person |
 
 `users` is the accounts table rather than an admins table, so an end user is a
 row with a different role and not a second login path. Email is unique

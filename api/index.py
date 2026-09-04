@@ -1169,6 +1169,61 @@ def request_metaid(
     return {"id": request_id}
 
 
+# --- the league ---------------------------------------------------------------
+#
+# Getting a MetaID and entering the league are two steps on purpose. The first
+# is Newera answering for an address; the second is this product recording who
+# is playing. Only the second is ours, which is why `league_entry` holds the
+# MetaID and `metaid_request` never does.
+
+
+class LeagueJoin(BaseModel):
+    """The whole of what the League screen posts."""
+
+    metaid: str = Field(min_length=1, max_length=120)
+
+    @model_validator(mode="after")
+    def trim(self):
+        """A MetaID is Newera's identifier, so it is trimmed and nothing else:
+        no lowering, no reformatting. Blank is caught here rather than by the
+        table's check constraint, which would reach the browser as a 500."""
+        self.metaid = self.metaid.strip()
+        if not self.metaid:
+            raise ValueError("metaid is required")
+        return self
+
+
+@app.get("/api/league")
+def my_league_entry(user_id: int = Depends(require_user)) -> dict:
+    """The caller's entry, or null. The screen has two states, and this says
+    which one it is in."""
+    with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            "select metaid, email, created_at from league_entry where user_id = %s",
+            (user_id,),
+        )
+        return {"entry": cur.fetchone()}
+
+
+@app.post("/api/league", status_code=201)
+def join_league(entry: LeagueJoin, user_id: int = Depends(require_user)) -> dict:
+    """Enters the caller into the league under the MetaID they typed.
+
+    The address is not read from the request body: sp_join_league takes the
+    one the MetaID was approved against, so the browser cannot decide what is
+    recorded against a person. Who is allowed to enter is not checked -- there
+    is no rule for that yet, and inventing one here would put it somewhere
+    nobody would look for it.
+    """
+    try:
+        with pool.connection() as conn, conn.cursor() as cur:
+            cur.execute("CALL sp_join_league(%s, %s)", (user_id, entry.metaid))
+            (row_id,) = cur.fetchone()
+    except errors.UniqueViolation:
+        raise HTTPException(409, "You have already joined the league.")
+    return {"id": row_id}
+
+
 @app.get("/api/gml/stats")
 def gml_stats(_: int = Depends(require_gml)) -> dict:
     """The league in four numbers, all of it already in the database.

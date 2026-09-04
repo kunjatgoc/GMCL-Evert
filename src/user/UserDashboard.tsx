@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Loader2,
   Send,
+  Trophy,
   UserRound,
   Wallet,
   X,
@@ -22,6 +23,7 @@ import {
   type MetaidRequest,
   type MetaidType,
 } from './api'
+import { LeagueScreen } from './League'
 import { PanelShell, type PanelRoute } from '../panel/PanelShell'
 import {
   TEXT,
@@ -37,11 +39,16 @@ import {
 import { ErrorAlert, Notice } from '../components/auth/FormAlert'
 import { EASE } from '../lib/motion'
 
-/** What an entrant can reach. Two screens, drawn by the same rail the admin
- *  panel uses -- the list is what differs between roles, never the shell. */
+/** What an entrant can reach, drawn by the same rail the admin panel uses --
+ *  the list is what differs between roles, never the shell.
+ *
+ *  League sits under the MetaID screen because that is the order the two are
+ *  done in: Newera answers for the address first, and the MetaID that comes
+ *  back is what the League screen asks for. */
 const ROUTES: readonly PanelRoute[] = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, view: DashboardScreen },
   { path: '/request-metaid', label: 'Request a MetaID', icon: Send, view: RequestScreen },
+  { path: '/league', label: 'League', icon: Trophy, view: LeagueScreen },
   { path: '/profile', label: 'My Profile', icon: UserRound, view: ProfileScreen },
 ]
 

@@ -94,4 +94,10 @@ revoke all on procedure sp_decide_metaid(bigint, bigint, text, text, boolean)
 grant execute on procedure sp_decide_metaid(bigint, bigint, text, text, boolean)
     to gmcl_api;
 
-revoke all on table users, user_roles, auth_token, metaid_request from gmcl_api;
+alter procedure sp_join_league(bigint, text, bigint)
+    security definer set search_path = public, pg_temp;
+revoke all on procedure sp_join_league(bigint, text, bigint) from public;
+grant execute on procedure sp_join_league(bigint, text, bigint) to gmcl_api;
+
+revoke all on table users, user_roles, auth_token, metaid_request, league_entry
+    from gmcl_api;
