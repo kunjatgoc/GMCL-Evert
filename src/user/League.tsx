@@ -5,6 +5,7 @@ import CalendarEvent from '~icons/tabler/calendar-event'
 import ChartCandle from '~icons/tabler/chart-candle'
 import Lock from '~icons/tabler/lock'
 import Moneybag from '~icons/tabler/moneybag'
+import Check from '~icons/tabler/check'
 import Pencil from '~icons/tabler/pencil'
 import Plus from '~icons/tabler/plus'
 import Trophy from '~icons/tabler/trophy-filled'
@@ -482,6 +483,19 @@ function Congrats({ show, onDone }: { show: boolean; onDone: () => void }) {
 }
 
 /**
+ * What the two buttons wear beside an inline field: the field's own height, and
+ * less of it sideways.
+ *
+ * `!` because btnPrimary and btnGhost carry their own padding and type size,
+ * and two utilities setting the same property do not resolve by the order they
+ * are written in the class attribute.
+ *
+ * Applied only in the compact shape; the standalone forms keep the full-size
+ * buttons, which is what a page-level action should look like.
+ */
+const COMPACT_BTN = 'h-11 !px-3.5 !text-[15px]'
+
+/**
  * The account number field, and the one button that acts on it.
  *
  * Written once because it appears twice -- adding an entry and correcting one
@@ -492,12 +506,17 @@ function MetaidForm({
   initial = '',
   submitLabel,
   busy,
+  compact = false,
   onSubmit,
   onCancel,
 }: {
   initial?: string
   submitLabel: string
   busy: boolean
+  /** Inside a row of the list, where the label and the hint are dropped so the
+   *  row is the same height whether it is being read or corrected. A card that
+   *  grows under the cursor moves everything below it. */
+  compact?: boolean
   onSubmit: (metaid: string) => void
   /** Present on a correction, absent on the first entry: there is nothing to
    *  go back to when the list is empty. */
@@ -512,12 +531,14 @@ function MetaidForm({
         e.preventDefault()
         onSubmit(metaid.trim())
       }}
-      className="text-left"
+      className={compact ? 'w-full text-left' : 'text-left'}
     >
-      <label className={`${fieldLabel} mb-2 block`} htmlFor={id}>
-        MetaTrader5 Account
-      </label>
-      <div className="flex flex-col gap-3 sm:flex-row">
+      {!compact && (
+        <label className={`${fieldLabel} mb-2 block`} htmlFor={id}>
+          MetaTrader5 Account
+        </label>
+      )}
+      <div className={compact ? 'flex gap-2' : 'flex flex-col gap-3 sm:flex-row'}>
         {/* The rule is stated to the browser rather than checked in an effect:
             pattern blocks the submit, inputMode brings up a number pad on a
             phone, and title is what the browser reads out when it refuses. The
@@ -531,21 +552,27 @@ function MetaidForm({
           pattern="[0-9]{4,6}"
           maxLength={6}
           title="An account number is 4 to 6 digits"
-          aria-describedby={`${id}-hint`}
+          aria-label={compact ? 'MetaTrader5 Account' : undefined}
+          aria-describedby={compact ? undefined : `${id}-hint`}
           autoComplete="off"
           spellCheck={false}
           value={metaid}
           onChange={(e) => setMetaid(e.target.value)}
           placeholder="e.g. 43563"
-          className={`${control} tabular w-full text-[20px] sm:flex-1`}
+          className={`${control} tabular w-full min-w-0 flex-1 ${
+            compact ? 'h-11 text-[18px]' : 'text-[20px]'
+          }`}
         />
         <button
           type="submit"
           disabled={busy || !METAID_RE.test(metaid.trim())}
-          className={`${btnPrimary} shrink-0`}
+          className={`${btnPrimary} shrink-0 ${compact ? COMPACT_BTN : ''}`}
         >
+          {/* A trophy is for entering; a correction is not an entry. */}
           {busy ? (
             <Loader2 className="size-4 animate-spin" />
+          ) : compact ? (
+            <Check className="size-4" />
           ) : (
             <Trophy className="size-4" />
           )}
@@ -556,15 +583,17 @@ function MetaidForm({
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className={`${btnGhost} shrink-0`}
+            className={`${btnGhost} shrink-0 ${compact ? COMPACT_BTN : ''}`}
           >
             Cancel
           </button>
         )}
       </div>
-      <p id={`${id}-hint`} className={`${TEXT.label} mt-2.5 text-[var(--admin-muted)]`}>
-        4 to 6 digits, no letters.
-      </p>
+      {!compact && (
+        <p id={`${id}-hint`} className={`${TEXT.label} mt-2.5 text-[var(--admin-muted)]`}>
+          4 to 6 digits, no letters.
+        </p>
+      )}
     </form>
   )
 }
@@ -593,22 +622,23 @@ function EntryRow({
   onSave: (metaid: string) => void
 }) {
   return (
-    <li className="bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] px-6 py-5">
+    <li className="flex min-h-[5.75rem] items-center bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] px-4 py-4 sm:px-6">
       {editing ? (
         <MetaidForm
           initial={entry.metaid}
           submitLabel="Save"
           busy={busy}
+          compact
           onSubmit={onSave}
           onCancel={onCancel}
         />
       ) : (
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex w-full items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="tabular text-[24px] font-bold leading-none text-white">
               {entry.metaid}
             </p>
-            <p className={`${TEXT.label} mt-2 break-words text-[var(--admin-muted)]`}>
+            <p className={`${TEXT.label} mt-2 truncate text-[var(--admin-muted)]`}>
               {entry.email} &middot; joined {joinedOn(entry.created_at)}
             </p>
           </div>

@@ -216,7 +216,7 @@ function StepCard({
         {body}
       </p>
 
-      <div className="relative mt-auto pt-7">{children}</div>
+      {children && <div className="relative mt-auto pt-7">{children}</div>}
     </motion.article>
   )
 }
@@ -304,23 +304,10 @@ function DashboardScreen({ me }: { me: Me }) {
           {entries === undefined ? (
             <Loading />
           ) : entries.length ? (
-            <p className={`${TEXT.body} text-[#E4EAE7]`}>
-              You are in, under{' '}
-              {entries.length === 1 ? 'account ' : `${entries.length} accounts: `}
-              {entries.map((e, i) => (
-                <span key={e.id}>
-                  {i > 0 && ', '}
-                  <span className="tabular font-semibold text-white">
-                    {e.metaid}
-                  </span>
-                </span>
-              ))}
-              .{' '}
-              <a href="/league" className="underline underline-offset-4">
-                Add or edit
-              </a>
-              .
-            </p>
+            /* Done, and the tick on the card says so. What was entered, and
+               the adding and correcting of it, all live on the League screen
+               -- repeating any of it here is a second place to keep right. */
+            null
           ) : canJoin ? (
             <a href="/league" className={btnPrimary}>
               <Trophy className="size-4" />
