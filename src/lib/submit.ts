@@ -48,7 +48,7 @@ export async function submitRealAccount(email: string): Promise<SubmitResult> {
     if (res.status === 409)
       return {
         ok: false,
-        error: 'You have already asked. Our team will email you shortly.',
+        error: 'You have already asked. Your request is with our team.',
       }
 
     return { ok: false, error: 'Request failed. Please try again.' }

@@ -63,7 +63,7 @@ const KINDS: readonly Kind[] = [
     type: 'real',
     title: 'Real MetaID',
     blurb:
-      'A real trading account with newera Broker. They send it to your email after they check your details.',
+      'A real trading account with newera Broker, opened once they have checked your details.',
     icon: Wallet,
   },
 ]
@@ -219,7 +219,7 @@ function RequestScreen({ me }: { me: Me }) {
         Choose your <span className="text-[#3EE68A]">MetaID</span>
       </h1>
       <p className={`${TEXT.body} mt-4 max-w-2xl text-[#E4EAE7]`}>
-        Choose one. We will send it to your email once newera approves it.
+        Choose one. newera checks every request before it is approved.
       </p>
 
       {error && <div className="mt-6"><ErrorAlert>{error}</ErrorAlert></div>}
@@ -267,7 +267,7 @@ function RequestScreen({ me }: { me: Me }) {
                     >
                       {latest?.status === 'pending'
                         ? AFTER_SUBMIT
-                        : `Approved. Your MetaID will be sent to ${latest?.email}.`}
+                        : `Congratulations. Your ${kind.title} is approved for ${latest?.email}.`}
                     </p>
                   )}
                 </div>
@@ -459,7 +459,7 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
         {step.name === 'confirm' && (
           <>
             <p className={`${TEXT.body} mt-6 leading-relaxed text-[#E4EAE7]`}>
-              We will send your {kind.title} to this email:
+              Your {kind.title} will be held against this email:
             </p>
             <p
               className={`${TEXT.body} mt-3 break-all rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 font-medium`}

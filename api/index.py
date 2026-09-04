@@ -1605,6 +1605,29 @@ if __name__ == "__main__":
     finally:
         OTP_ECHO, SMTP_READY, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD = _saved
 
+    # Two mail triggers, and only two: the confirmation code and the password
+    # reset link. Everything else this app does writes a row and tells the
+    # person on screen -- approving a MetaID sends nothing, and neither does a
+    # real-account request. A screen that promises mail nobody sends is a
+    # promise the product has to keep later.
+    #
+    # Asked of the compiled functions rather than described in a comment,
+    # because a comment does not fail. Anything in this module that names
+    # send_mail is by definition a thing that can put a message on the wire,
+    # so the list below is the complete set and it is checked by name. A third
+    # sender trips this and has to be a decision rather than an edit.
+    _senders = sorted(
+        name
+        for name, obj in list(globals().items())
+        if getattr(obj, "__module__", None) == __name__
+        and hasattr(obj, "__code__")
+        and "send_mail" in obj.__code__.co_names
+    )
+    assert _senders == ["send_otp_email", "send_reset_email"], (
+        f"the things that send mail are now {_senders} -- there should be two, "
+        "a confirmation code and a password reset link"
+    )
+
     # The HTML part is an alternative to the plain text, never a replacement:
     # a client that refuses HTML must still get the code and the link.
     otp_html = render_email("h", "i", "o", code="123456")
