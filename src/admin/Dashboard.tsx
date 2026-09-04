@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { CalendarDays, Globe2, UserCheck, Users } from 'lucide-react'
 import { COUNTRIES } from '../lib/countries'
+import { Flag } from '../components/ui/Flag'
 import { EASE, depthIn } from '../lib/motion'
 import { getStats, type Stats } from './api'
 import { TEXT } from '../panel/type'
@@ -12,7 +13,6 @@ import { TrendChart } from './TrendChart'
 const nameFor = (code: string) =>
   COUNTRIES.find((c) => c.code === code)?.name ?? code
 
-const flagFor = (code: string) => COUNTRIES.find((c) => c.code === code)?.flag ?? '·'
 
 
 export function Dashboard() {
@@ -124,7 +124,7 @@ export function Dashboard() {
               transition={{ duration: 0.6, ease: EASE, delay: 0.5 + i * 0.07 }}
             >
               <span className={`${TEXT.body} flex items-center gap-2.5`}>
-                <span aria-hidden>{flagFor(c.country)}</span>
+                <Flag code={c.country} />
                 <span className="truncate text-[#E4EAE7]">
                   {nameFor(c.country)}
                 </span>

@@ -1,4 +1,5 @@
-import { ArrowRight, ShieldCheck } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
+import ShieldCheck from '~icons/tabler/shield-check-filled'
 import { GlowButton } from './ui/GlowButton'
 import { Eyebrow } from './ui/Eyebrow'
 import { SectionReveal } from './ui/SectionReveal'

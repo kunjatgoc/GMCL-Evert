@@ -1,5 +1,8 @@
 import { motion } from 'motion/react'
-import { Award, Medal, Trophy, Users } from 'lucide-react'
+import LaurelWreath from '~icons/tabler/laurel-wreath'
+import Medal from '~icons/tabler/medal-2'
+import Podium from '~icons/tabler/podium'
+import Trophy from '~icons/tabler/trophy-filled'
 import { GlassCard } from './ui/GlassCard'
 import { Counter } from './ui/Counter'
 import { IconArt } from './ui/IconArt'
@@ -66,7 +69,7 @@ const PRIZES = [
     place: '3rd',
     label: '3rd place',
     amount: 250,
-    icon: Award,
+    icon: LaurelWreath,
     img: '/img/trophy-3.webp',
     cell: 'md:col-start-4 md:row-start-1 md:px-2 xl:px-3',
     drop: 'md:mb-[-53.4%]',
@@ -85,7 +88,7 @@ const PRIZES = [
     place: '4th',
     label: '4th \u2013 50th place',
     amount: 50,
-    icon: Users,
+    icon: Podium,
     img: '/img/trophy-4.webp',
     cell: 'md:col-start-5 md:row-start-1 md:px-2 xl:px-3',
     drop: 'md:mb-[-44.5%]',

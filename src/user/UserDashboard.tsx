@@ -5,15 +5,15 @@ import {
   CheckCircle2,
   Clock,
   LayoutDashboard,
-  LineChart,
   Loader2,
   Send,
   UserRound,
   Wallet,
   X,
   XCircle,
-  type LucideIcon,
 } from 'lucide-react'
+import ChartCandle from '~icons/tabler/chart-candle'
+import type { IconComponent } from '../components/ui/IconArt'
 import { changePassword, updateName, Unauthorized, type Me } from '../lib/api'
 import {
   checkMetaidEmail,
@@ -49,7 +49,7 @@ export default function UserDashboard() {
   return <PanelShell views={{ end_user: { subtitle: 'Your account', routes: ROUTES } }} />
 }
 
-type Kind = { type: MetaidType; title: string; blurb: string; icon: LucideIcon }
+type Kind = { type: MetaidType; title: string; blurb: string; icon: IconComponent }
 
 const KINDS: readonly Kind[] = [
   {
@@ -57,7 +57,7 @@ const KINDS: readonly Kind[] = [
     title: 'Demo MetaID',
     blurb:
       'Trade in the league with $10,000 of demo money. No deposit. No risk to your own money.',
-    icon: LineChart,
+    icon: ChartCandle,
   },
   {
     type: 'real',

@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import type { LucideIcon } from 'lucide-react'
+import { useState, type ComponentType } from 'react'
+
+/** Anything that renders an SVG from a className: a lucide icon or a `~icons` import. */
+export type IconComponent = ComponentType<{ className?: string }>
 
 type Props = {
-  /** Generated 3D asset. Falls back to the lucide icon if absent. */
+  /** Generated 3D asset. Falls back to the icon if absent. */
   src: string
-  fallback: LucideIcon
+  fallback: IconComponent
   className?: string
 }
 

@@ -1,7 +1,9 @@
 import { useLayoutEffect, useRef } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { CalendarRange, TrendingUp, Wallet } from 'lucide-react'
+import CalendarEvent from '~icons/tabler/calendar-event'
+import ChartCandle from '~icons/tabler/chart-candle'
+import Moneybag from '~icons/tabler/moneybag'
 import { GlassCard } from './ui/GlassCard'
 import { Eyebrow } from './ui/Eyebrow'
 import { Counter } from './ui/Counter'
@@ -12,14 +14,14 @@ gsap.registerPlugin(ScrollTrigger)
 
 const FACTS = [
   {
-    icon: CalendarRange,
+    icon: CalendarEvent,
     label: 'Dates',
     value: '7 – 18 Sept',
     body: 'Twelve days of trading. It starts at 00:00 on 7 September and ends at 23:59 on 18 September.',
     img: '/img/icon-dates.webp',
   },
   {
-    icon: Wallet,
+    icon: Moneybag,
     label: 'Starting amount',
     value: '$10,000',
     counter: 10000,
@@ -27,7 +29,7 @@ const FACTS = [
     img: '/img/icon-capital.webp',
   },
   {
-    icon: TrendingUp,
+    icon: ChartCandle,
     label: 'How you win',
     value: 'Biggest gain',
     body: 'Whoever grows their account the most by the end of 18 September wins first place.',
@@ -145,7 +147,7 @@ export function AboutLeague() {
             />
             <IconArt
               src="/img/hero-card.webp"
-              fallback={TrendingUp}
+              fallback={ChartCandle}
               className="relative w-full drop-shadow-[0_40px_80px_rgba(0,0,0,0.8)]"
             />
           </div>

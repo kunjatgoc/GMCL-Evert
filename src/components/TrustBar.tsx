@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { BadgeCheck } from 'lucide-react'
+import BadgeCheck from '~icons/tabler/rosette-discount-check-filled'
 import { IconArt } from './ui/IconArt'
 import { fadeIn, viewportOnce } from '../lib/motion'
 

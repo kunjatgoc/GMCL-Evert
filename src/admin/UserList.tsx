@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { Check, ChevronLeft, ChevronRight, Loader2, Search, X } from 'lucide-react'
-import { COUNTRIES } from '../lib/countries'
+import { Flag } from '../components/ui/Flag'
 import { EASE } from '../lib/motion'
 import {
   TEXT,
@@ -362,8 +362,6 @@ function UserList<T extends { id: number }>({
   )
 }
 
-const flagFor = (code: string) =>
-  COUNTRIES.find((c) => c.code === code)?.flag ?? ''
 const STATUS_TONE = {
   pending: 'text-[var(--admin-gold)]',
   approved: 'text-[#3EE68A]',
@@ -608,7 +606,7 @@ export function MetaidQueue() {
             cell: (r) =>
               r.country ? (
                 <span className={`${TEXT.label} inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5`}>
-                  <span aria-hidden>{flagFor(r.country)}</span>
+                  <Flag code={r.country} className="size-3.5" />
                   {r.country}
                 </span>
               ) : (
