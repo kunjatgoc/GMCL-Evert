@@ -14,7 +14,7 @@ import {
   control,
   fieldLabel,
   modalCard,
-  modalShell,
+  modalShellWide,
   selectControl,
 } from '../panel/type'
 import { RowsSkeleton } from '../panel/Skeleton'
@@ -380,6 +380,16 @@ const STATUS_TONE = {
 /** The row a decision is about to be made on, and which decision. */
 type Pending = { row: MetaidRow; status: 'approved' | 'rejected' }
 
+/** One labelled value in the record above the buttons. */
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <dt className={`${TEXT.label} text-[var(--admin-muted)]`}>{label}</dt>
+      <dd className={`${TEXT.body} mt-1.5 break-words text-[#E4EAE7]`}>{children}</dd>
+    </div>
+  )
+}
+
 /**
  * Asks before spending a decision.
  *
@@ -414,7 +424,7 @@ function ConfirmDecision({
       onClose={onClose}
       onClick={(e) => e.target === ref.current && !busy && ref.current?.close()}
       aria-labelledby="decide-title"
-      className={modalShell}
+      className={modalShellWide}
       style={{ colorScheme: 'dark' }}
     >
       <div className={modalCard}>
@@ -442,13 +452,36 @@ function ConfirmDecision({
           </div>
         </div>
 
-        <dl
-          className={`${TEXT.label} mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3.5`}
-        >
-          <dt className="text-[var(--admin-muted)]">Request</dt>
-          <dd className="tabular">#{row.id}</dd>
-          <dt className="text-[var(--admin-muted)]">Send to</dt>
-          <dd className="break-all">{row.email}</dd>
+        {/* The whole request, because the decision cannot be taken back and
+            the table it came from is no longer on screen. Both addresses are
+            here on purpose: the MetaID is issued against one and the account
+            signs in with the other, and they are allowed to differ. */}
+        <dl className="mt-6 grid gap-x-8 gap-y-5 rounded-xl border border-white/8 bg-white/[0.02] px-5 py-5 sm:grid-cols-2">
+          <Field label="Name">
+            {row.full_name ?? (
+              <span className="text-[var(--admin-muted)]">&mdash;</span>
+            )}
+          </Field>
+          <Field label="Requested">{fmt(row.created_at)}</Field>
+          <Field label="Phone">
+            <span className="tabular">{row.phone}</span>
+          </Field>
+          <Field label="Country">
+            {row.country ? (
+              <span className="inline-flex items-center gap-2">
+                <Flag code={row.country} className="size-3.5" />
+                {row.country}
+              </span>
+            ) : (
+              <span className="text-[var(--admin-muted)]">&mdash;</span>
+            )}
+          </Field>
+          {/* Side by side rather than stacked: the one thing worth noticing
+              here is whether they differ, and that is a comparison. */}
+          <Field label="MetaID email">
+            <span className="font-medium text-white">{row.email}</span>
+          </Field>
+          <Field label="Account email">{row.account_email}</Field>
         </dl>
 
         {/* Only a refusal owes a reason. It is optional, because a request can

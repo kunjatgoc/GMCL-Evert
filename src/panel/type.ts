@@ -113,10 +113,22 @@ export const btnIcon =
  *
  * m-auto because Tailwind's preflight zeroes the margin a modal dialog centres
  * itself with -- without it the box sits in the top-left corner.
+ *
+ * Width is the one thing a modal is allowed to choose, because it follows
+ * what is inside: a question fits in 34rem, a record does not. Both are
+ * written out in full rather than composed, so Tailwind's scanner reads the
+ * class names literally -- a string it has to evaluate is a class it never
+ * generates.
  */
-export const modalShell =
-  'm-auto w-[min(34rem,calc(100vw-2rem))] rounded-2xl border-0 bg-transparent p-0 ' +
+const MODAL_CHROME =
+  'm-auto rounded-2xl border-0 bg-transparent p-0 ' +
   'text-[#E4EAE7] backdrop:bg-black/70 backdrop:backdrop-blur-sm'
+
+/** A question and its two buttons. */
+export const modalShell = `w-[min(34rem,calc(100vw-2rem))] ${MODAL_CHROME}`
+
+/** A question with the record it is about, laid out in two columns. */
+export const modalShellWide = `w-[min(40rem,calc(100vw-2rem))] ${MODAL_CHROME}`
 
 export const modalCard =
   'relative rounded-2xl border border-white/8 bg-[var(--admin-card)] p-7 sm:p-8'
