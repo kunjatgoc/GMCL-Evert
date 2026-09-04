@@ -403,77 +403,49 @@ def otp_hash(purpose: str, user_id: int, code: str) -> str:
     ).hexdigest()
 
 
-# The product's colours, inlined because an email cannot load a stylesheet and
-# most clients strip <style> anyway.
-MAIL_BG = "#0D1512"
-MAIL_CARD = "#18211D"
-MAIL_GREEN = "#3EE68A"
-MAIL_TEXT = "#E4EAE7"
-MAIL_MUTED = "#A6B3AC"
+# Plain text, and only plain text. An HTML part buys nothing here -- both
+# letters are a heading, a sentence and one secret -- and costs the things that
+# matter: a dark themed table renders differently in every client, images and
+# <style> get stripped, and a multipart/alternative message with a thin text
+# part is a shape spam filters already distrust from a domain with no history.
+#
+# The width is 68 columns. Every client wraps somewhere, so the wrapping is
+# done here, where it can be seen, rather than left to the reader's window.
+MAIL_WIDTH = 68
 
 
-def render_email(heading: str, intro: str, outro: str, *, code: str = "", link: str = "", link_label: str = "") -> str:
-    """The one template both letters use.
+def render_text(heading: str, intro: str, feature: str, outro: str) -> str:
+    """The one shape both letters take.
 
-    Tables and inline styles, because that is what mail clients render: no
-    stylesheet is loaded, <style> is stripped by several of them, and flexbox
-    is not reliable anywhere. No images either -- the mark is type in a bordered
-    cell, so a blocked-image client still shows the brand.
-
-    Dark, like the product. The plain-text part the caller also sends is what
-    a client that refuses HTML falls back to.
+    Underline is computed from the heading rather than typed under it, so the
+    rule cannot drift out of alignment when the wording changes -- which is the
+    only kind of misalignment plain text can actually have.
     """
-    if code:
-        feature = (
-            f'<tr><td align="center" style="padding:8px 0 4px">'
-            f'<div style="display:inline-block;padding:18px 28px;border-radius:14px;'
-            f'border:1px solid rgba(62,230,138,0.35);background:rgba(62,230,138,0.10);'
-            f'color:{MAIL_GREEN};font-family:ui-monospace,SFMono-Regular,Menlo,monospace;'
-            f'font-size:34px;font-weight:700;letter-spacing:10px">{code}</div>'
-            f"</td></tr>"
-        )
-    elif link:
-        feature = (
-            f'<tr><td align="center" style="padding:10px 0 4px">'
-            f'<a href="{link}" style="display:inline-block;padding:14px 30px;border-radius:12px;'
-            f'background:{MAIL_GREEN};color:#06110B;font-weight:700;font-size:16px;'
-            f'text-decoration:none">{link_label}</a></td></tr>'
-            f'<tr><td align="center" style="padding:14px 0 0;color:{MAIL_MUTED};'
-            f'font-size:12px;word-break:break-all">{link}</td></tr>'
-        )
-    else:
-        feature = ""
-
-    return f"""\
-<!doctype html>
-<html><body style="margin:0;padding:0;background:{MAIL_BG}">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{MAIL_BG};padding:32px 16px">
-  <tr><td align="center">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
-      <tr><td align="center" style="padding-bottom:24px">
-        <span style="display:inline-block;padding:10px 12px;border-radius:12px;border:1px solid rgba(62,230,138,0.45);background:rgba(62,230,138,0.10);color:{MAIL_GREEN};font-family:Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;letter-spacing:1px">GML</span>
-        <span style="padding-left:10px;color:#ffffff;font-family:Helvetica,Arial,sans-serif;font-size:17px;font-weight:700;vertical-align:middle">Global Market League</span>
-      </td></tr>
-      <tr><td style="background:{MAIL_CARD};border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:32px">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-               style="font-family:Helvetica,Arial,sans-serif;color:{MAIL_TEXT}">
-          <tr><td style="font-size:21px;font-weight:700;color:#ffffff;padding-bottom:12px">{heading}</td></tr>
-          <tr><td style="font-size:15px;line-height:24px;padding-bottom:20px">{intro}</td></tr>
-          {feature}
-          <tr><td style="font-size:13px;line-height:21px;color:{MAIL_MUTED};padding-top:22px">{outro}</td></tr>
-        </table>
-      </td></tr>
-      <tr><td align="center" style="padding-top:20px;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:19px;color:{MAIL_MUTED}">
-        Global Market League &middot; demo accounts only, no deposit required.<br>
-        This message was sent to {{to}}.
-      </td></tr>
-    </table>
-  </td></tr>
-</table>
-</body></html>"""
+    return "\n".join(
+        [
+            heading,
+            "=" * len(heading),
+            "",
+            intro,
+            "",
+            feature,
+            "",
+            outro,
+        ]
+    )
 
 
-def send_mail(to_email: str, subject: str, body: str, html: str = "") -> None:
+# Both letters close the same way. The recipient line is not decoration: it is
+# what tells someone forwarded a code that the code was not addressed to them.
+MAIL_SIGNATURE = """\
+--
+Global Market League
+Demo accounts only. No deposit required.
+
+This message was sent to {to}."""
+
+
+def send_mail(to_email: str, subject: str, body: str) -> None:
     """Mails one message. Raises HTTPException(502) if it cannot.
 
     Nothing is logged unless OTP_ECHO is on, which is a development switch and
@@ -482,7 +454,8 @@ def send_mail(to_email: str, subject: str, body: str, html: str = "") -> None:
     rather than waiting out a resend window for a mail that never left.
 
     The two letters below build their own text and hand it here. Only the
-    transport is shared, because only the transport is worth not writing twice.
+    transport and the signature are shared, because only those are worth not
+    writing twice.
     """
     if OTP_ECHO:
         # stderr, not stdout: uvicorn's own log goes there, so the secret lands
@@ -510,12 +483,7 @@ def send_mail(to_email: str, subject: str, body: str, html: str = "") -> None:
     msg["Reply-To"] = SMTP_FROM_EMAIL
     if EMAIL_CONFIGURATION_SET:
         msg["X-SES-CONFIGURATION-SET"] = EMAIL_CONFIGURATION_SET
-    msg.set_content(body)
-    if html:
-        # The plain part stays the real message; this is the alternative a
-        # client shows when it can, and the one it falls back from when it
-        # cannot.
-        msg.add_alternative(html.replace("{to}", to_email), subtype="html")
+    msg.set_content(f"{body}\n\n{MAIL_SIGNATURE.format(to=to_email)}\n")
 
     # Verified TLS, explicitly. Both smtplib entry points fall back to
     # ssl._create_stdlib_context() when handed no context, and that context is
@@ -576,43 +544,42 @@ def send_mail(to_email: str, subject: str, body: str, html: str = "") -> None:
 
 
 def send_otp_email(to_email: str, code: str) -> None:
+    """The confirmation code, indented so it reads as a value rather than as
+    part of the sentence above it."""
     send_mail(
         to_email,
         "Confirm your Global Market League email",
-        f"Your confirmation code is {code}\n\n"
-        f"Enter it to confirm this address. It expires in "
-        f"{OTP_TTL_MINUTES} minutes and can be used once.\n\n"
-        "If you were not expecting this, ignore it -- the code is useless "
-        "without the account password.\n",
-        render_email(
-            "Confirm your email",
-            "Enter this code to finish creating your account.",
-            f"It expires in {OTP_TTL_MINUTES} minutes and can be used once. If "
-            "you were not expecting this, ignore it &mdash; the code is useless "
-            "without the account password.",
-            code=code,
+        render_text(
+            "Confirm your email address",
+            "Enter this code to finish creating your account:",
+            f"    {code}",
+            f"The code expires in {OTP_TTL_MINUTES} minutes and can be used once.\n"
+            "\n"
+            "If you were not expecting this email you can ignore it. The code\n"
+            "is useless without your account password.",
         ),
     )
 
 
 def send_reset_email(to_email: str, link: str) -> None:
+    """The reset link, flush to the left margin on a line of its own.
+
+    Not indented, unlike the code above: leading whitespace is what stops
+    several clients turning a URL into a link, and a reset link that has to be
+    copied by hand is a reset nobody finishes.
+    """
     send_mail(
         to_email,
         "Reset your Global Market League password",
-        f"Open this link to choose a new password:\n\n{link}\n\n"
-        f"It expires in {RESET_TTL_MINUTES} minutes and can be used once. "
-        "Your current password keeps working until you finish.\n\n"
-        "If you did not ask for this, ignore it -- the link is the only way "
-        "in and nobody else has it.\n",
-        render_email(
-            "Choose a new password",
-            "Open this link to set a new password on your account.",
-            f"It expires in {RESET_TTL_MINUTES} minutes and can be used once, "
-            "and your current password keeps working until you finish. If you "
-            "did not ask for this, ignore it &mdash; the link is the only way "
-            "in and nobody else has it.",
-            link=link,
-            link_label="Choose a new password",
+        render_text(
+            "Reset your password",
+            "Open the link below to choose a new password:",
+            link,
+            f"The link expires in {RESET_TTL_MINUTES} minutes and can be used once.\n"
+            "Your current password keeps working until you finish.\n"
+            "\n"
+            "If you did not ask for this you can ignore this email. The link\n"
+            "is the only way in, and nobody else has it.",
         ),
     )
 
@@ -1836,14 +1803,20 @@ if __name__ == "__main__":
         "a confirmation code and a password reset link"
     )
 
-    # The HTML part is an alternative to the plain text, never a replacement:
-    # a client that refuses HTML must still get the code and the link.
-    otp_html = render_email("h", "i", "o", code="123456")
-    assert "123456" in otp_html and "<!doctype html>" in otp_html
-    reset_html = render_email("h", "i", "o", link="https://x/y", link_label="Go")
-    assert 'href="https://x/y"' in reset_html
-    # No feature block when neither is given, rather than an empty box.
-    assert "letter-spacing:10px" not in render_email("h", "i", "o")
+    # Plain text only, and the secret has to survive it. Nothing here renders
+    # markup, so the code and the link are the message rather than a fallback
+    # from one.
+    body = render_text("Confirm your email address", "intro", "    123456", "outro")
+    assert "123456" in body and "<" not in body, "the code did not survive the body"
+    # The rule under the heading is generated, so it cannot drift out of line.
+    lines = body.splitlines()
+    assert lines[1] == "=" * len(lines[0]), "the heading rule is out of alignment"
+    # No line the reader has to scroll sideways to finish, the link excepted --
+    # a URL is one token and wrapping it breaks it.
+    reset = render_text("Reset your password", "intro", "https://x/y", "outro")
+    assert all(len(ln) <= MAIL_WIDTH for ln in reset.splitlines() if " " in ln), (
+        "a prose line runs past the wrap width"
+    )
 
     # GOC's three documented bodies, verbatim from their spec, read as the one
     # thing this side asks: is this address already connected?
