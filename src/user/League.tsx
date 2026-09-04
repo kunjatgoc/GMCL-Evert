@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { motion } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { Loader2 } from 'lucide-react'
 import CalendarEvent from '~icons/tabler/calendar-event'
 import ChartCandle from '~icons/tabler/chart-candle'
@@ -43,7 +43,7 @@ const daysBetween = (a: Date, b: Date) =>
 
 /** Month is 0-based: 8 is September. */
 export const LEAGUE_START = new Date(2026, 8, 7)
-export const LEAGUE_END = new Date(2026, 8, 13)
+export const LEAGUE_END = new Date(2026, 8, 18)
 export const LEAGUE_DAYS = daysBetween(LEAGUE_START, LEAGUE_END) + 1
 
 export type Phase =
@@ -117,19 +117,19 @@ const joinedOn = (iso: string) =>
 
 /**
  * The three steps, in the order they actually happen. Numbered because this
- * genuinely is a sequence -- you cannot enter a MetaID you have not been
- * given -- and not because numbers look tidy on a landing page.
+ * genuinely is a sequence -- you cannot enter an account number nobody has
+ * issued you -- and not because numbers look tidy on a landing page.
  */
 const STEPS = [
   {
     icon: CalendarEvent,
-    title: 'Get a MetaID',
-    body: 'Ask for one on the Request a MetaID screen. newera checks the address and answers.',
+    title: 'Get an account',
+    body: 'Ask for one on the Request an Account screen. newera checks the address and answers.',
   },
   {
     icon: Moneybag,
     title: 'Enter it below',
-    body: 'Type the MetaID newera approved. That is the whole entry, and it costs nothing.',
+    body: 'Type the account number newera approved. That is the whole entry, and it costs nothing.',
   },
   {
     icon: ChartCandle,
@@ -142,7 +142,7 @@ const STEPS = [
  * Three bands, not five.
  *
  * A landing page argues in order, but this reader is already signed in and
- * already holds a MetaID -- most of the argument is won before they arrive.
+ * already holds an account -- most of the argument is won before they arrive.
  * Three screens of scroll asks them to work for a form they came here to
  * fill in. So the week folds into the hero where the dates already are, and
  * the steps sit beside the prizes rather than above them.
@@ -192,11 +192,11 @@ function PhaseLine({ phase }: { phase: Phase }) {
   )
 }
 
-/** The week, inside the hero. Seven tiles because the league is seven days,
- *  which is a fact about this league and not a layout that happened to fit. */
+/** The window, inside the hero. One tile per day because the count is a fact
+ *  about this league and not a layout that happened to fit. */
 function DayStrip({ phase }: { phase: Phase }) {
   return (
-    <ol className="grid grid-cols-7 gap-1.5 sm:gap-2.5">
+    <ol className="grid grid-cols-6 gap-1.5 sm:grid-cols-12 sm:gap-2">
       {DAYS.map((d, i) => {
         const today = phase.name === 'running' && phase.day === i + 1
         const done =
@@ -293,9 +293,8 @@ function Hero({
         </h1>
 
         <p className="mt-5 max-w-2xl text-[clamp(1rem,1.25vw,1.15rem)] leading-relaxed text-[#E4EAE7]">
-          Everyone starts the week with the same $10,000 demo account. Grow it
-          the most by the end of {longDate(LEAGUE_END)} and you take first
-          place. Nothing you deposit is at risk, because nothing is deposited.
+          Join the upcoming league from 7th to 18th Sept and get a chance to
+          win $1,000 USD.
         </p>
 
         <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -310,7 +309,7 @@ function Hero({
       {/* The week lives here rather than in a band of its own: it is the
           dates, and the dates are the announcement. */}
       <div className="max-w-3xl">
-        <p className={`${fieldLabel} mb-2.5`}>The week</p>
+        <p className={`${fieldLabel} mb-2.5`}>{LEAGUE_DAYS} days</p>
         <DayStrip phase={phase} />
       </div>
     </section>
@@ -342,7 +341,7 @@ function StepsAndPrizes() {
 
       <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16">
         <div>
-          <BandHead eyebrow="How it works" title="Three steps, one week" />
+          <BandHead eyebrow="How it works" title="Three steps to enter" />
 
           <ol className="mt-8 space-y-px overflow-hidden rounded-2xl border border-white/8">
             {STEPS.map((s, i) => {
@@ -445,13 +444,82 @@ function StepsAndPrizes() {
   )
 }
 
+/**
+ * Shown once, on the join that succeeds, and gone on its own.
+ *
+ * No close button and no backdrop: it reports something that already
+ * happened, so there is nothing to decide and nothing to dismiss. That also
+ * means it must never trap focus or cover the entry it is congratulating --
+ * it sits top-centre, above everything, and lets clicks through.
+ *
+ * `role="status"` rather than an alert: a win is not an emergency, so a
+ * screen reader announces it when it finishes what it is saying.
+ */
+const CONGRATS_MS = 4200
+
+function Congrats({ show, onDone }: { show: boolean; onDone: () => void }) {
+  useEffect(() => {
+    if (!show) return
+    const t = setTimeout(onDone, CONGRATS_MS)
+    return () => clearTimeout(t)
+  }, [show, onDone])
+
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          role="status"
+          aria-live="polite"
+          initial={{ opacity: 0, y: -24, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -16, scale: 0.98 }}
+          transition={{ duration: 0.42, ease: EASE }}
+          className="pointer-events-none fixed inset-x-0 top-6 z-50 flex justify-center px-4"
+        >
+          <div className="relative flex items-center gap-4 overflow-hidden rounded-2xl border border-[rgba(62,230,138,0.45)] bg-[linear-gradient(135deg,rgba(23,48,37,0.98),rgba(13,21,18,0.98))] px-6 py-4 shadow-[0_28px_70px_-20px_rgba(0,0,0,0.95)] backdrop-blur-md">
+            {/* Sweeps across once as it lands. One gesture, not a loop: a
+                banner that keeps moving after it has been read is noise. */}
+            <motion.span
+              aria-hidden
+              initial={{ x: '-120%' }}
+              animate={{ x: '120%' }}
+              transition={{ duration: 1.1, ease: EASE, delay: 0.15 }}
+              className="pointer-events-none absolute inset-y-0 w-1/3 bg-[linear-gradient(90deg,transparent,rgba(62,230,138,0.16),transparent)]"
+            />
+            <motion.span
+              aria-hidden
+              initial={{ scale: 0.5, rotate: -12 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ duration: 0.5, ease: EASE, delay: 0.08 }}
+              className="relative grid size-11 shrink-0 place-items-center rounded-xl border border-[rgba(62,230,138,0.45)] bg-[rgba(62,230,138,0.16)] text-[var(--admin-primary)]"
+            >
+              <Trophy className="size-5" />
+            </motion.span>
+            <div className="relative min-w-0">
+              <p className="font-[family-name:var(--font-display)] text-[20px] font-bold leading-tight text-white">
+                Congratulations
+              </p>
+              <p className={`${TEXT.label} mt-0.5 text-[#E4EAE7]`}>
+                You are in the league. Good luck.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
 /** Band 3. The whole point of the page. */
 function JoinBand({
   entry,
   onJoined,
+  onCelebrate,
 }: {
   entry: LeagueEntry | null | undefined
   onJoined: (e: LeagueEntry) => void
+  /** Fired only on the join that succeeds, never on a reload that finds one. */
+  onCelebrate: () => void
 }) {
   const [metaid, setMetaid] = useState('')
   const [busy, setBusy] = useState(false)
@@ -467,6 +535,7 @@ function JoinBand({
       // the database, so the screen would otherwise be guessing at it.
       const saved = await getLeagueEntry()
       if (saved) onJoined(saved)
+      onCelebrate()
     } catch (err) {
       if (err instanceof Unauthorized) window.location.href = '/login'
       else setError(err instanceof Error ? err.message : 'Something went wrong.')
@@ -520,7 +589,7 @@ function JoinBand({
 
             <dl className="mt-8 grid gap-px overflow-hidden rounded-2xl border border-white/12 text-left sm:grid-cols-2">
               <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] px-6 py-5">
-                <dt className={`${TEXT.label} text-[var(--admin-muted)]`}>MetaID</dt>
+                <dt className={`${TEXT.label} text-[var(--admin-muted)]`}>MetaTrader5 Account</dt>
                 <dd className="tabular mt-1 break-words text-[24px] font-bold text-white">
                   {entry.metaid}
                 </dd>
@@ -536,16 +605,16 @@ function JoinBand({
         ) : (
           <>
             <h2 className="font-[family-name:var(--font-display)] text-[clamp(1.8rem,3.2vw,2.7rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
-              Enter with your MetaID
+              Enter with your MetaTrader5 Account
             </h2>
             <p className={`${TEXT.body} mx-auto mt-3 max-w-lg text-[#E4EAE7]`}>
-              The one newera approved for you. Find it on the Request a MetaID
-              screen if you are not sure.
+              The one newera approved for you. Find it on the Request an
+              Account screen if you are not sure.
             </p>
 
             <form onSubmit={submit} className="mx-auto mt-8 max-w-lg text-left">
               <label className={`${fieldLabel} mb-2 block`} htmlFor="league-metaid">
-                MetaID
+                MetaTrader5 Account
               </label>
               <div className="flex flex-col gap-3 sm:flex-row">
                 {/* The rule is stated to the browser rather than checked in an
@@ -560,7 +629,7 @@ function JoinBand({
                   inputMode="numeric"
                   pattern="[0-9]{4,6}"
                   maxLength={6}
-                  title="A MetaID is 4 to 6 digits"
+                  title="An account number is 4 to 6 digits"
                   aria-describedby="league-metaid-hint"
                   autoComplete="off"
                   spellCheck={false}
@@ -607,6 +676,7 @@ export function LeagueScreen() {
   const [error, setError] = useState<string | null>(null)
   // Read once, at mount. The window does not move while the screen is open.
   const [phase] = useState(() => leaguePhase(new Date()))
+  const [celebrating, setCelebrating] = useState(false)
 
   useEffect(() => {
     getLeagueEntry()
@@ -639,7 +709,12 @@ export function LeagueScreen() {
         </div>
       )}
 
-      <JoinBand entry={entry} onJoined={setEntry} />
+      <JoinBand
+        entry={entry}
+        onJoined={setEntry}
+        onCelebrate={() => setCelebrating(true)}
+      />
+      <Congrats show={celebrating} onDone={() => setCelebrating(false)} />
     </div>
   )
 }

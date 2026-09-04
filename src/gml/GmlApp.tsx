@@ -24,7 +24,7 @@ const getGmlStats = () => request<GmlStats>('/api/gml/stats')
  * Counts only, and only counts that already exist. GML's actual workflow has
  * not been specified, so this is the foundation and nothing more -- one
  * screen, one endpoint, and a rail with room for whatever the work turns out
- * to be. Nothing here touches MetaID requests: those are newera's to answer.
+ * to be. Nothing here touches account requests: those are newera's to answer.
  */
 function GmlDashboard() {
   const [stats, setStats] = useState<GmlStats | null>(null)

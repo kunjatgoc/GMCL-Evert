@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
 import { motion } from 'motion/react'
 import {
   Check,
@@ -24,6 +30,7 @@ import {
   type MetaidType,
 } from './api'
 import { LeagueScreen } from './League'
+import { getLeagueEntry, type LeagueEntry } from './api'
 import { PanelShell, type PanelRoute } from '../panel/PanelShell'
 import {
   TEXT,
@@ -42,14 +49,22 @@ import { EASE } from '../lib/motion'
 /** What an entrant can reach, drawn by the same rail the admin panel uses --
  *  the list is what differs between roles, never the shell.
  *
- *  League sits under the MetaID screen because that is the order the two are
- *  done in: Newera answers for the address first, and the MetaID that comes
+ *  League sits under the request screen because that is the order the two are
+ *  done in: Newera answers for the address first, and the number that comes
  *  back is what the League screen asks for. */
 const ROUTES: readonly PanelRoute[] = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, view: DashboardScreen },
-  { path: '/request-metaid', label: 'Request a MetaID', icon: Send, view: RequestScreen },
-  { path: '/league', label: 'League', icon: Trophy, view: LeagueScreen },
-  { path: '/profile', label: 'My Profile', icon: UserRound, view: ProfileScreen },
+  { path: '/request-metaid', label: 'Request an Account', icon: Send, view: RequestScreen },
+  // Footer order is this array's order: My Profile, then League, then the
+  // sign-out control the shell draws last.
+  {
+    path: '/profile',
+    label: 'My Profile',
+    icon: UserRound,
+    view: ProfileScreen,
+    atBottom: true,
+  },
+  { path: '/league', label: 'League', icon: Trophy, view: LeagueScreen, atBottom: true },
 ]
 
 export default function UserDashboard() {
@@ -61,14 +76,14 @@ type Kind = { type: MetaidType; title: string; blurb: string; icon: IconComponen
 const KINDS: readonly Kind[] = [
   {
     type: 'demo',
-    title: 'Demo MetaID',
+    title: 'Demo MetaTrader5 Account',
     blurb:
       'Trade in the league with $10,000 of demo money. No deposit. No risk to your own money.',
     icon: ChartCandle,
   },
   {
     type: 'real',
-    title: 'Real MetaID',
+    title: 'Real MetaTrader5 Account',
     blurb:
       'A real trading account with newera Broker, opened once they have checked your details.',
     icon: Wallet,
@@ -83,11 +98,6 @@ const STATUS = {
 
 /** What the screen says once a request is in. Asked for word for word. */
 const AFTER_SUBMIT = 'Your verification will be done soon within 24hr to 48hr.'
-
-const day = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
-
-const titleOf = (type: MetaidType) => KINDS.find((k) => k.type === type)?.title ?? type
 
 const card = 'rounded-2xl border border-white/8 bg-[var(--admin-card)]'
 const heading = `${TEXT.display} font-[family-name:var(--font-display)] font-bold leading-[1.05]`
@@ -105,7 +115,7 @@ function StatusChip({ status }: { status: MetaidRequest['status'] }) {
 }
 
 /** Each screen fetches what it needs. Two screens and one small list -- lifting
- *  it into the shell would only make the shell care about MetaIDs. */
+ *  it into the shell would only make the shell care about account requests. */
 function useRequests() {
   const [rows, setRows] = useState<MetaidRequest[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -133,15 +143,88 @@ function Loading() {
   )
 }
 
-/** Who you are, and where each request stands. Nothing to fill in. */
+/**
+ * One numbered card per step, in the order they have to happen.
+ *
+ * Numbered because it genuinely is a sequence: the league asks for an account
+ * number newera has not issued yet at step one. Each card carries its own
+ * state rather than a separate status list below -- where a request stands is
+ * the state of step one, not a second subject.
+ */
+function StepCard({
+  step,
+  title,
+  body,
+  done,
+  children,
+  delay,
+}: {
+  step: number
+  title: string
+  body: string
+  done: boolean
+  children: ReactNode
+  delay: number
+}) {
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: EASE, delay }}
+      className={`${card} relative flex flex-col overflow-hidden p-7 xl:p-8 ${
+        done ? 'border-[rgba(62,230,138,0.35)]' : ''
+      }`}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-16 -top-20 size-48 rounded-full bg-[var(--admin-primary)] opacity-[0.09] blur-[70px]"
+      />
+
+      <div className="relative flex items-center gap-3">
+        <span
+          className={`tabular grid size-9 shrink-0 place-items-center rounded-xl border text-[15px] font-bold ${
+            done
+              ? 'border-[rgba(62,230,138,0.45)] bg-[rgba(62,230,138,0.14)] text-[#3EE68A]'
+              : 'border-white/12 bg-white/[0.04] text-[#E4EAE7]'
+          }`}
+        >
+          {done ? <Check className="size-4" /> : step}
+        </span>
+        <p className={`${TEXT.label} font-semibold uppercase tracking-[0.14em] text-[var(--admin-muted)]`}>
+          Step {step}
+        </p>
+      </div>
+
+      <h2 className="relative mt-5 font-[family-name:var(--font-display)] text-[clamp(1.4rem,2.2vw,1.9rem)] font-bold leading-tight text-white">
+        {title}
+      </h2>
+      <p className={`${TEXT.body} relative mt-3 leading-relaxed text-[#E4EAE7]`}>
+        {body}
+      </p>
+
+      <div className="relative mt-auto pt-7">{children}</div>
+    </motion.article>
+  )
+}
+
+/** Who you are, and the two things to do. */
 function DashboardScreen({ me }: { me: Me }) {
   const { rows, error } = useRequests()
   const firstName = me.full_name?.trim().split(/\s+/)[0]
+  const [joined, setJoined] = useState<LeagueEntry | null | undefined>(undefined)
+
+  useEffect(() => {
+    // A failure here only costs the second card its tick, so it is swallowed
+    // rather than shown: the dashboard is not where you would fix it.
+    getLeagueEntry()
+      .then(setJoined)
+      .catch(() => setJoined(null))
+  }, [])
+
+  const approved = rows?.find((r) => r.status === 'approved')
+  const pending = rows?.find((r) => r.status === 'pending')
 
   return (
-    // Capped, but not centred. This screen is a short read, and letting it
-    // run to 1600px puts the phone number half a metre from the address it
-    // belongs beside. Left-aligned so there is no gutter on the near side.
     <div className="xl:max-w-5xl">
       <h1 className={heading}>
         {firstName ? (
@@ -154,54 +237,67 @@ function DashboardScreen({ me }: { me: Me }) {
           </>
         )}
       </h1>
+      <p className={`${TEXT.body} mt-4 max-w-2xl text-[#E4EAE7]`}>
+        Two steps, in this order.
+      </p>
 
       {error && <div className="mt-6"><ErrorAlert>{error}</ErrorAlert></div>}
 
-      <h2 className={`${TEXT.body} mt-8 font-semibold`}>Your requests</h2>
+      <div className="mt-8 grid max-w-3xl gap-5">
+        <StepCard
+          step={1}
+          delay={0.05}
+          done={Boolean(approved)}
+          title="Request the MetaTrader5 Account"
+          body="Ask newera for a demo or a real account. They check the address and answer. You need the number they issue before you can enter."
+        >
+          {!rows ? (
+            <Loading />
+          ) : approved ? (
+            <p className={`${TEXT.body} text-[#E4EAE7]`}>
+              Approved. Your {approved.type} account is ready under{' '}
+              {approved.email}.
+            </p>
+          ) : pending ? (
+            <>
+              <StatusChip status="pending" />
+              <p className={`${TEXT.label} mt-3 text-[var(--admin-muted)]`}>
+                {AFTER_SUBMIT}
+              </p>
+            </>
+          ) : (
+            <a href="/request-metaid" className={btnPrimary}>
+              <Send className="size-4" />
+              Request an account
+            </a>
+          )}
+        </StepCard>
 
-      {!rows ? (
-        <Loading />
-      ) : rows.length === 0 ? (
-        <div className={`${card} mt-4 p-6`}>
-          <p className={`${TEXT.body} text-[#E4EAE7]`}>
-            You have not requested a MetaID yet. Choose one to get started.
-          </p>
-          <a href="/request-metaid" className={`${btnPrimary} mt-5`}>
-            <Send className="size-4" />
-            Request a MetaID
-          </a>
-        </div>
-      ) : (
-        <ul className="mt-4 space-y-3">
-          {rows.map((r, i) => (
-            <motion.li
-              key={r.id}
-              className={`${card} flex flex-wrap items-center gap-x-6 gap-y-3 px-6 py-5`}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, ease: EASE, delay: i * 0.05 }}
-            >
-              <div className="min-w-0">
-                <p className={`${TEXT.body} font-semibold`}>{titleOf(r.type)}</p>
-                <p className={`${TEXT.label} mt-1 break-words text-[var(--admin-muted)]`}>
-                  Email: {r.email} &middot; Requested {day(r.created_at)}
-                </p>
-                {r.status === 'pending' && (
-                  <p className={`${TEXT.label} mt-2 text-[#E4EAE7]`}>{AFTER_SUBMIT}</p>
-                )}
-                {r.status === 'rejected' && r.decision_note && (
-                  <p className={`${TEXT.label} mt-2 text-[var(--admin-destructive)]`}>
-                    {r.decision_note}
-                  </p>
-                )}
-              </div>
-              <span className="ml-auto shrink-0">
-                <StatusChip status={r.status} />
+        <StepCard
+          step={2}
+          delay={0.13}
+          done={Boolean(joined)}
+          title="Join the League"
+          body="Join the upcoming league from 7th Sept to 18th Sept for a chance to win $1,000 USD."
+        >
+          {joined === undefined ? (
+            <Loading />
+          ) : joined ? (
+            <p className={`${TEXT.body} text-[#E4EAE7]`}>
+              You are in, under account{' '}
+              <span className="tabular font-semibold text-white">
+                {joined.metaid}
               </span>
-            </motion.li>
-          ))}
-        </ul>
-      )}
+              .
+            </p>
+          ) : (
+            <a href="/league" className={btnPrimary}>
+              <Trophy className="size-4" />
+              Join the league
+            </a>
+          )}
+        </StepCard>
+      </div>
     </div>
   )
 }
@@ -213,7 +309,7 @@ function RequestScreen({ me }: { me: Me }) {
 
   const latestOf = (type: MetaidType) => rows?.find((r) => r.type === type)
   // A settled request leaves the way clear to ask again; only a rejected one
-  // needs to. Approved means the MetaID is on its way, and the database
+  // needs to. Approved means the account is on its way, and the database
   // refuses a second pending row of the same type anyway.
   const canAsk = (type: MetaidType) => {
     const latest = latestOf(type)
@@ -223,7 +319,8 @@ function RequestScreen({ me }: { me: Me }) {
   return (
     <div className="xl:max-w-5xl">
       <h1 className={heading}>
-        Choose your <span className="text-[#3EE68A]">MetaID</span>
+        Choose your{' '}
+        <span className="text-[#3EE68A]">MetaTrader5 Account</span>
       </h1>
       <p className={`${TEXT.body} mt-4 max-w-2xl text-[#E4EAE7]`}>
         Choose one. newera checks every request before it is approved.

@@ -22,6 +22,9 @@ export type PanelRoute = {
   icon: LucideIcon
   /** Views that do not care about the account may take no props at all. */
   view: ComponentType<{ me: Me }>
+  /** Renders beside the address and Sign out instead of in the main list.
+   *  For the screens that are about the person rather than the work. */
+  atBottom?: boolean
 }
 
 /** What one role sees: the line under the lockup, and the screens it reaches. */
@@ -160,7 +163,7 @@ export function PanelShell({ views }: Props) {
           <Lockup tone="panel" subtitle={view.subtitle} />
 
           <ul className="mt-5 flex gap-1.5 overflow-x-auto md:mt-9 md:flex-col md:overflow-visible">
-            {view.routes.map((r, i) => {
+            {view.routes.filter((r) => !r.atBottom).map((r, i) => {
               const Icon = r.icon
               const on = r.path === active.path
               return (
@@ -207,6 +210,37 @@ export function PanelShell({ views }: Props) {
 
           <div className="mt-6 border-t border-white/8 pt-4 md:absolute md:inset-x-6 md:bottom-6 md:mt-0">
             <p className={`${TEXT.label} truncate text-[var(--admin-muted)]`}>{me.email}</p>
+
+            {/* The same links, drawn smaller: down here they are the account,
+                not the work, and reading at the size of the main list would
+                make them compete with it. */}
+            <ul className="mt-2.5 flex flex-col gap-0.5">
+              {view.routes.filter((r) => r.atBottom).map((r) => {
+                const Icon = r.icon
+                const on = r.path === active.path
+                return (
+                  <li key={r.path}>
+                    <a
+                      href={r.path}
+                      onClick={(e) => {
+                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+                        e.preventDefault()
+                        go(r.path)
+                      }}
+                      aria-current={on ? 'page' : undefined}
+                      className={`${TEXT.body} flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 transition-colors duration-300 ${
+                        on
+                          ? 'font-semibold text-[#3EE68A]'
+                          : 'text-[#E4EAE7] hover:text-white'
+                      }`}
+                    >
+                      <Icon className="size-4 shrink-0" />
+                      {r.label}
+                    </a>
+                  </li>
+                )
+              })}
+            </ul>
 
             <AnimatePresence mode="wait" initial={false}>
               {confirmingOut ? (

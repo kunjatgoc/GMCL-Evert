@@ -6,7 +6,7 @@ import { PanelShell, type PanelRoute } from '../panel/PanelShell'
 
 const QUEUE: PanelRoute = {
   path: '/admin/metaid',
-  label: 'MetaID Request List',
+  label: 'Account Requests',
   icon: ClipboardList,
   view: MetaidQueue,
 }

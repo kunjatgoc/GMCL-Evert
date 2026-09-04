@@ -369,7 +369,7 @@ const STATUS_TONE = {
 } as const
 
 /**
- * The MetaID queue, for admins and newera staff.
+ * The MetaTrader5 Account queue, for admins and newera staff.
  *
  * A decision is refused for anything already decided -- the procedure checks
  * `status = 'pending'` in the same UPDATE that moves it, so two people
@@ -447,14 +447,14 @@ function ConfirmDecision({
             </h2>
             <p className={`${TEXT.label} mt-1 text-[var(--admin-muted)]`}>
               {row.full_name ?? `User #${row.user_id}`} &middot;{' '}
-              <span className="capitalize">{row.type}</span> MetaID
+              <span className="capitalize">{row.type}</span> MetaTrader5 Account
             </p>
           </div>
         </div>
 
         {/* The whole request, because the decision cannot be taken back and
             the table it came from is no longer on screen. Both addresses are
-            here on purpose: the MetaID is issued against one and the account
+            here on purpose: the account is issued against one and the person
             signs in with the other, and they are allowed to differ. */}
         <dl className="mt-6 grid gap-x-8 gap-y-5 rounded-xl border border-white/8 bg-white/[0.02] px-5 py-5 sm:grid-cols-2">
           <Field label="Name">
@@ -478,10 +478,10 @@ function ConfirmDecision({
           </Field>
           {/* Side by side rather than stacked: the one thing worth noticing
               here is whether they differ, and that is a comparison. */}
-          <Field label="MetaID email">
+          <Field label="MetaTrader5 email">
             <span className="font-medium text-white">{row.email}</span>
           </Field>
-          <Field label="Account email">{row.account_email}</Field>
+          <Field label="Sign-in email">{row.account_email}</Field>
         </dl>
 
         {/* Only a refusal owes a reason. It is optional, because a request can
@@ -579,7 +579,7 @@ export function MetaidQueue() {
         </p>
       )}
       <UserList<MetaidRow>
-        title="MetaID"
+        title="MetaTrader5 Account"
         accent="Requests"
         fetchPage={fetchPage}
         filters={[

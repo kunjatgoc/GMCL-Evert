@@ -24,22 +24,22 @@ describe('leaguePhase', () => {
 
   test('the first and last days are both inside the window', () => {
     expect(leaguePhase(on(7))).toEqual({ name: 'running', day: 1 })
-    expect(leaguePhase(on(13))).toEqual({ name: 'running', day: LEAGUE_DAYS })
+    expect(leaguePhase(on(18))).toEqual({ name: 'running', day: LEAGUE_DAYS })
   })
 
-  test('the day after the last day is over, not day eight', () => {
-    expect(leaguePhase(on(14))).toEqual({ name: 'after' })
+  test('the day after the last day is over, not one past the end', () => {
+    expect(leaguePhase(on(19))).toEqual({ name: 'after' })
     expect(leaguePhase(new Date(2027, 0, 1))).toEqual({ name: 'after' })
   })
 
-  test('the window is the seven days the screen announces', () => {
-    expect(LEAGUE_DAYS).toBe(7)
+  test('the window is 7 to 18 September inclusive', () => {
+    expect(LEAGUE_DAYS).toBe(12)
   })
 
   test('one day out reads as tomorrow rather than "in 1 days"', () => {
     expect(phaseLabel(leaguePhase(on(6)))).toBe('Starts tomorrow')
     expect(phaseLabel(leaguePhase(on(4)))).toBe('Starts in 3 days')
-    expect(phaseLabel(leaguePhase(on(9)))).toBe('Day 3 of 7, trading now')
+    expect(phaseLabel(leaguePhase(on(9)))).toBe('Day 3 of 12, trading now')
   })
 
   test('a time of day never moves the count', () => {
