@@ -253,35 +253,38 @@ RESET_TTL_MINUTES = 30
 # and an in-process counter would forget.
 OTP_RESEND_SECONDS = 60
 
-# Amazon SES. The host, the sender identity and the configuration set are the
-# same wherever this app runs -- one SES account, one verified domain -- so
-# they are constants rather than three lines of .env that exist only to be
-# copied identically into each environment and then drift. Each reads an
-# environment variable first, which is all a second deployment would need.
+# The whole mail configuration, read from the environment and written nowhere
+# else. Not one of these values is spelled out in this file: a setting baked
+# into the source cannot be changed without a deploy, follows a copy of this
+# file into a deployment it was never meant to send from, and quietly disagrees
+# with whatever `.env` says. `.env.example` lists every name with a note on
+# what belongs in it.
 #
-# None of it is secret: the host is public and the from address is printed on
-# every message that goes out. `.env` is for the credentials below.
-SMTP_HOST = os.environ.get("SMTP_HOST", 'email-smtp.ap-south-1.amazonaws.com')
-SMTP_PORT = int(os.environ.get("SMTP_PORT") or 587)
-SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", 'GOC Global Algo <pnl@algo.goctechnology.com>')
-SMTP_TIMEOUT = 10
-
-# SES groups a message under a configuration set when this header is present,
-# which is where bounce and complaint tracking is switched on.
-EMAIL_CONFIGURATION_SET = os.environ.get(
-    "EMAIL_CONFIGURATION_SET", 'cs-algo-pnl'
-)
-
-# The credentials, and the only part of the mail config that is secret. Empty
-# is the normal state on a machine that has not been given them.
+# Empty is a supported state, not a broken one. An unset mail config means mail
+# cannot go out, which the endpoints below answer honestly rather than
+# pretending a code was sent.
+SMTP_HOST = os.environ.get("SMTP_HOST", "")
+SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", "")
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 
-# SES refuses a message from an unauthenticated session, so the credentials are
-# what decide whether mail can go out -- not the host, which now always has a
-# value. Without them an endpoint answers 503 rather than pretending a code
-# went out.
-SMTP_READY = bool(SMTP_HOST and SMTP_USER and SMTP_PASSWORD)
+# The provider groups a message under a configuration set when this header is
+# present, which is where bounce and complaint tracking is switched on. Unset
+# means the header is left off entirely.
+EMAIL_CONFIGURATION_SET = os.environ.get("EMAIL_CONFIGURATION_SET", "")
+
+# Transport numbers rather than identity, so these two keep a working fallback:
+# 587 is the SMTP submission port every provider offers, and ten seconds is
+# long enough for a handshake and short enough that a dead host cannot hold a
+# request open. Both are still overridable by name.
+SMTP_PORT = int(os.environ.get("SMTP_PORT") or 587)
+SMTP_TIMEOUT = int(os.environ.get("SMTP_TIMEOUT") or 10)
+
+# What decides whether a message can actually leave. A provider refuses an
+# unauthenticated session and refuses an unverified sender, so a half-filled
+# config can send nothing and is treated as no config at all -- better than
+# building a message that is certain to bounce.
+SMTP_READY = bool(SMTP_HOST and SMTP_USER and SMTP_PASSWORD and SMTP_FROM_EMAIL)
 
 # Prints every confirmation code to the terminal. A development switch, and a
 # real credential leak anywhere else: a code in a log is a code anyone with log
@@ -291,9 +294,11 @@ SMTP_READY = bool(SMTP_HOST and SMTP_USER and SMTP_PASSWORD)
 # possible -- it has to be set to be dangerous. Never put OTP_ECHO in the
 # Vercel project environment.
 #
-# With no usable SMTP credentials it also stands in for the mail server, so
-# the whole sign-up flow can be walked through locally before SES credentials
-# exist. That substitution only ever happens when this is on.
+# It also stands in for the mail server, so the whole sign-up flow can be
+# walked through before mail credentials exist or after they are withdrawn.
+# That covers both shapes of "no mail": a configuration with nothing in it,
+# and one whose credentials the provider no longer accepts. The substitution
+# only ever happens when this is on.
 OTP_ECHO = os.environ.get("OTP_ECHO", "") == "1"
 
 # A secret can reach the person either by mail or, in development, by being
@@ -488,6 +493,26 @@ def send_mail(to_email: str, subject: str, body: str, html: str = "") -> None:
                 s.login(SMTP_USER, SMTP_PASSWORD)
             s.send_message(msg)
     except (smtplib.SMTPException, OSError) as exc:
+        if OTP_ECHO:
+            # The secret is already on the terminal, and with this switch on
+            # that is a real delivery channel -- so the send being refused has
+            # cost the person nothing. Raising here would roll back the
+            # caller's transaction and destroy a code they can already read,
+            # which is a worse outcome than a message that did not leave.
+            #
+            # Reached when the config is filled in but the provider will not
+            # take it: withdrawn credentials, a suspended account, an
+            # unreachable host. A config that is simply empty returned above.
+            #
+            # The class name only. An exception's text carries the server's
+            # reply, and that is not something to widen the log with.
+            print(
+                f"[OTP_ECHO] mail server refused the send "
+                f"({exc.__class__.__name__}); use the code printed above.",
+                file=sys.stderr,
+                flush=True,
+            )
+            return
         # Deliberately vague to the caller: which host refused, and why, is not
         # the browser's business.
         raise HTTPException(502, "We could not send that email. Try again.") from exc
@@ -1558,6 +1583,27 @@ if __name__ == "__main__":
                 pass
         assert "424242" not in captured.getvalue(), "a code reached the log"
         assert not CAN_SEND_MAIL or SMTP_READY, "codes can be issued with no way to send"
+
+    # The other half of the switch: with it on, a mail server that refuses the
+    # send must not turn a printed code into a failed request. Checked against
+    # a closed port, which is the cheapest stand-in for credentials a provider
+    # has stopped accepting. Run whatever this machine's own settings are, so
+    # the globals are restored afterwards.
+    _saved = (OTP_ECHO, SMTP_READY, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD)
+    OTP_ECHO, SMTP_READY = True, True
+    SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD = "127.0.0.1", 9, "u", "p"
+    try:
+        import contextlib
+        import io
+
+        sink = io.StringIO()
+        with contextlib.redirect_stderr(sink):
+            send_otp_email("nobody@example.com", "424242")
+        printed = sink.getvalue()
+        assert "424242" in printed, "the echo did not print the code"
+        assert "refused" in printed, "a refused send went unreported"
+    finally:
+        OTP_ECHO, SMTP_READY, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD = _saved
 
     # The HTML part is an alternative to the plain text, never a replacement:
     # a client that refuses HTML must still get the code and the link.

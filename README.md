@@ -194,9 +194,10 @@ taken beforehand stays good for its eight hours. `db/procedures/sp_reset_passwor
 names the fix -- a `session_epoch` column carried in the cookie payload.
 
 `SESSION_SECRET` must be set for sign-in to work at all -- without it the
-endpoint answers 503 rather than issuing a cookie nobody can verify. `SMTP_HOST`
-must be set to confirm an address or reset a password, for the same reason:
-better a 503 than pretending a mail went out. `APP_ORIGIN` is where the reset
+endpoint answers 503 rather than issuing a cookie nobody can verify. Confirming
+an address or resetting a password needs a way to reach the person, which is
+either a working mail config or `OTP_ECHO`; with neither, those endpoints
+answer 503 rather than pretending a mail went out. `APP_ORIGIN` is where the reset
 link points; unset, it falls back to the first `ALLOWED_ORIGINS` entry, which
 is right everywhere except a Vercel deployment that never consults that list. A confirmed account signs in without either mail
 setting. The session is a signed cookie, HttpOnly, eight hours, nothing kept in
@@ -204,10 +205,16 @@ JS. Passwords are pbkdf2-sha256 at 600k rounds, hashed by `api/index.py` so the
 seed script and the login endpoint can never disagree on the format.
 
 Mail goes out over SMTP with `smtplib` -- Amazon SES in production, no library
-beyond the standard one. The five `SMTP_*` variables live in `.env` and in the
-Vercel project, never in the source; `.env.example` carries placeholders. Port
-465 is implicit TLS, anything else does STARTTLS, and a server that offers no
-encryption never receives the password.
+beyond the standard one. Every setting is read from the environment and none is
+written in the source: `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM_EMAIL`,
+`SMTP_TIMEOUT`, `SMTP_USER`, `SMTP_PASSWORD` and `EMAIL_CONFIGURATION_SET` live
+in `.env` and in the Vercel project, and `.env.example` documents each one.
+Port 465 is implicit TLS, anything else does STARTTLS, and a server that offers
+no encryption never receives the password.
+
+Mail counts as configured only when the host, the sender and both credentials
+are all filled in. A half-filled config can send nothing, so it is treated as
+no config rather than used to build a message certain to bounce.
 
 To watch the confirmation step again on an account that has already passed it:
 
@@ -218,20 +225,33 @@ update users set email_verified_at = null where email = 'you@example.com';
 Set `COOKIE_SECURE=0` locally, since dev is plain http and a Secure cookie
 would be dropped.
 
-`OTP_ECHO=1` prints every confirmation code to the terminal the API is running
-in, and with `SMTP_HOST` empty it stands in for the mail server entirely, so
-the whole sign-up flow can be walked through before SES credentials exist:
+`OTP_ECHO=1` prints every confirmation code and reset link to the terminal the
+API is running in, and stands in for the mail server entirely, so the whole
+sign-up flow can be walked through with no working mail account:
 
 ```
 [OTP_ECHO] you@example.com -> 850315  (expires in 5 minutes)
 ```
 
+It covers both shapes of "no mail". With the credentials left blank the send is
+skipped outright. With credentials the provider will not accept -- withdrawn,
+suspended, or a host that will not answer -- the refusal is reported on the
+terminal and the printed code still counts as delivered, so a sign-up is not
+rolled back over a message that was never going to leave. Switch it off and a
+refused send is a 502 again, unchanged.
+
 It is a development switch. A code in a log is a credential anyone with log
 access can sign in with, so it must never be set in the Vercel project
 environment. It is off unless it is exactly `1`, the server prints a warning at
-boot whenever it is on, and the self-check in `api/index.py` asserts that with
-it off a code never reaches the log. With both it and `SMTP_HOST` unset,
-sign-up answers 503 rather than issuing a code nobody can receive.
+boot whenever it is on, and the self-checks in `api/index.py` assert both
+halves: with it off a code never reaches the log, and with it on a refused send
+does not raise. With it off and no mail credentials, sign-up answers 503 rather
+than issuing a code nobody can receive.
+
+`scripts/check_recovery.py` refuses to run while `SMTP_USER` and
+`SMTP_PASSWORD` hold values, since it cannot tell a live credential from a
+withdrawn one and will not risk mailing its test addresses for real. Comment
+those two out to run it; `OTP_ECHO` covers the rest.
 
 The database carries four roles; sign-in admits `admin` and `end_user`.
 Staff login is not built yet; the tables it needs are.
