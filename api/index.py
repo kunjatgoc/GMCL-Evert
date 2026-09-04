@@ -259,6 +259,19 @@ RESET_TTL_MINUTES = 30
 # and an in-process counter would forget.
 OTP_RESEND_SECONDS = 60
 
+# Confirmation codes are bypassed, not removed. Every piece of the machinery is
+# still here and still works -- sp_issue_auth_token, sp_verify_otp,
+# /api/verify-otp, /api/resend-otp, issue_otp and the screens that drive them.
+# While this is False nothing on the signed-in path calls them: an account is
+# settled the moment it is created and sign-in stops asking. Setting it True is
+# the whole of turning codes back on, with no other edit anywhere.
+#
+# What it gives up is address ownership -- nobody proves the inbox they typed
+# is theirs, so a typo'd or borrowed address makes a real account. It does not
+# give up account access: the password is still what proves an account is
+# yours at sign-in, and the password reset still goes to the address on file.
+OTP_REQUIRED = False
+
 # The whole mail configuration, read from the environment and written nowhere
 # else. Not one of these values is spelled out in this file: a setting baked
 # into the source cannot be changed without a deploy, follows a copy of this
@@ -712,15 +725,20 @@ class Signup(Registration):
 # the spam starts.
 @app.post("/api/signup", status_code=201)
 def signup(entry: Signup, response: Response) -> dict:
-    """Creates an end-user account and mails it a confirmation code.
+    """Creates an end-user account and signs it in.
 
-    The account is not usable yet: the response carries a pending cookie, not
-    a session, and /api/verify-otp trades one for the other. A code that
-    cannot be mailed takes the account with it, so the person simply tries
-    again rather than owning an address they can neither confirm nor
-    re-register.
+    With OTP_REQUIRED off the address is taken as settled at creation and the
+    response carries a real session, so the account is usable immediately.
+    Turn OTP_REQUIRED on and the old shape comes back: a pending cookie rather
+    than a session, a mailed code, and /api/verify-otp trading one for the
+    other -- a code that cannot be mailed takes the account with it, so nobody
+    ends up owning an address they can neither confirm nor re-register.
     """
-    if not DATABASE_URL or not SESSION_SECRET or not CAN_SEND_MAIL:
+    if not DATABASE_URL or not SESSION_SECRET:
+        raise HTTPException(503, "Sign-up is unavailable.")
+    # Only asked when a code actually has to reach someone. Bypassed, sign-up
+    # needs no mail at all and works with the mail config empty.
+    if OTP_REQUIRED and not CAN_SEND_MAIL:
         raise HTTPException(503, "Sign-up is unavailable.")
 
     try:
@@ -735,7 +753,18 @@ def signup(entry: Signup, response: Response) -> dict:
                 ),
             )
             (user_id,) = cur.fetchone()
-            issue_otp(cur, user_id, entry.email)
+            if OTP_REQUIRED:
+                issue_otp(cur, user_id, entry.email)
+            else:
+                # Nothing was sent and nothing will be answered, so the address
+                # is settled here instead. coalesce so this is the same write
+                # sp_verify_otp and sp_reset_password already make -- the
+                # first confirmation wins and later ones leave it alone.
+                cur.execute(
+                    "update users set email_verified_at = coalesce("
+                    "email_verified_at, now()) where id = %s",
+                    (user_id,),
+                )
     except errors.UniqueViolation as exc:
         # The index name says which, so a taken number is not reported as a
         # taken address. An address that exists but was never confirmed is
@@ -745,13 +774,21 @@ def signup(entry: Signup, response: Response) -> dict:
             raise HTTPException(409, "This phone number already has an account.")
         raise HTTPException(409, "This email already has an account.")
 
+    if OTP_REQUIRED:
+        set_cookie(
+            response,
+            PENDING_COOKIE,
+            sign_session(user_id, "end_user", PENDING_TTL),
+            PENDING_TTL,
+        )
+        return {"stage": "otp", "sent": True}
+
+    # The same answer sign-in gives, because it is the same thing: a session
+    # cookie and somewhere to go.
     set_cookie(
-        response,
-        PENDING_COOKIE,
-        sign_session(user_id, "end_user", PENDING_TTL),
-        PENDING_TTL,
+        response, SESSION_COOKIE, sign_session(user_id, "end_user"), SESSION_TTL
     )
-    return {"stage": "otp", "sent": True}
+    return {"stage": "session", "email": entry.email, "role": "end_user"}
 
 
 class Login(BaseModel):
@@ -809,7 +846,12 @@ def login(entry: Login, response: Response) -> dict:
         # false when one went out inside the resend window, so the screen can
         # say "use the one you have" rather than promising a mail that is not
         # coming.
-        if verified is None:
+        # Bypassed, an unconfirmed address is not a reason to stop anyone: the
+        # password has already proved the account is theirs, and no code is
+        # coming that could settle it. This is also what lets the accounts
+        # created before the bypass -- the ones still sitting at null -- sign
+        # in at all, rather than waiting forever on a screen nobody shows.
+        if verified is None and OTP_REQUIRED:
             if not CAN_SEND_MAIL:
                 raise HTTPException(503, "Sign-in is unavailable.")
             sent = issue_otp(cur, user_id, email)

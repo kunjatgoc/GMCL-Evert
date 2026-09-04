@@ -81,7 +81,18 @@ export function Signup() {
     }
     setDone(true)
     await holdDone()
-    setStage({ name: 'otp', address: data.email })
+
+    // Codes are bypassed, so the server hands back a session and this goes
+    // straight where sign-in goes. The 'otp' branch below is still wired and
+    // still correct -- it is what runs again the moment OTP_REQUIRED is on.
+    if (res.stage === 'otp') {
+      setStage({ name: 'otp', address: data.email })
+      return
+    }
+
+    // Full navigation rather than a client-side swap: the panel is a separate
+    // chunk and the session cookie has just changed.
+    window.location.href = homeFor(res.role)
   }
 
   const title =

@@ -121,7 +121,7 @@ export async function submitLogin(
  * session. The server says which of email and phone is taken, because the two
  * need different fixes.
  */
-export async function submitSignup(data: Signup): Promise<SubmitResult> {
+export async function submitSignup(data: Signup): Promise<LoginResult> {
   try {
     const res = await fetch('/api/signup', {
       method: 'POST',
@@ -130,7 +130,16 @@ export async function submitSignup(data: Signup): Promise<SubmitResult> {
       body: JSON.stringify(data),
     })
 
-    if (res.ok) return { ok: true }
+    if (res.ok) {
+      // The same shape sign-in answers with, because signup now ends the same
+      // way: a session and a role to route on. With OTP_REQUIRED on, the
+      // server answers stage 'otp' here instead and the caller shows the code
+      // screen -- both shapes are still handled.
+      const body = await res.json().catch(() => null)
+      if (body?.stage === 'otp')
+        return { ok: true, stage: 'otp', sent: body.sent !== false }
+      return { ok: true, stage: 'session', role: String(body?.role ?? 'end_user') }
+    }
 
     if (res.status === 409) {
       const detail = await res.json().catch(() => null)

@@ -197,9 +197,27 @@ const entrant = {
 }
 
 describe('submitSignup', () => {
-  it('reports success on 201 without pretending to be a session', async () => {
+  it('carries the session back when the server signs the account straight in', async () => {
+    respondWith(201, { stage: 'session', email: 'alex@example.com', role: 'end_user' })
+    expect(await submitSignup(entrant)).toEqual({
+      ok: true,
+      stage: 'session',
+      role: 'end_user',
+    })
+  })
+
+  it('defaults the role rather than routing on an empty string', async () => {
+    respondWith(201, { stage: 'session' })
+    expect(await submitSignup(entrant)).toEqual({
+      ok: true,
+      stage: 'session',
+      role: 'end_user',
+    })
+  })
+
+  it('still reports the code stage, which is what OTP_REQUIRED turns back on', async () => {
     respondWith(201, { stage: 'otp', sent: true })
-    expect(await submitSignup(entrant)).toEqual({ ok: true })
+    expect(await submitSignup(entrant)).toEqual({ ok: true, stage: 'otp', sent: true })
   })
 
   it('posts the form as-is, password included, with the cookie jar open', async () => {
