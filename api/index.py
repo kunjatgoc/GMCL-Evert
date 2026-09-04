@@ -26,6 +26,7 @@ import os
 import re
 import secrets
 import smtplib
+import ssl
 import sys
 import time
 from datetime import date
@@ -472,9 +473,18 @@ def send_mail(to_email: str, subject: str, body: str, html: str = "") -> None:
         # cannot.
         msg.add_alternative(html.replace("{to}", to_email), subtype="html")
 
+    # Verified TLS, explicitly. Both smtplib entry points fall back to
+    # ssl._create_stdlib_context() when handed no context, and that context is
+    # check_hostname=False, verify_mode=CERT_NONE -- it encrypts, but it will
+    # hand the password to whatever answers. create_default_context() is the
+    # verifying one, and the password is the whole mail account.
+    tls = ssl.create_default_context()
+
     try:
         if SMTP_PORT == 465:
-            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT) as s:
+            with smtplib.SMTP_SSL(
+                SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT, context=tls
+            ) as s:
                 if SMTP_USER:
                     s.login(SMTP_USER, SMTP_PASSWORD)
                 s.send_message(msg)
@@ -483,12 +493,14 @@ def send_mail(to_email: str, subject: str, body: str, html: str = "") -> None:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT) as s:
             s.ehlo()
             if s.has_extn("starttls"):
-                s.starttls()
+                s.starttls(context=tls)
                 s.ehlo()
             elif SMTP_USER:
-                # No encryption on offer and a password to send. SES always
-                # offers STARTTLS, so this is a misconfiguration or a machine
-                # in the middle -- either way the password does not go out.
+                # No encryption on offer and a password to send. Every
+                # provider offers STARTTLS, so this is a misconfiguration or a
+                # machine in the middle -- either way the password does not go
+                # out. The certificate check above is the other half: without
+                # it, offering STARTTLS is all an impostor has to do.
                 raise smtplib.SMTPException("server does not offer STARTTLS")
             if SMTP_USER:
                 s.login(SMTP_USER, SMTP_PASSWORD)
