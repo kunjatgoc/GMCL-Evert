@@ -205,13 +205,25 @@ setting. The session is a signed cookie, HttpOnly, eight hours, nothing kept in
 JS. Passwords are pbkdf2-sha256 at 600k rounds, hashed by `api/index.py` so the
 seed script and the login endpoint can never disagree on the format.
 
-Mail goes out over SMTP with `smtplib` -- Amazon SES in production, no library
-beyond the standard one. Every setting is read from the environment and none is
-written in the source: `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM_EMAIL`,
-`SMTP_TIMEOUT`, `SMTP_USER`, `SMTP_PASSWORD` and `EMAIL_CONFIGURATION_SET` live
-in `.env` and in the Vercel project, and `.env.example` documents each one.
-Port 465 is implicit TLS, anything else does STARTTLS, and a server that offers
-no encryption never receives the password.
+Mail goes out over SMTP with `smtplib` -- Resend in production, no library
+beyond the standard one. Resend's HTTP API would mean a dependency, an auth
+scheme and an error shape that only Resend has; their SMTP endpoint is the same
+protocol every other provider speaks, so switching providers stays a change to
+`.env` rather than a change to the sender.
+
+Every setting is read from the environment and none is written in the source:
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM_EMAIL`, `SMTP_TIMEOUT`, `SMTP_USER`,
+`SMTP_PASSWORD` and `EMAIL_CONFIGURATION_SET` live in `.env` and in the Vercel
+project, and `.env.example` documents each one. Resend wants the literal
+username `resend` and an API key as the password; the From domain has to be
+verified in their dashboard or the send is refused. Port 465 is implicit TLS,
+anything else does STARTTLS, and a server that offers no encryption never
+receives the password.
+
+`SMTP_FROM_EMAIL` is quoted in `.env` because the value carries angle brackets.
+python-dotenv strips the quotes, so `uvicorn --env-file` is fine either way,
+but `set -a; . ./.env` reads an unquoted `<` as a redirect and hands the app an
+empty sender.
 
 Mail counts as configured only when the host, the sender and both credentials
 are all filled in. A half-filled config can send nothing, so it is treated as
