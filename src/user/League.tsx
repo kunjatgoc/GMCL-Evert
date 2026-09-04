@@ -257,7 +257,7 @@ function Hero({
         alt=""
         aria-hidden
         loading="eager"
-        className="pointer-events-none absolute inset-0 -z-20 size-full object-cover object-right opacity-70"
+        className="pointer-events-none absolute inset-0 -z-20 size-full object-cover object-right opacity-70 [mask-image:linear-gradient(180deg,#000_58%,transparent)]"
         onError={(e) => (e.currentTarget.style.display = 'none')}
       />
       {/* Two gradients doing two jobs. The first keeps the left third
@@ -270,11 +270,14 @@ function Hero({
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-64 bg-[linear-gradient(180deg,transparent,#0A100E)]"
+        className="pointer-events-none absolute -left-40 top-1/3 -z-10 size-[40rem] rounded-full bg-[radial-gradient(circle,rgba(62,230,138,0.22),transparent_68%)] blur-[90px]"
       />
+      {/* Last of the hero's layers, so it washes out the glow and the art
+          together. Anything painted after this one would be cut off square
+          by overflow-hidden and draw the line these bands are avoiding. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -left-40 top-1/3 -z-10 size-[40rem] rounded-full bg-[radial-gradient(circle,rgba(62,230,138,0.22),transparent_68%)] blur-[90px]"
+        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-64 bg-[linear-gradient(180deg,transparent,#0A100E)]"
       />
 
       <motion.div
@@ -331,12 +334,20 @@ function StepsAndPrizes() {
         alt=""
         aria-hidden
         loading="lazy"
-        className="pointer-events-none absolute inset-0 -z-20 size-full object-cover opacity-[0.1] [mask-image:linear-gradient(180deg,#000,transparent_38%,transparent_62%,#000)]"
+        className="pointer-events-none absolute inset-0 -z-20 size-full object-cover opacity-[0.1] [mask-image:linear-gradient(180deg,transparent,#000_26%,#000_74%,transparent)]"
         onError={(e) => (e.currentTarget.style.display = 'none')}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute right-0 top-0 -z-10 size-[34rem] translate-x-1/3 -translate-y-1/4 rounded-full bg-[radial-gradient(circle,rgba(62,230,138,0.16),transparent_70%)] blur-[110px]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-40 bg-[linear-gradient(180deg,#0A100E,transparent)]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-[linear-gradient(180deg,transparent,#0A100E)]"
       />
 
       <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16">
@@ -435,7 +446,7 @@ function StepsAndPrizes() {
             alt=""
             aria-hidden
             loading="lazy"
-            className="pointer-events-none mx-auto mt-6 block w-full max-w-[16rem] select-none mix-blend-screen"
+            className="pointer-events-none mx-auto -mb-6 mt-2 block w-full max-w-[20rem] select-none opacity-80 mix-blend-screen [mask-image:radial-gradient(62%_52%_at_50%_62%,#000_30%,transparent_76%)]"
             onError={(e) => (e.currentTarget.style.display = 'none')}
           />
         </div>
@@ -554,7 +565,7 @@ function JoinBand({
         alt=""
         aria-hidden
         loading="lazy"
-        className="pointer-events-none absolute inset-0 -z-20 size-full object-cover opacity-55"
+        className="pointer-events-none absolute inset-0 -z-20 size-full object-cover opacity-55 [mask-image:linear-gradient(180deg,transparent,#000_34%)]"
         onError={(e) => (e.currentTarget.style.display = 'none')}
       />
       {/* Keeps the centre dark enough to read a form over, whatever the gate
