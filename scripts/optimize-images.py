@@ -48,6 +48,13 @@ TARGETS = {
     "data-texture":      (1000,  700, False, 74),
     "admin-rail":        ( 700, 1600, False, 76),
     "login-plate":       (1400, 2100, False, 80),
+    # League screen. The arena is the only full-bleed plate of the three, so
+    # it takes the hero's budget; the gate is cropped to a short band and the
+    # lanes sit at 16% opacity, which is why both can go lower.
+    "league-arena":      (2400, 1350, False, 80),
+    "league-plinth":     (1200, 1200, True,  85),
+    "league-gate":       (2400,  800, False, 78),
+    "league-lanes":      (1800, 1050, False, 74),
     "empty-state":       ( 900,  700, True,  88),
 }
 

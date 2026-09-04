@@ -421,6 +421,179 @@ itself out of frame. Perfectly centred, symmetrical, still. Cathedral-quiet.
 Nothing else in the frame.
 ```
 
+# League screen  a different room
+
+Everything above shares one visual language: black glass, candlestick columns,
+soft volumetric haze, glossy 3D product renders. An entrant reaching the League
+screen has already seen that language three times, on the marketing page, on
+the login screen and on their dashboard. A fourth viewing is not an
+announcement.
+
+So this screen is a different room in the same building. Same brand, same
+green, same near-black. What changes is the material and the light:
+
+| | Everything above | League screen |
+|---|---|---|
+| Material | black glass, polished obsidian | poured concrete, painted line markings, brushed steel |
+| Light | soft volumetric haze, inner glow | hard floodlights, real pools, long cast shadows |
+| Subject | the market, and the reward | the contest, and the place it is held |
+| Camera | product render, shallow depth | architectural, wide, deep focus |
+
+The subject is an arena. The marketing page shows what is traded and what is
+won; nobody has yet shown the thing itself, which is fifty people competing for
+seven days. Seven is the number that keeps recurring, so it is the number in
+the art: seven lanes, seven light bars, seven marks on the floor.
+
+None of these reuse an existing file. Nothing on this screen points at
+`particles.webp`, `streak.webp`, `podium-4tier.webp` or any hero plate.
+
+## STYLE LOCK  League screen only. Replaces the one at the top of this file
+
+```
+Visual system: near-black ground (#08110E to #0F1B16), single accent of
+spring green (#00FF87) with deeper emerald (#00C853) in falloff. No other
+hues -- no blue, no cyan, no teal, no purple, no orange, no gold. Materials
+are physical and matte: poured concrete, sealed sports floor, painted line
+markings, brushed dark steel, worn rubber. Lighting is hard and directional --
+overhead floodlights throwing defined pools and long cast shadows, visible
+light beams in faint dust, deep unlit blackness between the pools. Wide
+architectural photography, deep focus, natural perspective, no tilt-shift.
+Restrained, monumental, quiet before a race. Every edge of the frame falls off
+to near-black so the image meets a CSS gradient without a seam. Fine
+photographic grain. 8k.
+```
+
+## NEGATIVE  League screen only
+
+```
+text, letters, words, numbers, watermark, logo, signature, UI mockup, buttons,
+people, faces, crowds, spectators, stock photo, cluttered, busy, cheap,
+plastic, glossy black glass, mirror floor, candlestick chart, bar chart, stock
+graph, wireframe grid, floating particles, bokeh circles, lens flare
+starbursts, volumetric fog everywhere, low contrast, blurry, oversaturated,
+rainbow colors, cyan, teal, turquoise, blue tint, purple tint, gold, orange,
+red, cartoon, flat vector clipart
+
+Avoid re-using the visual language of a trading chart. This is a sports venue,
+not a market.
+```
+
+---
+
+Sizes and crops below match the built screen: a hero a little under the
+viewport with the copy on the left, one band pairing the steps with the prize
+table, and a short join band. Three bands, not five.
+
+Every band already carries a CSS gradient wash. So each image should **fall off
+to near-black at its own edges** rather than ending on a hard rectangle -- the
+art and the wash then meet without a seam. That instruction is in the style
+lock above; it matters most on L1 and L3.
+
+---
+
+## L1. Arena floor  hero backdrop
+
+**Path:** `public/img/league-arena.webp` **Size:** 2560 x 1440 (16:9)
+**Fallback if skipped:** the gradient and glow already shipping. The page is
+complete without it.
+
+The one that carries the screen. It is cropped to the **right** of frame and
+sits under a left-to-right darkening wash, so the headline, the button and the
+seven day tiles all sit over the left two thirds.
+
+**Keep the left third quiet and unlit. Build every bit of depth and detail on
+the right half.** A bright element in the top left will fight the headline.
+
+```
+[PROMPT]
+A vast empty indoor arena floor photographed from a high oblique angle, dark
+sealed concrete stretching away into blackness. Across the right half of the
+frame run seven parallel lanes marked in crisp painted spring green lines,
+evenly spaced, receding toward a distant vanishing point on the right.
+Overhead floodlights well out of frame throw seven hard elongated pools of
+light, one down each lane, with deep black between them. Faint dust hangs in
+the beams. The left third of the frame is almost entirely unlit -- empty dark
+floor falling away to black, no detail, nothing to read. The far end of the
+hall dissolves into total darkness. No crowd, no seating, no equipment, no
+markings other than the lane lines. All four edges fall off to near-black.
+Wide, still, monumental, the moment before anyone arrives.
+```
+
+---
+
+## L2. Winner's plinth  prize column
+
+**Path:** `public/img/league-plinth.webp` **Size:** 1200 x 1200 (square)
+**Transparent PNG preferred.** **Fallback if skipped:** the prize table alone,
+which already reads.
+
+Now sits **under the prize table in a half-width column**, about 384px wide on
+a desktop. That is why it is square and not a wide plate: a letterbox image
+would shrink to a strip at that size. Compose it tall within the square.
+
+Deliberately one plinth and not three. The marketing page already sells the
+podium; this sells first place.
+
+```
+[PROMPT]
+A single low circular plinth of dark poured concrete standing alone on a dark
+arena floor, its top edge inlaid with a continuous thin band of spring green
+light. One hard floodlight from high above throws a tight pool around it and a
+long shadow across the floor. The plinth is empty -- nothing stands on it. Worn
+concrete texture, a faint painted green line on the floor passing behind it.
+Deep blackness beyond the pool of light, falling to nothing at every edge.
+Shot from slightly below eye level so the plinth reads as tall. Centred in a
+square frame with space above it. Nothing else in the frame.
+```
+
+---
+
+## L3. Starting gate  join band
+
+**Path:** `public/img/league-gate.webp` **Size:** 2400 x 800 (wide band)
+**Fallback if skipped:** the green gradient already shipping.
+
+Sits behind the entry form in a band roughly 410px tall, so it is cropped hard
+top and bottom. A dark radial mask sits over the middle so the form stays
+readable.
+
+**Put every bit of interest at the two ends. The middle third must be dark and
+almost empty**, and the composition has to survive losing its top and bottom.
+
+```
+[PROMPT]
+A wide low architectural gateway seen head-on: two heavy dark concrete piers,
+one at each end of the frame, each edged with a vertical strip of spring green
+light. Between them the floor is dark and almost entirely empty, running
+forward toward the camera, with a single crisp painted green start line across
+it. One hard overhead light catches the tops of the piers and the start line;
+the whole middle third of the frame stays deep, unlit and free of detail.
+Symmetrical, very wide, heavy, still. All four edges fall off to near-black.
+Nothing passing through it.
+```
+
+---
+
+## L4. Lane markings  steps and prizes band
+
+**Path:** `public/img/league-lanes.webp` **Size:** 2400 x 1400
+**Fallback if skipped:** the gradient ground, which is fine.
+
+Used as a full-cover ground at 16% opacity behind the steps and the prize
+table, so it reads as texture rather than as a picture. Low contrast is
+correct here; a busy or high-contrast image will show through the text.
+
+```
+[PROMPT]
+Top-down photograph of a dark sealed sports floor, worn matte charcoal
+concrete, crossed by several evenly spaced crisp painted spring green lines
+running edge to edge. The paint is slightly scuffed and imperfect, with faint
+shoe marks and dust on the surface between the lines. Flat even overhead light,
+no strong shadow, no perspective, no vignette. Low contrast and evenly lit
+across the whole frame. Fills the frame corner to corner. Texture only, no
+focal point.
+```
+
 ## Format notes
 
 - **Transparent PNG matters** for items 3–7, 10, 11, 14, 15  they composite over live WebGL and CSS glow. A baked black background will show as an ugly rectangle. If your generator can't do alpha, generate on pure black `#000000` and tell me  I'll key it out.
