@@ -1399,6 +1399,17 @@ def phone_of(user_id: int) -> str:
     return row[0]
 
 
+def email_of(user_id: int) -> str:
+    """The address this account signs in with, for the same reason as phone_of:
+    what a Real request is checked against must not be the caller's to pick."""
+    with pool.connection() as conn, conn.cursor() as cur:
+        cur.execute("select email from users where id = %s", (user_id,))
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(401, "Not signed in.")
+    return row[0]
+
+
 class MetaidCheck(BaseModel):
     email: EmailStr
 
@@ -1426,6 +1437,14 @@ def request_metaid(
     # that decides whether a row is written, and it runs before the insert, so
     # a refusal leaves nothing behind.
     if entry.type == "real":
+        # A Real account is opened against a second address, never the one this
+        # account signs in with. The dialog says so and refuses it on Confirm;
+        # this is the copy of that rule which decides, since a POST need not
+        # come from the dialog. Compared lower-cased because sp_signup folds
+        # the stored address and the request body is whatever was typed.
+        if entry.email.strip().lower() == email_of(user_id).strip().lower():
+            raise HTTPException(409, "This email is already in use.")
+
         dup = goc_duplicates(entry.email, phone_of(user_id))
         if dup["phone_taken"] or dup["email_taken"]:
             raise HTTPException(409, "These details already have a newera account.")

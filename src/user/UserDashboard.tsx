@@ -441,16 +441,27 @@ type ModalProps = {
  * signed in with, so the dialog opens, files the request and says how long the
  * answer takes.
  *
- * Real opens on the address it will use and asks for a confirmation. The check
- * happens on that press rather than on opening, so nothing is asked of newera
- * for a dialog somebody opened to read and closed again -- and so the answer
- * is as old as the press, not as old as the dialog.
+ * Real asks for the address, on an empty field. It cannot be the one this
+ * account signs in with -- that address is already spoken for -- so there is
+ * nothing useful to prefill it with, and a filled box only invites somebody to
+ * press Confirm on the one answer that is going to be refused.
+ *
+ * The check happens on that press rather than on opening, so nothing is asked
+ * of newera for a dialog somebody opened to read and closed again -- and so
+ * the answer is as old as the press, not as old as the dialog.
  */
 type Step =
   | { name: 'checking' }
-  | { name: 'confirm'; email: string }
+  | { name: 'confirm' }
   | { name: 'taken'; email: string; dup: MetaidDuplicates }
   | { name: 'sent' }
+
+/** Said on the press, and again by the server before it writes anything. */
+const SAME_AS_LOGIN =
+  'This email is already in use. Use a different one for your Real MetaTrader5 Account.'
+
+const sameAddress = (a: string, b: string) =>
+  a.trim().toLowerCase() === b.trim().toLowerCase()
 
 /** Three ways to be refused, because newera answers about two identifiers.
  *  Each names the one that matched rather than saying "these details". */
@@ -464,9 +475,7 @@ const takenTitle = ({ phone_taken, email_taken }: MetaidDuplicates) =>
 function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
   const [step, setStep] = useState<Step>(() =>
-    kind.type === 'demo'
-      ? { name: 'checking' }
-      : { name: 'confirm', email: accountEmail }
+    kind.type === 'demo' ? { name: 'checking' } : { name: 'confirm' }
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -495,6 +504,14 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
     setError(null)
     try {
       if (kind.type === 'real') {
+        // Before newera is asked, because this one is already known. Guarded
+        // here rather than on the Confirm button so the address the duplicate
+        // step goes on to ask for is held to the same rule -- both routes come
+        // through here, and only one of them has a Confirm button.
+        if (sameAddress(email, accountEmail)) {
+          setError(SAME_AS_LOGIN)
+          return
+        }
         const dup = await checkMetaidDuplicates(email)
         if (dup.phone_taken || dup.email_taken) {
           setStep({ name: 'taken', email, dup })
@@ -518,8 +535,9 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /** The different address the duplicate step asks for. Same two moves. */
-  const onSubmitOther = (e: FormEvent<HTMLFormElement>) => {
+  /** Both steps that ask for an address: the first one, and the one that asks
+   *  again after newera says it is taken. Same two moves either way. */
+  const onSubmitEmail = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     return file(String(new FormData(e.currentTarget).get('email') ?? ''))
   }
@@ -587,15 +605,27 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
         )}
 
         {step.name === 'confirm' && (
-          <>
-            <p className={`${TEXT.body} mt-6 leading-relaxed text-[#E4EAE7]`}>
-              Your {kind.title} will be held against this email:
+          <form onSubmit={onSubmitEmail} className="mt-6">
+            <p className={`${TEXT.body} leading-relaxed text-[#E4EAE7]`}>
+              Please share your new email. It has to be different from the one
+              you sign in with.
             </p>
-            <p
-              className={`${TEXT.body} mt-3 break-all rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 font-medium`}
-            >
-              {step.email}
-            </p>
+            <div className="mt-5">
+              <label className={`${fieldLabel} mb-2 block`} htmlFor="confirm-email">
+                Email
+              </label>
+              <input
+                id="confirm-email"
+                name="email"
+                type="email"
+                required
+                autoFocus
+                inputMode="email"
+                autoComplete="off"
+                placeholder="you@example.com"
+                className={`${control} w-full`}
+              />
+            </div>
             {error && <div className="mt-4"><ErrorAlert>{error}</ErrorAlert></div>}
             <div className="mt-6 flex justify-end gap-2.5">
               <button
@@ -606,21 +636,16 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => file(step.email)}
-                className={btnPrimary}
-              >
+              <button type="submit" disabled={busy} className={btnPrimary}>
                 {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                 Confirm
               </button>
             </div>
-          </>
+          </form>
         )}
 
         {step.name === 'taken' && (
-          <form onSubmit={onSubmitOther} className="mt-6">
+          <form onSubmit={onSubmitEmail} className="mt-6">
             <p className={`${TEXT.body} leading-relaxed text-[#E4EAE7]`}>
               {step.dup.phone_taken && step.dup.email_taken ? (
                 <>
