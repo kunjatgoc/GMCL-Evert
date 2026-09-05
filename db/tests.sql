@@ -166,9 +166,36 @@ begin
     call sp_decide_metaid(v_request, v_newera, 'rejected', 'changed my mind', v_ok);
     assert not v_ok, 'a decided request was decided again';
 
+    -- ...but Undo puts it back, and the panel shows the same buttons again.
+    -- All three fields go together or metaid_request_decision_complete
+    -- refuses the update.
+    call sp_undo_metaid(v_request, v_user, v_ok);
+    assert not v_ok, 'an end user reopened a decided request';
+
+    call sp_undo_metaid(v_request, v_newera, v_ok);
+    assert v_ok, 'a decided request could not be reopened';
+    assert (select status from metaid_request where id = v_request) = 'pending';
+    assert (select decided_by from metaid_request where id = v_request) is null,
+           'a reopened request kept the decider that no longer decided it';
+    assert (select decided_at from metaid_request where id = v_request) is null;
+
+    call sp_undo_metaid(v_request, v_newera, v_ok);
+    assert not v_ok, 'a pending request was reopened';
+
+    -- Approved again, so the rest of this block reads as it did before.
+    call sp_decide_metaid(v_request, v_newera, 'approved', null, v_ok);
+    assert v_ok, 'the reopened request could not be decided again';
+
     -- an approved request leaves the way clear to ask again
     call sp_request_metaid(v_user, 'demo', 'ada@example.com', v_other);
     assert v_other is not null, 'a settled request still blocked a new one';
+
+    -- ...and once it has been asked again, the decided one cannot be reopened
+    -- on top of it. metaid_request_open_key allows one pending row per person
+    -- per type, and the newer request keeps the place.
+    call sp_undo_metaid(v_request, v_newera, v_ok);
+    assert not v_ok, 'reopening a decided request displaced a newer open one';
+    assert (select status from metaid_request where id = v_request) = 'approved';
 
     begin
         update metaid_request set status = 'approved' where id = v_other;
@@ -249,9 +276,59 @@ begin
     begin
         update registration set is_id_given = 'maybe'
          where lower(email) = 'ada@example.com';
-        assert false, 'is_id_given accepted something other than YES or NO';
+        assert false, 'is_id_given accepted a value outside the three';
     exception when check_violation then null;
     end;
+
+    -- who may set it, and what a no-op answers ------------------------------
+    --
+    -- The admin list marks a landing-page row given without waiting for the
+    -- next MT5 export. Same pair of roles as a MetaID decision, and the same
+    -- false-rather-than-raise answer for every way it can legitimately fail,
+    -- so the screen can say one thing about all of them.
+    select id into v_scratch from registration where lower(email) = 'ada@example.com';
+
+    call sp_set_id_given('demo', v_scratch, v_user, 'YES', v_ok);
+    assert not v_ok, 'an end user marked a row given';
+
+    call sp_set_id_given('demo', v_scratch, v_gml, 'YES', v_ok);
+    assert not v_ok, 'GML staff marked a row given';
+
+    call sp_set_id_given('demo', v_scratch, v_newera, 'YES', v_ok);
+    assert v_ok, 'Newera staff could not mark a row given';
+    assert (select is_id_given from registration where id = v_scratch) = 'YES';
+
+    call sp_set_id_given('demo', v_scratch, v_newera, 'YES', v_ok);
+    assert not v_ok, 'setting a row to what it already held answered true';
+
+    call sp_set_id_given('demo', v_scratch, v_newera, 'NO', v_ok);
+    assert v_ok, 'a given row could not be turned back';
+    assert (select is_id_given from registration where id = v_scratch) = 'NO';
+
+    -- The third state, which is what makes the panel's Reject the same button
+    -- on a landing-form row as on a dashboard request.
+    call sp_set_id_given('demo', v_scratch, v_newera, 'REJECTED', v_ok);
+    assert v_ok, 'a landing-form row could not be rejected';
+    assert (select is_id_given from registration where id = v_scratch) = 'REJECTED';
+
+    call sp_set_id_given('demo', v_scratch, v_newera, 'NO', v_ok);
+    assert v_ok, 'a rejected row could not be put back to pending';
+
+    call sp_set_id_given('demo', v_scratch, v_newera, 'maybe', v_ok);
+    assert not v_ok, 'a value the CHECK forbids was accepted';
+
+    call sp_set_id_given('users', v_scratch, v_newera, 'YES', v_ok);
+    assert not v_ok, 'a source naming no table was accepted';
+
+    call sp_set_id_given('demo', 0, v_newera, 'YES', v_ok);
+    assert not v_ok, 'a row that does not exist answered true';
+
+    -- and the other table, which the same procedure has to reach
+    insert into real_account_request (email) values ('ada@example.com')
+    returning id into v_scratch;
+    call sp_set_id_given('real', v_scratch, v_newera, 'YES', v_ok);
+    assert v_ok, 'a real-account row could not be marked given';
+    assert (select is_id_given from real_account_request where id = v_scratch) = 'YES';
 
     raise notice 'ok';
 end;

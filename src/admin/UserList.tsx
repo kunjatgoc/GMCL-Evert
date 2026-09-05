@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
-import { Check, ChevronLeft, ChevronRight, Loader2, Search, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Search, Undo2, X } from 'lucide-react'
 import { Flag } from '../components/ui/Flag'
 import { EASE } from '../lib/motion'
-import { formatIst } from '../lib/time'
 import {
   TEXT,
   SELECT_CHEVRON,
@@ -12,11 +11,8 @@ import {
   btnIcon,
   btnPrimary,
   btnSecondary,
-  btnDestructive,
   control,
   fieldLabel,
-  modalCard,
-  modalShellWide,
   selectControl,
 } from '../panel/type'
 import { RowsSkeleton } from '../panel/Skeleton'
@@ -25,7 +21,10 @@ import {
   type Page,
   decideMetaid,
   listMetaidQueue,
+  setIdGiven,
+  undoMetaid,
   type MetaidRow,
+  type MetaidStatus,
 } from './api'
 
 const PER_PAGE = 25
@@ -90,29 +89,15 @@ export const DATE_RANGE: readonly Filter[] = [
   { name: 'date_to', label: 'To', kind: 'date' },
 ]
 
-// IST, not the reader's zone. The counts beside this table are computed by
-// Postgres against `current_date`, which is IST, so a row stamped in any other
-// zone would sit under a heading that had counted it on a different day.
-const fmt = (iso: string) =>
-  formatIst(
-    iso,
-    {
-      day: '2-digit',
-      month: 'short',
-      year: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    },
-    'en-IN'
-  )
-
 type Props<T> = {
   title: string
   accent: string
   columns: Column<T>[]
   filters: readonly Filter[]
   fetchPage: (qs: string) => Promise<Page<T>>
+  /** Only needed when a list draws its rows from more than one table, where
+   *  two rows can honestly share an id. Defaults to the id. */
+  rowKey?: (row: T) => string
 }
 
 function UserList<T extends { id: number }>({
@@ -121,6 +106,7 @@ function UserList<T extends { id: number }>({
   columns,
   filters,
   fetchPage,
+  rowKey = (row) => String(row.id),
 }: Props<T>) {
   // `draft` is what the inputs hold; `applied` is what the last search asked
   // for. Splitting them is what lets the query fire on submit instead of on
@@ -311,7 +297,7 @@ function UserList<T extends { id: number }>({
                 !error &&
                 data?.rows.map((row, i) => (
                   <motion.tr
-                    key={row.id}
+                    key={rowKey(row)}
                     className="border-t border-white/[0.06] transition-colors duration-200 hover:bg-[rgba(31,92,65,0.28)]"
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -377,190 +363,38 @@ function UserList<T extends { id: number }>({
     </section>
   )
 }
+const DASH = '—'
 
-const STATUS_TONE = {
+const STATUS_TONE: Record<MetaidStatus, string> = {
   pending: 'text-[var(--admin-gold)]',
   approved: 'text-[#3EE68A]',
   rejected: 'text-[var(--admin-destructive)]',
-} as const
-
-/**
- * The MetaTrader5 Account queue, for admins and newera staff.
- *
- * A decision is refused for anything already decided -- the procedure checks
- * `status = 'pending'` in the same UPDATE that moves it, so two people
- * clicking at once means the second one is told no rather than overwriting the
- * first. The buttons disappear on a decided row for the same reason, one step
- * earlier.
- */
-/** The row a decision is about to be made on, and which decision. */
-type Pending = { row: MetaidRow; status: 'approved' | 'rejected' }
-
-/** One labelled value in the record above the buttons. */
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div>
-      <dt className={`${TEXT.label} text-[var(--admin-muted)]`}>{label}</dt>
-      <dd className={`${TEXT.body} mt-1.5 break-words text-[#E4EAE7]`}>{children}</dd>
-    </div>
-  )
 }
 
+const muted = (text: string) => (
+  <span className="text-[var(--admin-muted)]">{text}</span>
+)
+
 /**
- * Asks before spending a decision.
+ * Every account request, from all three tables.
  *
- * A decision cannot be taken back -- sp_decide_metaid only moves a row that is
- * still pending -- so the mis-click has to be caught before the request, not
- * apologised for after it. The row is named in full because two rows from the
- * same person differ only by type and address.
+ * `metaid_request` is what the signed-in dashboard writes; `registration` and
+ * `real_account_request` are the landing form's, still taking rows. All three
+ * answer the same question -- does this person have an MT5 account -- so one
+ * screen answers it, in one vocabulary, with one set of buttons.
+ *
+ * Pending offers Approve and Reject. A decided row offers Undo, which puts it
+ * back to pending and both buttons back. Where the row came from decides which
+ * endpoint is called and nothing else: a dashboard request moves through
+ * `metaid_request.status`, a landing-form row through `is_id_given`, and the
+ * screen does not show the difference because there is no difference to show.
+ *
+ * Nothing here asks for confirmation, because nothing here is final. Deciding
+ * sends no mail -- newera issues the MetaID by hand afterwards -- so a
+ * mis-click is one press to undo rather than something to apologise for.
  */
-function ConfirmDecision({
-  pending,
-  busy,
-  onConfirm,
-  onClose,
-}: {
-  pending: Pending
-  busy: boolean
-  onConfirm: (note: string) => void
-  onClose: () => void
-}) {
-  const ref = useRef<HTMLDialogElement>(null)
-  const [note, setNote] = useState('')
-  const { row, status } = pending
-  const approving = status === 'approved'
-
-  useEffect(() => {
-    ref.current?.showModal()
-  }, [])
-
-  return (
-    <dialog
-      ref={ref}
-      onClose={onClose}
-      onClick={(e) => e.target === ref.current && !busy && ref.current?.close()}
-      aria-labelledby="decide-title"
-      className={modalShellWide}
-      style={{ colorScheme: 'dark' }}
-    >
-      <div className={modalCard}>
-        {/* The decision states itself in the header -- colour, icon and verb
-            together, so the two dialogs are told apart before they are read. */}
-        <div className="flex items-start gap-3.5">
-          <span
-            aria-hidden
-            className={`grid size-11 shrink-0 place-items-center rounded-xl border ${
-              approving
-                ? 'border-[rgba(62,230,138,0.3)] bg-[rgba(62,230,138,0.08)] text-[#3EE68A]'
-                : 'border-[rgba(228,85,60,0.3)] bg-[rgba(228,85,60,0.08)] text-[var(--admin-destructive)]'
-            }`}
-          >
-            {approving ? <Check className="size-5" /> : <X className="size-5" />}
-          </span>
-          <div className="min-w-0">
-            <h2 id="decide-title" className={`${TEXT.body} font-semibold`}>
-              {approving ? 'Approve this request?' : 'Reject this request?'}
-            </h2>
-            <p className={`${TEXT.label} mt-1 text-[var(--admin-muted)]`}>
-              {row.full_name ?? `User #${row.user_id}`} &middot;{' '}
-              <span className="capitalize">{row.type}</span> MetaTrader5 Account
-            </p>
-          </div>
-        </div>
-
-        {/* The whole request, because the decision cannot be taken back and
-            the table it came from is no longer on screen. Both addresses are
-            here on purpose: the account is issued against one and the person
-            signs in with the other, and they are allowed to differ. */}
-        <dl className="mt-6 grid gap-x-8 gap-y-5 rounded-xl border border-white/8 bg-white/[0.02] px-5 py-5 sm:grid-cols-2">
-          <Field label="Name">
-            {row.full_name ?? (
-              <span className="text-[var(--admin-muted)]">&mdash;</span>
-            )}
-          </Field>
-          <Field label="Requested">{fmt(row.created_at)}</Field>
-          <Field label="Phone">
-            <span className="tabular">{row.phone}</span>
-          </Field>
-          <Field label="Country">
-            {row.country ? (
-              <span className="inline-flex items-center gap-2">
-                <Flag code={row.country} className="size-3.5" />
-                {row.country}
-              </span>
-            ) : (
-              <span className="text-[var(--admin-muted)]">&mdash;</span>
-            )}
-          </Field>
-          {/* Side by side rather than stacked: the one thing worth noticing
-              here is whether they differ, and that is a comparison. */}
-          <Field label="MetaTrader5 email">
-            <span className="font-medium text-white">{row.email}</span>
-          </Field>
-          <Field label="Sign-in email">{row.account_email}</Field>
-        </dl>
-
-        {/* Only a refusal owes a reason. It is optional, because a request can
-            be wrong in ways nobody wants written down, but it is the only
-            thing the entrant will see besides the word "Rejected". */}
-        {!approving && (
-          <div className="mt-5">
-            <label className={`${fieldLabel} mb-2 block`} htmlFor="decision-note">
-              Reason <span className="font-normal normal-case">(optional)</span>
-            </label>
-            <textarea
-              id="decision-note"
-              rows={3}
-              maxLength={500}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="The user will see this on their dashboard."
-              className={`${control} w-full resize-none`}
-            />
-          </div>
-        )}
-
-        <p className={`${TEXT.label} mt-5 text-[var(--admin-muted)]`}>
-          You cannot undo this. The user will see the result on their
-          dashboard.
-        </p>
-
-        <div className="mt-6 flex flex-wrap justify-end gap-2.5">
-          {/* Cancel takes focus: the safe half of an irreversible pair should
-              be what Enter reaches first. */}
-          <button
-            type="button"
-            autoFocus
-            disabled={busy}
-            onClick={() => ref.current?.close()}
-            className={btnGhost}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onConfirm(note)}
-            className={approving ? btnSecondary : btnDestructive}
-          >
-            {busy ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : approving ? (
-              <Check className="size-4" />
-            ) : (
-              <X className="size-4" />
-            )}
-            {approving ? 'Approve' : 'Reject'}
-          </button>
-        </div>
-      </div>
-    </dialog>
-  )
-}
-
 export function MetaidQueue() {
-  const [pending, setPending] = useState<Pending | null>(null)
-  const [deciding, setDeciding] = useState<number | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
   // A new identity for fetchPage is what UserList already reloads on, so a
   // decision refreshes the table without the table knowing decisions exist.
@@ -571,19 +405,24 @@ export function MetaidQueue() {
     [version]
   )
 
-  const decide = async (note: string) => {
-    if (!pending) return
-    setDeciding(pending.row.id)
+  const keyOf = (r: MetaidRow) => `${r.source}-${r.id}`
+
+  const move = async (row: MetaidRow, to: MetaidStatus) => {
+    setBusy(keyOf(row))
     setFailed(null)
     try {
-      await decideMetaid(pending.row.id, pending.status, note)
-      setPending(null)
+      if (row.source !== 'request') {
+        await setIdGiven(row.source, row.id, to)
+      } else if (to === 'pending') {
+        await undoMetaid(row.id)
+      } else {
+        await decideMetaid(row.id, to)
+      }
       setVersion((v) => v + 1)
     } catch (e) {
-      setPending(null)
-      setFailed(e instanceof Error ? e.message : 'Could not save your decision.')
+      setFailed(e instanceof Error ? e.message : 'Could not save that change.')
     } finally {
-      setDeciding(null)
+      setBusy(null)
     }
   }
 
@@ -598,6 +437,7 @@ export function MetaidQueue() {
         title="MetaTrader5 Account"
         accent="Requests"
         fetchPage={fetchPage}
+        rowKey={keyOf}
         filters={[
           {
             name: 'status',
@@ -627,7 +467,12 @@ export function MetaidQueue() {
           {
             header: 'User',
             skeleton: 'w-16',
-            cell: (r) => <span className="tabular text-[var(--admin-muted)]">#{r.user_id}</span>,
+            cell: (r) =>
+              r.user_id === null ? (
+                muted(DASH)
+              ) : (
+                <span className="tabular text-[var(--admin-muted)]">#{r.user_id}</span>
+              ),
           },
           {
             header: 'Request',
@@ -638,15 +483,13 @@ export function MetaidQueue() {
           {
             header: 'Name',
             skeleton: 'w-36',
-            cell: (r) =>
-              r.full_name ?? (
-                <span className="text-[var(--admin-muted)]">&mdash;</span>
-              ),
+            cell: (r) => r.full_name ?? muted(DASH),
           },
           {
             header: 'Phone',
             skeleton: 'w-32',
-            cell: (r) => <span className="tabular">{r.phone}</span>,
+            cell: (r) =>
+              r.phone ? <span className="tabular">{r.phone}</span> : muted(DASH),
             hideOnMobile: true,
           },
           {
@@ -659,7 +502,7 @@ export function MetaidQueue() {
                   {r.country}
                 </span>
               ) : (
-                <span className="text-[var(--admin-muted)]">&mdash;</span>
+                muted(DASH)
               ),
             hideOnMobile: true,
           },
@@ -691,17 +534,31 @@ export function MetaidQueue() {
           {
             header: 'Actions',
             skeleton: 'w-32',
-            cell: (r) =>
-              r.status !== 'pending' ? (
-                <span className={`${TEXT.label} text-[var(--admin-muted)]`}>
-                  {r.decided_at ? `Decided ${fmt(r.decided_at)}` : 'Decided'}
-                </span>
-              ) : (
+            // The status decides these, and nothing else does. Same buttons
+            // under the same word, whichever table the row came from.
+            cell: (r) => {
+              const working = busy === keyOf(r)
+
+              if (r.status !== 'pending') {
+                return (
+                  <button
+                    type="button"
+                    disabled={working}
+                    onClick={() => move(r, 'pending')}
+                    className={`${btnGhost} ${btnRow}`}
+                  >
+                    <Undo2 className="size-3.5" />
+                    Undo
+                  </button>
+                )
+              }
+
+              return (
                 <span className="flex items-center gap-2">
                   <button
                     type="button"
-                    disabled={deciding === r.id}
-                    onClick={() => setPending({ row: r, status: 'approved' })}
+                    disabled={working}
+                    onClick={() => move(r, 'approved')}
                     className={`${btnSecondary} ${btnRow}`}
                   >
                     <Check className="size-3.5" />
@@ -709,27 +566,19 @@ export function MetaidQueue() {
                   </button>
                   <button
                     type="button"
-                    disabled={deciding === r.id}
-                    onClick={() => setPending({ row: r, status: 'rejected' })}
+                    disabled={working}
+                    onClick={() => move(r, 'rejected')}
                     className={`${btnGhost} ${btnRow} hover:text-[var(--admin-destructive)]`}
                   >
                     <X className="size-3.5" />
                     Reject
                   </button>
                 </span>
-              ),
+              )
+            },
           },
         ]}
       />
-
-      {pending && (
-        <ConfirmDecision
-          pending={pending}
-          busy={deciding === pending.row.id}
-          onConfirm={decide}
-          onClose={() => setPending(null)}
-        />
-      )}
     </>
   )
 }

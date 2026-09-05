@@ -49,9 +49,21 @@ create unique index if not exists real_account_request_email_key
 -- Signing up here and holding a login are two different facts: the platform
 -- creates the account on its own schedule, and some people never get one.
 --
--- Kept as YES/NO text rather than a boolean because the value is read far more
--- often than it is queried -- it lands in spreadsheets handed to people who
--- are not going to translate `t` and `f`. The CHECK is what keeps it honest.
+-- Kept as text rather than a boolean because the value is read far more often
+-- than it is queried -- it lands in spreadsheets handed to people who are not
+-- going to translate `t` and `f`. The CHECK is what keeps it honest.
+--
+-- Three values, which are the admin panel's three states for every row in the
+-- list, landing-form and dashboard alike:
+--
+--     YES       an account exists          -> Approved
+--     NO        one does not yet           -> Pending
+--     REJECTED  one was refused by hand    -> Rejected
+--
+-- REJECTED is a person's answer, not the platform's. Nothing writes it but
+-- sp_set_id_given, and the backfill below will turn it into YES if the export
+-- later lists the address -- an account that demonstrably exists outranks a
+-- refusal recorded before it did.
 --
 -- Defaults to NO: a row is written the moment someone submits the form, and
 -- nobody holds a login at that point. Backfilled from the platform's
@@ -60,11 +72,11 @@ alter table registration
     add column if not exists is_id_given text not null default 'NO';
 alter table registration drop constraint if exists registration_is_id_given_chk;
 alter table registration add constraint registration_is_id_given_chk
-    check (is_id_given in ('YES', 'NO'));
+    check (is_id_given in ('YES', 'NO', 'REJECTED'));
 
 alter table real_account_request
     add column if not exists is_id_given text not null default 'NO';
 alter table real_account_request
     drop constraint if exists real_account_request_is_id_given_chk;
 alter table real_account_request add constraint real_account_request_is_id_given_chk
-    check (is_id_given in ('YES', 'NO'));
+    check (is_id_given in ('YES', 'NO', 'REJECTED'));

@@ -1471,11 +1471,11 @@ def request_metaid(
 # MetaID and `metaid_request` never does.
 
 
-# A MetaID is four to six digits, e.g. 43563. Newera's format, not ours, so
+# A MetaID is four to ten digits, e.g. 43563. Newera's format, not ours, so
 # the rule is written down once here and mirrored by a check constraint on
 # league_entry -- the API is not the only thing that will ever hold that
 # connection.
-METAID_RE = re.compile(r"^[0-9]{4,6}$")
+METAID_RE = re.compile(r"^[0-9]{4,10}$")
 
 
 class LeagueJoin(BaseModel):
@@ -1493,7 +1493,7 @@ class LeagueJoin(BaseModel):
         of an email will produce every time."""
         self.metaid = self.metaid.strip()
         if not METAID_RE.match(self.metaid):
-            raise ValueError("a MetaID is 4 to 6 digits")
+            raise ValueError("a MetaID is 4 to 10 digits")
         return self
 
 
@@ -1687,6 +1687,50 @@ class Decision(BaseModel):
     note: Optional[str] = Field(default=None, max_length=500)
 
 
+# Three tables, one screen. `metaid_request` is what the signed-in dashboard
+# writes; `registration` and `real_account_request` are what the landing form
+# wrote before entry moved behind an account, and both are still taking rows
+# from the deployment that serves that form. They are the same question asked
+# in two eras -- "does this person have an MT5 account" -- so they belong in
+# one list rather than behind three menu items, and the dashboard's counts
+# stop being numbers with no rows under them.
+#
+# The two older tables have no status column. What they have is `is_id_given`,
+# and it answers the same question in the same three words:
+#
+#     YES       -> approved     NO -> pending     REJECTED -> rejected
+#
+# One vocabulary across all three tables, so the Status column reads as one
+# column and every row offers the same buttons under the same word.
+#
+# ponytail: scans all three tables per page. 850 rows today, so the sort costs
+# nothing; add a materialised view if it ever reaches six figures.
+UNION_ROWS = """
+    select 'request' as source, m.id, m.user_id, u.full_name, u.phone,
+           u.email as account_email, m.email, m.metaid_type as type,
+           m.status, null::text as country,
+           m.decision_note, m.created_at, m.decided_at
+      from metaid_request m
+      join users u on u.id = m.user_id
+    union all
+    select 'demo', r.id, null::bigint, r.full_name, r.mobile,
+           null::text, r.email, 'demo',
+           case r.is_id_given when 'YES' then 'approved'
+                              when 'REJECTED' then 'rejected'
+                              else 'pending' end,
+           r.country, null::text, r.created_at, null::timestamptz
+      from registration r
+    union all
+    select 'real', t.id, null::bigint, null::text, null::text,
+           null::text, t.email, 'real',
+           case t.is_id_given when 'YES' then 'approved'
+                              when 'REJECTED' then 'rejected'
+                              else 'pending' end,
+           null::text, null::text, t.created_at, null::timestamptz
+      from real_account_request t
+"""
+
+
 @app.get("/api/admin/metaid")
 def admin_metaid(
     _: int = Depends(require_staff),
@@ -1698,7 +1742,7 @@ def admin_metaid(
     page: int = 1,
     per_page: int = 25,
 ) -> dict:
-    """Every MetaID request, newest first, with the account it belongs to.
+    """Every account request, newest first, whichever table it came from.
 
     Phone and the account address are joined rather than stored on the row --
     a corrected number has to read corrected here, which is the whole reason
@@ -1706,54 +1750,46 @@ def admin_metaid(
     """
     page, per_page = _page(page, per_page)
     where, params = _window(date_from, date_to)
-    where = [w.replace("created_at", "m.created_at") for w in where]
 
     if q.strip():
         where.append(
-            "(m.email ilike %s or u.email ilike %s or u.phone ilike %s"
-            " or u.full_name ilike %s)"
+            "(email ilike %s or account_email ilike %s or phone ilike %s"
+            " or full_name ilike %s)"
         )
         params += [f"%{q.strip()}%"] * 4
-    # Both bound, not interpolated, and a value the check constraints would
-    # reject simply matches nothing.
+    # Both bound, not interpolated, and a value no source can hold simply
+    # matches nothing.
     if status.strip():
-        where.append("m.status = %s")
+        where.append("status = %s")
         params.append(status.strip().lower())
     if type.strip():
-        where.append("m.metaid_type = %s")
+        where.append("type = %s")
         params.append(type.strip().lower())
 
     clause = f"where {' and '.join(where)}" if where else ""
 
     with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            f"""
-            select count(*) as total
-            from metaid_request m join users u on u.id = m.user_id {clause}
-            """,
-            params,
+            f"select count(*) as total from ({UNION_ROWS}) src {clause}", params
         )
         total = cur.fetchone()["total"]
         cur.execute(
             f"""
-            select m.id, m.user_id, u.full_name, u.phone,
-                   u.email as account_email, m.email, m.metaid_type as type,
-                   m.status, m.decision_note, m.created_at, m.decided_at
-            from metaid_request m
-            join users u on u.id = m.user_id
+            select * from ({UNION_ROWS}) src
             {clause}
-            order by m.created_at desc, m.id desc
+            order by created_at desc, source, id desc
             limit %s offset %s
             """,
             params + [per_page, (page - 1) * per_page],
         )
         rows = cur.fetchall()
 
-    # Read off the number rather than selected: see country_of.
+    # Read off the number where the table does not store one: see country_of.
     for row in rows:
-        row["country"] = country_of(row["phone"])
+        row["country"] = row["country"] or country_of(row["phone"] or "")
 
     return {"rows": rows, "total": total, "page": page, "per_page": per_page}
+
 
 
 @app.get("/api/admin/metaid/stats")
@@ -1778,6 +1814,71 @@ def admin_metaid_stats(_: int = Depends(require_staff)) -> dict:
             """
         )
         return cur.fetchone()
+
+
+class IdGiven(BaseModel):
+    """What the list sends back for a landing-form row. The column is text with
+    a three-value CHECK behind it, so the model says the same thing."""
+
+    source: str = Field(pattern=r"^(demo|real)$")
+    id: int = Field(gt=0)
+    value: str = Field(pattern=r"^(YES|NO|REJECTED)$")
+
+
+@app.post("/api/admin/id-given")
+def set_id_given(entry: IdGiven, staff_id: int = Depends(require_staff)) -> dict:
+    """Move one landing-form row between the three states.
+
+    YES is approved, NO is pending and REJECTED is rejected -- the same three
+    the dashboard's own requests have, written to the one column these tables
+    do have rather than a status column they do not.
+
+    sp_set_id_given owns every rule: only an admin or newera staff may set it,
+    only a row whose value is actually changing moves, and a source that names
+    no table matches nothing. It answers false rather than raising for all of
+    them, because from here they are the same answer -- there was nothing to
+    change.
+
+    Neither NO nor REJECTED is a revocation the platform will honour: the next
+    run of db/backfill_is_id_given.sql turns either back to YES if the export
+    still lists the address. This is what an admin knows before the next export
+    arrives, not a claim about the account.
+    """
+    with pool.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "CALL sp_set_id_given(%s, %s, %s, %s)",
+            (entry.source, entry.id, staff_id, entry.value),
+        )
+        (ok,) = cur.fetchone()
+
+    if not ok:
+        raise HTTPException(409, "That row is already set that way.")
+
+    return {"source": entry.source, "id": entry.id, "is_id_given": entry.value}
+
+
+@app.post("/api/admin/metaid/{request_id}/undo")
+def undo_metaid(request_id: int, staff_id: int = Depends(require_staff)) -> dict:
+    """Put one decided request back to pending.
+
+    The panel shows the same buttons on every row in its list, and a
+    landing-form row's answer is a column an admin can write back. This is that
+    same affordance for `metaid_request`.
+
+    Safe because deciding sends nothing -- newera mails the MetaID by hand
+    afterwards, so there is nothing outside the table to unwind.
+    sp_undo_metaid owns the rules, including the one that is easy to miss: the
+    person may have opened a new request of the same type since, and
+    metaid_request_open_key allows only one pending row per person per type, so
+    the newer one keeps the place and this answers false.
+    """
+    with pool.connection() as conn, conn.cursor() as cur:
+        cur.execute("CALL sp_undo_metaid(%s, %s)", (request_id, staff_id))
+        (ok,) = cur.fetchone()
+
+    if not ok:
+        raise HTTPException(409, "This request cannot be reopened.")
+    return {"id": request_id, "status": "pending"}
 
 
 # Declared after the stats route above so `stats` is never read as an id. They

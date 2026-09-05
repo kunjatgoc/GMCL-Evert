@@ -53,8 +53,8 @@ Every file is idempotent, so re-running the lot is safe.
 
 | Table | Holds |
 |---|---|
-| `registration` | Demo ID entrants, written by the public form. Untouched by anything below |
-| `real_account_request` | Real ID interest, written by the card under the form. Likewise untouched |
+| `registration` | Demo ID entrants, written by the public form. `is_id_given` says whether MT5 made the account |
+| `real_account_request` | Real ID interest, written by the card under the form. Same `is_id_given` |
 | `user_roles` | `admin`, `end_user`, `gml_staff`, `newera_staff` |
 | `users` | Everyone who signs in, one row per account, one role per row |
 | `auth_token` | Email-confirmation codes and password-reset links -- one shape, told apart by `purpose` |
@@ -80,7 +80,7 @@ unique index allows one open request per person per type; a settled one leaves
 the way clear to ask again. The user never supplies a MetaID, only the address
 one should be issued against. External validation of a Real address is a future
 step in front of `sp_request_metaid`. The dashboard asks through
-`POST /api/metaid`; the approval endpoint does not exist yet.
+`POST /api/metaid`, and the panel answers it at `POST /api/admin/metaid/{id}`.
 
 Pydantic owns the request shape -- types, email format, phone validity for the
 chosen country. The procedures own the write, the duplicate rules and the
@@ -144,9 +144,51 @@ drift apart.
 `end_user` to `/dashboard`. The role rides inside the signed session cookie,
 so `require_admin` refuses an entrant's cookie without asking the database,
 and the two staff roles are refused at the door until something is built for
-them. `/admin` is the dashboard, `/admin/demo-users` and `/admin/real-users`
-are the two lists. Everything behind `/admin` needs an admin session, so the
-panel is a separate lazy chunk the marketing page never loads.
+them. `/admin` is the dashboard and `/admin/metaid` is the one list.
+Everything behind `/admin` needs an admin session, so the panel is a separate
+lazy chunk the marketing page never loads.
+
+That list is every account request the site has ever taken, from all three
+tables: `metaid_request`, which the signed-in dashboard writes, and
+`registration` and `real_account_request`, which the landing form wrote and
+still writes. They are the same question asked in two eras -- does this person
+have an MT5 account -- so one screen answers it, and the dashboard's counts
+stop being numbers with no rows underneath them.
+
+Three states across all three tables: **Pending**, **Approved**, **Rejected**.
+`metaid_request` has a status column and always did. The landing-form tables
+have `is_id_given` instead, and the API reads it as the same three words:
+
+| `is_id_given` | Status |
+|---|---|
+| `NO` | Pending |
+| `YES` | Approved |
+| `REJECTED` | Rejected |
+
+Which means one set of buttons for every row in the list. Pending offers
+**Approve** and **Reject**; a decided row offers **Undo**, which puts it back to
+pending and both buttons back with it. Where the row came from picks the
+endpoint and nothing else -- `POST /api/admin/metaid/{id}` and its `/undo` for
+a dashboard request, `POST /api/admin/id-given` for a landing-form row -- and
+the screen does not show the difference because there is none to show.
+
+Nothing asks for confirmation, because nothing here is final. Deciding sends no
+mail: newera issues the MetaID by hand afterwards, so a mis-click is one press
+to undo. `sp_undo_metaid` nulls `decided_by`, `decided_at` and the note
+together, because `metaid_request_decision_complete` will not have a pending row
+carrying any of them, and it refuses when the person has opened a newer request
+of the same type since -- `metaid_request_open_key` allows one pending row per
+person per type, and the newer one keeps the place.
+
+`db/backfill_is_id_given.sql` fills `is_id_given` from the platform's
+account-created export, and `sp_set_id_given` is how an admin answers in the gap
+between exports. The export only ever turns a non-YES into YES, so neither a
+hand-set `NO` nor a `REJECTED` is a revocation the platform will honour -- an
+account that demonstrably exists outranks a refusal recorded before it did.
+
+The union is scanned per page rather than materialised. That is right at 850
+rows and wrong at six figures; `UNION_ROWS` in `api/index.py` is where the view
+would go.
 
 ```bash
 psql "$DATABASE_URL" -f db/app_schema.sql

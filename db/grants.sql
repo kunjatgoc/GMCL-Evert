@@ -104,6 +104,18 @@ revoke all on procedure sp_decide_metaid(bigint, bigint, text, text, boolean)
 grant execute on procedure sp_decide_metaid(bigint, bigint, text, text, boolean)
     to gmcl_api;
 
+alter procedure sp_undo_metaid(bigint, bigint, boolean)
+    security definer set search_path = public, pg_temp;
+revoke all on procedure sp_undo_metaid(bigint, bigint, boolean) from public;
+grant execute on procedure sp_undo_metaid(bigint, bigint, boolean) to gmcl_api;
+
+alter procedure sp_set_id_given(text, bigint, bigint, text, boolean)
+    security definer set search_path = public, pg_temp;
+revoke all on procedure sp_set_id_given(text, bigint, bigint, text, boolean)
+    from public;
+grant execute on procedure sp_set_id_given(text, bigint, bigint, text, boolean)
+    to gmcl_api;
+
 alter procedure sp_join_league(bigint, text, bigint)
     security definer set search_path = public, pg_temp;
 revoke all on procedure sp_join_league(bigint, text, bigint) from public;
