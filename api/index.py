@@ -1143,28 +1143,42 @@ def update_me(entry: ProfileUpdate, user_id: int = Depends(require_user)) -> dic
 
 
 class PasswordChange(BaseModel):
-    current_password: str = Field(min_length=1, max_length=200)
     new_password: str = Field(min_length=8, max_length=200)
 
 
 @app.post("/api/change-password")
 def change_password(entry: PasswordChange, user_id: int = Depends(require_user)) -> dict:
-    """The current password is asked for even though the session already
-    proves who this is: a session left open on a shared machine should not be
-    enough to take the account.
+    """The session is the whole of the proof.
+
+    This used to ask for the current password as well, on the grounds that a
+    session left open on a shared machine should not be enough to take the
+    account. That guard is gone by request: the profile screen now reveals the
+    new-password fields behind a Reset button and asks nothing else. Whoever
+    holds a live session can set a new password, and the person who did know
+    the old one is not told about it.
+
+    Two things still stand between a stolen cookie and this endpoint. The
+    session cookie is httponly, so script on the page cannot read it, and it is
+    samesite=lax, so a cross-site POST does not carry it. Neither helps against
+    somebody sitting at an unlocked machine, which is the case this used to
+    cover.
+
+    Worth restoring, cheapest first: ask for the current password again, or
+    send a code to the address on the account -- issue_otp and
+    sp_issue_auth_token are already here for the signup and forgot-password
+    flows and would need no new tables.
 
     ponytail: sessions are stateless, so this cannot sign other devices out --
-    the same `session_epoch` gap sp_reset_password.sql already names.
+    the same `session_epoch` gap sp_reset_password.sql already names. That gap
+    matters more now than it did: a password change no longer proves the person
+    making it is the account's owner, and it still cannot evict anyone.
     """
     with pool.connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            "select password_hash from users where id = %s and is_active", (user_id,)
-        )
-        row = cur.fetchone()
-        if row is None:
+        # Still read first: `is_active` is the account being usable at all, and
+        # a disabled one must not be able to set a password and walk back in.
+        cur.execute("select 1 from users where id = %s and is_active", (user_id,))
+        if cur.fetchone() is None:
             raise HTTPException(401, "Not signed in.")
-        if not verify_password(entry.current_password, row[0]):
-            raise HTTPException(403, "Your current password is wrong.")
         cur.execute(
             "update users set password_hash = %s where id = %s",
             (hash_password(entry.new_password), user_id),

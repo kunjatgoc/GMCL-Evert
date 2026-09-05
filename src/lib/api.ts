@@ -50,11 +50,13 @@ export const updateName = (full_name: string) =>
     body: JSON.stringify({ full_name }),
   })
 
-export const changePassword = (current_password: string, new_password: string) =>
+/** The session is the whole of the proof. The profile screen asks nothing but
+ *  the new password, so there is nothing else to send. */
+export const changePassword = (new_password: string) =>
   request<{ ok: true }>('/api/change-password', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ current_password, new_password }),
+    body: JSON.stringify({ new_password }),
   })
 export const logout = () => request<{ ok: true }>('/api/logout', { method: 'POST' })
 
