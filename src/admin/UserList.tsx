@@ -318,7 +318,14 @@ function UserList<T extends { id: number }>({
                         // A taller row can still be read without moving
                         // anything. Costs about 7px of height per row and
                         // takes 210px off the width.
-                        className={`px-2.5 py-3 align-top ${
+                        //
+                        // Centred rather than top-aligned, because the row's
+                        // height is set by whichever cell is tallest -- a pair
+                        // of buttons, or a name that wrapped -- and top
+                        // alignment then leaves every other cell floating
+                        // above a gap. Middle is what makes the row read as
+                        // one line across.
+                        className={`px-2.5 py-3 align-middle ${
                           c.hideOnMobile ? 'hidden md:table-cell' : ''
                         }`}
                       >
