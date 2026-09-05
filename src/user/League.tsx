@@ -14,7 +14,7 @@ import {
   joinLeague,
   type LeagueEntry,
 } from './api'
-import { SupportLine } from '../components/ui/Support'
+import { SupportBand } from '../components/ui/Support'
 import { Unauthorized } from '../lib/api'
 import { formatIst, istDate, istDaysBetween } from '../lib/time'
 import { EASE, viewportOnce } from '../lib/motion'
@@ -971,8 +971,8 @@ export function LeagueScreen() {
 
       {/* After the entry form and not before it. Anyone who could enter has
           entered by here; anyone who could not is the reason this exists. */}
-      <footer className="border-t border-white/5 px-6 py-8 xl:px-16">
-        <SupportLine />
+      <footer className="border-t border-white/5 px-6 py-10 xl:px-16">
+        <SupportBand />
       </footer>
 
       <Congrats show={celebrating} onDone={() => setCelebrating(false)} />

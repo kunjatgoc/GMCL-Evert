@@ -8,7 +8,6 @@ import { TrustBar } from './components/TrustBar'
 import { AboutLeague } from './components/AboutLeague'
 import { Prizes } from './components/Prizes'
 import { JoinCta } from './components/JoinCta'
-import { SupportLine } from './components/ui/Support'
 import { prefersReducedMotion } from './lib/motionPreference'
 import { setScroller } from './lib/scroll'
 
@@ -66,15 +65,11 @@ export default function App() {
           only &mdash; no real capital is traded and no deposit is required.
         </p>
 
-        {/* Between the credit and the disclaimer, which is where somebody
-            looks for it: they have reached the bottom of the page without
-            finding what they came for. */}
-        <SupportLine className="mt-5" />
-
-        {/* Sits last and reads quieter than everything above it, which is
+        {/* Sits last and reads quieter than the credit above it, which is
             where a disclaimer belongs: present on every page, never
-            competing with the offer. */}
-        <p className="mx-auto mt-5 max-w-2xl text-[12.5px] text-[#E4EAE7]/55">
+            competing with the offer. The support address is not down here --
+            it is a section of its own above, where it gets read. */}
+        <p className="mx-auto mt-3 max-w-2xl text-[12.5px] text-[#E4EAE7]/55">
           This site is provided for educational purposes only and does not
           constitute financial or investment advice.
         </p>

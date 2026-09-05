@@ -3,6 +3,7 @@ import ShieldCheck from '~icons/tabler/shield-check-filled'
 import { GlowButton } from './ui/GlowButton'
 import { Eyebrow } from './ui/Eyebrow'
 import { SectionReveal } from './ui/SectionReveal'
+import { SupportBand } from './ui/Support'
 
 /**
  * What used to be the registration form. Entry now runs through an account:
@@ -91,6 +92,14 @@ export function JoinCta() {
           </div>
         </SectionReveal>
       </div>
+
+      {/* Inside this section rather than after it, and wider than the card
+          above. The particle field and the bloom are drawn to this section's
+          bounds, so a band placed below them stood under a hard horizontal
+          edge -- the exact line the eye reads as "the page ended here".
+          Standing it on the same background makes it the second half of one
+          scene instead of an orphan under the first. */}
+      <SupportBand className="mt-10" />
     </section>
   )
 }

@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import ChartCandle from '~icons/tabler/chart-candle'
 import { IconArt, type IconComponent } from '../components/ui/IconArt'
-import { SupportCard } from '../components/ui/Support'
+import { SupportBand } from '../components/ui/Support'
 import { changePassword, updateName, Unauthorized, type Me } from '../lib/api'
 import {
   checkMetaidDuplicates,
@@ -269,8 +269,13 @@ function DashboardScreen({ me }: { me: Me }) {
       </p>
 
       {/* Above the steps rather than below them. Somebody stuck on step one is
-          looking for this before they have scrolled anywhere. */}
-      <SupportCard className="mt-5 max-w-3xl" />
+          looking for this before they have scrolled anywhere.
+
+          Narrowed to the step cards' measure and pulled off centre to their
+          left edge, so the column reads as one column. The `!` is doing real
+          work: two utilities of equal specificity are resolved by their order
+          in the generated stylesheet, not in the class string. */}
+      <SupportBand className="mt-5 !ml-0 !max-w-3xl" />
 
       {error && <div className="mt-6"><ErrorAlert>{error}</ErrorAlert></div>}
 
