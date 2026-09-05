@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Loader2 } from 'lucide-react'
 import CalendarEvent from '~icons/tabler/calendar-event'
 import ChartCandle from '~icons/tabler/chart-candle'
-import Lock from '~icons/tabler/lock'
 import Moneybag from '~icons/tabler/moneybag'
 import Check from '~icons/tabler/check'
 import Pencil from '~icons/tabler/pencil'
@@ -733,14 +732,11 @@ function EntryRow({
 /** Band 3. The whole point of the page. */
 function JoinBand({
   entries,
-  canJoin,
   onChanged,
   onCelebrate,
 }: {
   /** Undefined until the server answers. */
   entries: LeagueEntry[] | undefined
-  /** False until newera has approved an account. Undefined while asking. */
-  canJoin: boolean | undefined
   onChanged: (entries: LeagueEntry[]) => void
   /** Fired only on the entry that succeeds, never on a reload that finds one. */
   onCelebrate: () => void
@@ -809,32 +805,14 @@ function JoinBand({
       />
 
       <div className="mx-auto max-w-2xl text-center">
-        {entries === undefined || canJoin === undefined ? (
+        {/* The form is always here. Getting an account and entering the league
+            were written as step one and step two, and they are not: they run
+            alongside each other, and somebody who already holds a number has
+            no reason to be shown a locked band telling them to go and ask for
+            one. Whether newera has approved anything is no longer this page's
+            question. */}
+        {entries === undefined ? (
           <div className="mx-auto h-40 w-full animate-pulse rounded-2xl border border-white/8 bg-white/[0.02]" />
-        ) : !canJoin ? (
-          /* There is nothing to type yet. The number comes from newera, so a
-             form here would only collect a guess -- and the server refuses
-             the entry anyway. Same band, same shape as the entry above it. */
-          <>
-            <span
-              aria-hidden
-              className="mx-auto grid size-14 place-items-center rounded-2xl border border-white/12 bg-white/[0.04] text-[var(--admin-muted)]"
-            >
-              <Lock className="size-6" />
-            </span>
-            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(1.35rem,2.1vw,1.75rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
-              One step before this one
-            </h2>
-            <p className={`${TEXT.body} mx-auto mt-3 max-w-lg text-[#E4EAE7]`}>
-              You enter the league with a MetaTrader5 account number, and
-              newera issues that once they have approved your account. Ask for
-              one first, then come back here.
-            </p>
-            <a href="/request-metaid" className={`${btnPrimary} mt-8`}>
-              <Moneybag className="size-4" />
-              Request an account
-            </a>
-          </>
         ) : entries.length === 0 ? (
           <>
             <h2 className="font-[family-name:var(--font-display)] text-[clamp(1.35rem,2.1vw,1.75rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
@@ -940,10 +918,6 @@ function JoinBand({
 
 export function LeagueScreen() {
   const [entries, setEntries] = useState<LeagueEntry[] | undefined>(undefined)
-  /** Whether newera has approved an account for this person. Undefined until
-   *  the server says, so the form is not offered to somebody who will be
-   *  refused it a moment later. */
-  const [canJoin, setCanJoin] = useState<boolean | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
   // Read once, at mount. The window does not move while the screen is open.
   const [phase] = useState(() => leaguePhase(new Date()))
@@ -951,15 +925,11 @@ export function LeagueScreen() {
 
   useEffect(() => {
     getLeagueStatus()
-      .then(({ entries, can_join }) => {
-        setEntries(entries)
-        setCanJoin(can_join)
-      })
+      .then(({ entries }) => setEntries(entries))
       .catch((e) => {
         if (e instanceof Unauthorized) window.location.href = '/login'
         else {
           setEntries([])
-          setCanJoin(false)
           setError('We could not check whether you have joined. Try again.')
         }
       })
@@ -986,7 +956,6 @@ export function LeagueScreen() {
 
       <JoinBand
         entries={entries}
-        canJoin={canJoin}
         onChanged={setEntries}
         onCelebrate={() => setCelebrating(true)}
       />

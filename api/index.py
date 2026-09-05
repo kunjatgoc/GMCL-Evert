@@ -1497,35 +1497,6 @@ class LeagueJoin(BaseModel):
         return self
 
 
-def has_approved_metaid(user_id: int) -> bool:
-    """Whether newera has answered yes to this account, for either kind.
-
-    The one rule about who may enter the league, written once. Both the screen
-    and the endpoint that writes the row ask this, so a form cannot offer what
-    a POST is about to refuse.
-
-    Approved only. A pending request is newera still thinking about it, and a
-    rejected one is them having said no.
-
-    An account newera issued before this app existed counts the same, and has
-    to: those people hold a number, and the league is the one thing the number
-    is for. Asked here rather than left to the screen, so /api/league and the
-    POST that writes the entry cannot disagree about it.
-    """
-    with pool.connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            f"""
-            select 1 from metaid_request
-             where user_id = %(user_id)s and status = 'approved'
-             union all
-            select 1 from ({IMPORTED_APPROVALS}) i
-             limit 1
-            """,
-            {"user_id": user_id},
-        )
-        return cur.fetchone() is not None
-
-
 @app.get("/api/league")
 def my_league_entries(user_id: int = Depends(require_user)) -> dict:
     """Every entry the caller holds, and whether they may make another.
@@ -1533,9 +1504,15 @@ def my_league_entries(user_id: int = Depends(require_user)) -> dict:
     A list because one person may enter more than one account -- newera issues
     a number per account, and a demo and a real one are two of them.
 
-    `can_join` is here rather than left for the screen to work out from the
-    request rows: the rule belongs on this side, and a screen that reasons its
-    own way to an answer is a second copy of it waiting to drift.
+    `can_join` used to answer whether newera had approved an account for this
+    person. Nobody is refused now -- getting an account and entering the league
+    run alongside each other rather than in order -- so it is true for everyone
+    who is signed in.
+
+    Kept rather than removed because the dashboard reads it to decide whether
+    to offer the League link, and a constant here is a smaller change than
+    teaching that screen the rule is gone. It is dead weight the day that
+    screen stops asking.
     """
     with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
@@ -1544,7 +1521,7 @@ def my_league_entries(user_id: int = Depends(require_user)) -> dict:
             (user_id,),
         )
         entries = cur.fetchall()
-    return {"entries": entries, "can_join": has_approved_metaid(user_id)}
+    return {"entries": entries, "can_join": True}
 
 
 @app.post("/api/league", status_code=201)
@@ -1555,19 +1532,17 @@ def join_league(entry: LeagueJoin, user_id: int = Depends(require_user)) -> dict
     one the MetaID was approved against, so the browser cannot decide what is
     recorded against a person.
 
-    Step one before step two. An account number is issued by newera, so a
-    person with no approved request has nothing to type here -- and whatever
-    they did type would be somebody else's, or invented. Checked here rather
-    than only on the screen, which is where the two entries that already exist
-    without one came from.
-    """
-    if not has_approved_metaid(user_id):
-        raise HTTPException(
-            409,
-            "newera has to approve your MetaTrader5 account before you can "
-            "join the league.",
-        )
+    This used to refuse anybody without an approved metaid_request, on the
+    reading that getting an account was step one and entering the league was
+    step two. That is not how the product runs -- the two happen alongside each
+    other, and people arrive holding numbers newera issued through channels
+    this system never saw, which is where the entries that already existed
+    without a matching request came from. Refusing them was the bug, not the
+    entries.
 
+    What still holds: the number must match METAID_RE, and the unique index on
+    (user_id, metaid) still refuses the same account twice.
+    """
     try:
         with pool.connection() as conn, conn.cursor() as cur:
             cur.execute("CALL sp_join_league(%s, %s)", (user_id, entry.metaid))
