@@ -8,6 +8,7 @@ import {
   TEXT,
   SELECT_CHEVRON,
   btnGhost,
+  btnRow,
   btnIcon,
   btnPrimary,
   btnSecondary,
@@ -264,7 +265,7 @@ function UserList<T extends { id: number }>({
                 {columns.map((c) => (
                   <th
                     key={c.header}
-                    className={`${TEXT.label} whitespace-nowrap px-4 py-4 font-semibold uppercase tracking-[0.1em] text-[var(--admin-muted)] ${
+                    className={`${TEXT.label} whitespace-nowrap px-2.5 py-3 font-semibold uppercase tracking-[0.1em] text-[var(--admin-muted)] ${
                       c.hideOnMobile ? 'hidden md:table-cell' : ''
                     }`}
                   >
@@ -324,7 +325,14 @@ function UserList<T extends { id: number }>({
                     {columns.map((c) => (
                       <td
                         key={c.header}
-                        className={`whitespace-nowrap px-4 py-4 ${
+                        // Wrapping, where the header above still does not.
+                        // Nine columns of this data do not fit a laptop on one
+                        // line at any font size worth reading, and the choice
+                        // was between a sideways scrollbar and a taller row.
+                        // A taller row can still be read without moving
+                        // anything. Costs about 7px of height per row and
+                        // takes 210px off the width.
+                        className={`px-2.5 py-3 align-top ${
                           c.hideOnMobile ? 'hidden md:table-cell' : ''
                         }`}
                       >
@@ -694,18 +702,18 @@ export function MetaidQueue() {
                     type="button"
                     disabled={deciding === r.id}
                     onClick={() => setPending({ row: r, status: 'approved' })}
-                    className={`${btnSecondary} px-3 py-1.5`}
+                    className={`${btnSecondary} ${btnRow}`}
                   >
-                    <Check className="size-4" />
+                    <Check className="size-3.5" />
                     Approve
                   </button>
                   <button
                     type="button"
                     disabled={deciding === r.id}
                     onClick={() => setPending({ row: r, status: 'rejected' })}
-                    className={`${btnGhost} px-3 py-1.5 hover:text-[var(--admin-destructive)]`}
+                    className={`${btnGhost} ${btnRow} hover:text-[var(--admin-destructive)]`}
                   >
-                    <X className="size-4" />
+                    <X className="size-3.5" />
                     Reject
                   </button>
                 </span>

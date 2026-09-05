@@ -212,7 +212,7 @@ function StepCard({
         </p>
       </div>
 
-      <h2 className="relative mt-5 font-[family-name:var(--font-display)] text-[clamp(1.4rem,2.2vw,1.9rem)] font-bold leading-tight text-white">
+      <h2 className="relative mt-5 font-[family-name:var(--font-display)] text-[clamp(1.15rem,1.7vw,1.4rem)] font-bold leading-tight text-white">
         {title}
       </h2>
       {body && (

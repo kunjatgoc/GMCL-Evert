@@ -5,16 +5,34 @@
  * designed as -- 13.5 next to 14 next to 14.5 reads as sloppy, never as
  * hierarchy. Three steps far enough apart to actually separate is hierarchy.
  *
- * Nothing here is below 14px. The smallest thing on the screen still has to
- * be readable by someone doing this job all day.
+ * These used to be 14 / 17 / up-to-49.6, and this comment used to say nothing
+ * would go below 14px so it stayed readable all day. The floor was the right
+ * instinct applied to the wrong scale: 14 next to 17 is the proportion of an
+ * article, and none of this is an article. It is a table of account requests
+ * being scanned by someone who wants more rows on the screen, not fewer.
+ *
+ * On a 1280x800 laptop the old scale needed 1384px of table in 902px of room.
+ * That is where the horizontal scrollbar came from -- not from too many
+ * columns, from prose-sized type doing a spreadsheet's job.
+ *
+ * 13 is still comfortably readable; it is what the same row in Linear or
+ * Stripe is set in. The floor is real, it just sits one step lower.
  */
 export const TEXT = {
   /** Column headers, field labels, secondary lines, chips. */
-  label: 'text-[14px]',
+  label: 'text-[13px]',
   /** Everything read to do the work: rows, inputs, nav, notes, buttons. */
-  body: 'text-[17px]',
-  /** Page headings and the dashboard numbers. */
-  display: 'text-[clamp(2.2rem,4vw,3.1rem)]',
+  body: 'text-[15px]',
+  /**
+   * Page headings and the dashboard numbers.
+   *
+   * The old value was clamp(2.2rem, 4vw, 3.1rem), which sounds responsive and
+   * is not: 4vw passes 3.1rem at 1240px, so every laptop and every desktop got
+   * the 49.6px ceiling and only phones ever saw the middle term. A clamp whose
+   * max is reached by its smallest real viewport is a fixed size with extra
+   * steps. This one tops out at 32px and means it.
+   */
+  display: 'text-[clamp(1.6rem,2.4vw,2rem)]',
 } as const
 
 /**
@@ -98,6 +116,22 @@ export const btnDestructive =
 
 export const btnGhost =
   `${TEXT.body} ${btnBase} px-3.5 py-2.5 text-[#E4EAE7]/70 hover:text-white`
+
+/**
+ * Not a fifth button -- a size, appended to one of the four.
+ *
+ * A button in a table row is not the same object as a button at the bottom of
+ * a form, however identical it looks. The row one is repeated once per record
+ * and is charged for in table width: two of them at page size held the Actions
+ * column at 252px, which is a fifth of a laptop's usable width spent on the
+ * word "Approve" eleven times.
+ *
+ * The `!` is doing real work. btnSecondary already carries TEXT.body, and two
+ * text utilities of equal specificity are resolved by their order in the
+ * generated stylesheet rather than in the class string -- which is not a thing
+ * to leave to chance from here.
+ */
+export const btnRow = '!text-[13px] gap-1.5 px-2.5 py-1'
 
 export const btnIcon =
   `${btnBase} size-10 shrink-0 border border-white/10 bg-white/[0.03] text-[#E4EAE7] ` +

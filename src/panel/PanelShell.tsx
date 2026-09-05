@@ -1,12 +1,12 @@
 import { useEffect, useState, type ComponentType } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
-import { Check, LogOut, X } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { getMe, homeFor, logout, Unauthorized, type Me } from '../lib/api'
 import type { IconComponent } from '../components/ui/IconArt'
 import { EASE } from '../lib/motion'
 import { PALETTE } from './palette'
 import { Lockup } from '../components/ui/Lockup'
-import { TEXT, btnGhost, btnSecondary } from './type'
+import { TEXT } from './type'
 import { PanelSkeleton, useDelayed } from './Skeleton'
 
 /**
@@ -111,10 +111,6 @@ export function PanelShell({ views }: Props) {
   // A warm session answers /me in well under 400ms. Showing nothing until
   // then means the common case never flashes a loader at all.
   const showSkeleton = useDelayed()
-  // Two-step rather than a modal: signing out is reversible in three seconds,
-  // and a dialog over the whole panel would be heavier than the action.
-  const [confirmingOut, setConfirmingOut] = useState(false)
-
   // The cookie is the session, so the guard is "does /me answer". A rejected
   // call is the only reliable signal -- the cookie is HttpOnly and JS cannot
   // read it, let alone tell whether it is still valid.
@@ -167,7 +163,10 @@ export function PanelShell({ views }: Props) {
         <Backdrop />
 
         <motion.nav
-          className="glass relative isolate overflow-hidden border-b border-white/8 bg-[var(--admin-card)] p-4 md:sticky md:top-0 md:h-dvh md:w-[19.5rem] md:shrink-0 md:border-b-0 md:border-r md:p-6"
+          // 15.5rem, not 19.5. At 19.5 the rail took 312px of a 1280px laptop
+          // -- a quarter of the screen for four links -- and the table beside
+          // it paid for every one of those pixels.
+          className="glass relative isolate overflow-hidden border-b border-white/8 bg-[var(--admin-card)] p-4 md:sticky md:top-0 md:h-dvh md:w-[15.5rem] md:shrink-0 md:border-b-0 md:border-r md:p-5"
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.7, ease: EASE }}
@@ -264,53 +263,18 @@ export function PanelShell({ views }: Props) {
               })}
             </ul>
 
-            <AnimatePresence mode="wait" initial={false}>
-              {confirmingOut ? (
-                <motion.div
-                  key="confirm"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.22, ease: EASE }}
-                  className="mt-2"
-                >
-                  <p className={`${TEXT.label} text-[var(--admin-muted)]`}>Sign out?</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={signOut}
-                      autoFocus
-                      className={btnSecondary}
-                    >
-                      <Check className="size-4" />
-                      Yes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmingOut(false)}
-                      className={btnGhost}
-                    >
-                      <X className="size-4" />
-                      Cancel
-                    </button>
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.button
-                  key="idle"
-                  type="button"
-                  onClick={() => setConfirmingOut(true)}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className={`${TEXT.body} group mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-[#E4EAE7] transition-colors duration-300 hover:text-white`}
-                >
-                  <LogOut className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
-                  Sign out
-                </motion.button>
-              )}
-            </AnimatePresence>
+            {/* Signs out on the press, with nothing to confirm. Signing out
+                destroys no work and costs one sign-in to undo, which is less
+                than the two taps the confirmation charged everybody every
+                time. */}
+            <button
+              type="button"
+              onClick={signOut}
+              className={`${TEXT.body} group mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-[#E4EAE7] transition-colors duration-300 hover:text-white`}
+            >
+              <LogOut className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+              Sign out
+            </button>
           </div>
         </motion.nav>
 

@@ -36,8 +36,16 @@ export function Lockup({
         GML
       </span>
       <span className="min-w-0 text-left leading-none">
+        {/* Two lines on the rail, one everywhere else. The rail is 248px and
+            the name needs about 200 of them after the mark and the gap, so
+            `truncate` there does not shorten the brand -- it cuts it, and
+            "Global Market Leag" is worse than a second line. */}
         <span
-          className={`${compact ? 'hidden sm:block' : 'block'} truncate font-[family-name:var(--font-display)] text-[19px] font-bold tracking-tight text-white`}
+          className={`${compact ? 'hidden sm:block' : 'block'} font-[family-name:var(--font-display)] font-bold tracking-tight text-white ${
+            tone === 'panel'
+              ? 'text-[16px] leading-[1.15]'
+              : 'truncate text-[19px]'
+          }`}
         >
           Global Market League
         </span>
