@@ -165,3 +165,44 @@ expires. Closing it means a `session_epoch` column on `users`, bumped by
 
 Eight hours is the current answer to this. It is only worth changing if that
 window ever matters.
+
+---
+
+## 10. `sp_join_league` stamps the wrong address on a second entry
+
+`league_entry.email` is documented as the address the MetaID was approved
+against, and `db/app_schema.sql` gives the reason: it records what was true at
+the moment of joining, so a later change to the account cannot rewrite an entry
+that has already been counted.
+
+`sp_join_league` does not read it per account. It takes whichever approved
+request was decided last:
+
+```sql
+order by m.decided_at desc nulls last
+limit 1
+```
+
+That was correct when a person could hold one entry. Multiple entries landed on
+4 September 2026 without touching this procedure, so from the second entry
+onward the column says something that is not true.
+
+**How it goes wrong.** Demo approved against `alex@gmail.com` on Monday, Real
+approved against `alex@work.com` on Tuesday. On Wednesday they join with the
+demo account number, and the row records `alex@work.com` -- an address that
+account was never approved under.
+
+**The shape of the fix.** The join has to say which approved request it is
+entering under, which means the API passing the request id or the type down to
+the procedure, and the screen knowing which of the two a number belongs to. The
+screen does not know that today: it asks for a number and nothing else, because
+newera issues the number outside this system and nothing here maps a number back
+to the request that produced it.
+
+So it is not a one-line change to the `order by`. It needs the same decision
+item 8 is waiting on -- what a MetaID is issued against -- before there is a
+correct answer to pick.
+
+**Deferred deliberately**, 5 September 2026. Rows written before this is fixed
+carry the wrong address on every entry after the first, so a backfill is part of
+the fix rather than an afterthought.

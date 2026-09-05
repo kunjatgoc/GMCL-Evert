@@ -3,6 +3,7 @@ import { motion } from 'motion/react'
 import { Check, ChevronLeft, ChevronRight, Loader2, Search, X } from 'lucide-react'
 import { Flag } from '../components/ui/Flag'
 import { EASE } from '../lib/motion'
+import { formatIst } from '../lib/time'
 import {
   TEXT,
   SELECT_CHEVRON,
@@ -88,15 +89,22 @@ export const DATE_RANGE: readonly Filter[] = [
   { name: 'date_to', label: 'To', kind: 'date' },
 ]
 
+// IST, not the reader's zone. The counts beside this table are computed by
+// Postgres against `current_date`, which is IST, so a row stamped in any other
+// zone would sit under a heading that had counted it on a different day.
 const fmt = (iso: string) =>
-  new Date(iso).toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
+  formatIst(
+    iso,
+    {
+      day: '2-digit',
+      month: 'short',
+      year: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    },
+    'en-IN'
+  )
 
 type Props<T> = {
   title: string

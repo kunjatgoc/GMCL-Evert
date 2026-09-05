@@ -7,6 +7,7 @@ import {
   useTransform,
 } from 'motion/react'
 import { EASE } from '../lib/motion'
+import { formatIst } from '../lib/time'
 import { TEXT } from '../panel/type'
 
 export type DayPoint = { day: string; demo: number; real_requests: number }
@@ -50,8 +51,11 @@ function smooth(points: [number, number][]): string {
   return `${d} T ${lx} ${ly}`
 }
 
+// The days on this axis are `generate_series` over `current_date` in Postgres,
+// which counts in IST. Labelling them in the reader's zone would slide every
+// point by one for anyone west of Delhi.
 const dayLabel = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+  formatIst(iso, { day: 'numeric', month: 'short' }, 'en-IN')
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi)
 

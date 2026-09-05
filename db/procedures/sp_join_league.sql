@@ -6,6 +6,17 @@
 -- falls back to its own address rather than failing, because who may enter is
 -- not this procedure's rule to make.
 --
+-- KNOWN WRONG from the second entry onward. The select below takes whichever
+-- approved request was decided last, which was the only one when a person
+-- could hold a single entry. Since multiple entries landed it can stamp a row
+-- with an address that account was never approved under -- a demo number
+-- entered after a real approval gets the real request's address.
+--
+-- Left as it is on purpose: fixing it means the join saying which approved
+-- request it is entering under, and nothing here maps a MetaID back to the
+-- request that produced it. Written up as item 10 in
+-- docs/database-open-items.md, with the backfill the fix will need.
+--
 -- Raises 23505 (unique_violation) when the person has already joined.
 
 create or replace procedure sp_join_league(
