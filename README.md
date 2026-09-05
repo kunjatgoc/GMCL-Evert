@@ -340,9 +340,28 @@ filesystem. That is a rule rather than a list, which is the part the old
 `vercel.json` kept getting wrong -- it enumerated the routes, and `/league`
 was never added to it.
 
-Run uvicorn under systemd rather than by hand: it has to come back after a
-reboot, and `Restart=always` is the whole of what that takes. Keep it bound to
-`127.0.0.1` so the API is reachable only through nginx.
+uvicorn runs under systemd rather than by hand -- it has to come back after a
+reboot -- and the unit is `deploy/gmcl-api.service`. It runs as its own `gmcl`
+user rather than root, bound to `127.0.0.1` so the API is reachable only
+through nginx.
+
+```
+sudo cp deploy/gmcl-api.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now gmcl-api
+journalctl -u gmcl-api -f
+```
+
+After the first setup, every deploy is one command:
+
+```
+sudo /opt/GMCL-Evert/deploy/deploy.sh
+```
+
+It fetches, resets to `origin/main`, rebuilds both halves, restarts the
+service and reloads nginx -- and it asks the API for an answer before it
+declares success, so a build that cannot reach Postgres fails the deploy
+instead of quietly replacing a working one.
 
 Environment lives in `.env` on the server, read through `--env-file`, and
 `.env.example` documents every name. `ALLOWED_ORIGINS` only matters if the
