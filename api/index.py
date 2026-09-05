@@ -1182,6 +1182,40 @@ class MetaidRequest(BaseModel):
     email: EmailStr
 
 
+# --- accounts newera issued before this app existed ---------------------------
+#
+# `registration` and `real_account_request` are the two landing-page forms,
+# filled in before there was anything to sign into. `is_id_given` says whether
+# newera has since created the trading account for that address; it is
+# backfilled from their account-created exports by db/backfill_is_id_given.sql.
+#
+# Somebody who filled in one of those forms and later signs up here has already
+# been answered. Sending them through /request-metaid would be asking newera to
+# issue a second account for an address that already has one, so the answer
+# they already hold is read straight off those two tables instead.
+#
+# Read, never written. No metaid_request row is created for these: nobody in
+# this system decided anything, and metaid_request_decision_complete rightly
+# refuses an approved row with no decider named against it. The cost is that
+# these approvals never reach the admin queue, which is correct -- there was no
+# request to queue.
+#
+# Matched on the address the account signed up with. Signup does not finish
+# until the OTP sent to that address is answered, so the match is against an
+# address the person has already proved is theirs.
+IMPORTED_APPROVALS = """
+    select u.id as user_id, u.phone, 'demo' as type, r.email, r.created_at
+      from registration r
+      join users u on lower(u.email) = lower(r.email)
+     where u.id = %(user_id)s and r.is_id_given = 'YES'
+     union all
+    select u.id, u.phone, 'real', a.email, a.created_at
+      from real_account_request a
+      join users u on lower(u.email) = lower(a.email)
+     where u.id = %(user_id)s and a.is_id_given = 'YES'
+"""
+
+
 @app.get("/api/metaid")
 def list_metaid(user_id: int = Depends(require_user)) -> dict:
     """Every request this person has made, newest first, so the dashboard can
@@ -1190,18 +1224,39 @@ def list_metaid(user_id: int = Depends(require_user)) -> dict:
     `phone` is joined from `users` rather than stored on the row, so a
     corrected number reads corrected on every request the person ever made.
     Same shape the admin queue will want, minus the `where`.
+
+    An account newera already issued is folded in here as a row of the same
+    shape, so the screens stay a function of this one list and need to know
+    nothing about where a given answer came from. Its `id` is null -- there is
+    no row to decide against, which is the whole point of it.
+
+    `precedence` puts those first. The screens read the first row of a kind as
+    the current one, and an account that demonstrably exists outranks whatever
+    this system last recorded about it: a pending request for an account newera
+    has already created is answered, and a rejection they later overrode by
+    creating it is out of date.
     """
     with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            """
-            select m.id, m.user_id, u.phone, m.metaid_type as type, m.email,
-                   m.status, m.decision_note, m.created_at, m.decided_at
-            from metaid_request m
-            join users u on u.id = m.user_id
-            where m.user_id = %s
-            order by m.created_at desc, m.id desc
+            f"""
+            select id, user_id, phone, type, email, status,
+                   decision_note, created_at, decided_at
+            from (
+                select m.id, m.user_id, u.phone, m.metaid_type as type,
+                       m.email, m.status, m.decision_note, m.created_at,
+                       m.decided_at, 1 as precedence
+                from metaid_request m
+                join users u on u.id = m.user_id
+                where m.user_id = %(user_id)s
+                union all
+                select null::bigint, i.user_id, i.phone, i.type, i.email,
+                       'approved'::text, null::text, i.created_at,
+                       null::timestamptz, 0
+                from ({IMPORTED_APPROVALS}) i
+            ) t
+            order by precedence, created_at desc, id desc
             """,
-            (user_id,),
+            {"user_id": user_id},
         )
         rows = cur.fetchall()
     return {"rows": rows}
@@ -1418,12 +1473,22 @@ def has_approved_metaid(user_id: int) -> bool:
 
     Approved only. A pending request is newera still thinking about it, and a
     rejected one is them having said no.
+
+    An account newera issued before this app existed counts the same, and has
+    to: those people hold a number, and the league is the one thing the number
+    is for. Asked here rather than left to the screen, so /api/league and the
+    POST that writes the entry cannot disagree about it.
     """
     with pool.connection() as conn, conn.cursor() as cur:
         cur.execute(
-            "select 1 from metaid_request "
-            "where user_id = %s and status = 'approved' limit 1",
-            (user_id,),
+            f"""
+            select 1 from metaid_request
+             where user_id = %(user_id)s and status = 'approved'
+             union all
+            select 1 from ({IMPORTED_APPROVALS}) i
+             limit 1
+            """,
+            {"user_id": user_id},
         )
         return cur.fetchone() is not None
 

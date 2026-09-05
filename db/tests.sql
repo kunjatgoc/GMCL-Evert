@@ -203,6 +203,56 @@ begin
     exception when check_violation then null;
     end;
 
+    -- accounts newera issued before this app existed -----------------------
+    --
+    -- IMPORTED_APPROVALS in api/index.py reads an answer off the landing-page
+    -- tables for somebody who filled a form there and signed up here later.
+    -- The rules it depends on are asserted here because they are rules about
+    -- this data, and the SQL that leans on them is a string in another file:
+    -- the address matches case-insensitively, and an account that exists
+    -- outranks whatever `metaid_request` last recorded about it.
+    --
+    -- v_user is 'ada@example.com', lower-cased by sp_signup above.
+    insert into registration (full_name, email, mobile, country, is_id_given)
+    values ('Ada Lovelace', 'ADA@Example.com', '+919000000001', 'IN', 'YES');
+
+    select count(*) into v_attempts
+      from registration r
+      join users u on lower(u.email) = lower(r.email)
+     where u.id = v_user and r.is_id_given = 'YES';
+    assert v_attempts = 1, 'a landing-page address did not match its account';
+
+    -- The same person's own request is still open. The screens read the first
+    -- row of a kind as the current one, so the imported answer has to sort
+    -- ahead of it -- otherwise a pending row would keep hiding an account that
+    -- demonstrably exists.
+    assert (select status from (
+                select m.status, m.created_at, 1 as precedence
+                  from metaid_request m where m.user_id = v_user
+                 union all
+                select 'approved', r.created_at, 0
+                  from registration r
+                  join users u on lower(u.email) = lower(r.email)
+                 where u.id = v_user and r.is_id_given = 'YES'
+            ) t order by precedence, created_at desc limit 1) = 'approved',
+           'a pending request outranked an account newera had already issued';
+
+    -- NO is the default and means nothing has been issued yet, so the person
+    -- goes through /request-metaid like anyone else.
+    update registration set is_id_given = 'NO' where lower(email) = 'ada@example.com';
+    select count(*) into v_attempts
+      from registration r
+      join users u on lower(u.email) = lower(r.email)
+     where u.id = v_user and r.is_id_given = 'YES';
+    assert v_attempts = 0, 'is_id_given = NO still handed out an approval';
+
+    begin
+        update registration set is_id_given = 'maybe'
+         where lower(email) = 'ada@example.com';
+        assert false, 'is_id_given accepted something other than YES or NO';
+    exception when check_violation then null;
+    end;
+
     raise notice 'ok';
 end;
 $$;
