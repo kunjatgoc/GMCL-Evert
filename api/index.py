@@ -4,9 +4,9 @@ Pydantic owns the shape (types, email format, phone validity for the chosen
 country). `sp_register` owns the write and the duplicate rule. No SQL is
 written here beyond the CALL.
 
-The file is named index.py because Vercel routes a Python function by its
-path; vercel.json rewrites every /api/* request onto it and FastAPI still
-sees the original path.
+One long-lived uvicorn process on the VPS, behind nginx. nginx proxies /api/
+here with the path intact, so the routes below carry their own /api prefix and
+nothing strips it -- see deploy/nginx.conf.
 
     python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
     psql "$DATABASE_URL" -f db/schema.sql
@@ -17,6 +17,12 @@ sees the original path.
 
     .venv/bin/uvicorn --env-file .env api.index:app --reload --port 8000
     .venv/bin/python api/index.py    # validation self-check, no database needed
+
+In production, bound to loopback and with workers, which is the whole of the
+difference:
+
+    .venv/bin/uvicorn --env-file .env api.index:app \
+        --host 127.0.0.1 --port 8000 --workers 4
 """
 
 import base64
@@ -65,20 +71,32 @@ APP_ORIGIN = (
     or next(iter(ALLOWED_ORIGINS), "http://localhost:5173")
 ).rstrip("/")
 
-# One serverless instance serves one request at a time and is frozen between
-# them, so the pool exists only to reuse a connection across the requests a
-# warm instance happens to get. min_size=0 keeps a cold start from opening a
-# socket it may never use  the database is remote, so every connection costs
-# a TCP and TLS handshake. timeout=5 so a database that is down fails the
-# request in seconds rather than parking the instance for the 30s default.
+# Sized for a long-lived process, which is what the VPS runs. The old numbers
+# -- min_size=0, max_size=2 -- were for a serverless instance that served one
+# request at a time and was frozen between them; here they would cap the whole
+# worker at two concurrent queries and reopen a remote connection after every
+# idle gap, at about 322ms of TCP and TLS each time.
+#
+# These are per worker, not per host: uvicorn --workers forks, and each child
+# builds its own pool. The ceiling on Postgres is therefore workers x max, so
+# both are named rather than typed in -- 4 workers x 10 is 40 against a default
+# max_connections of 100, and the day either side of that changes it is an
+# environment variable and not a deploy.
+DB_POOL_MIN = int(os.environ.get("DB_POOL_MIN") or 2)
+DB_POOL_MAX = int(os.environ.get("DB_POOL_MAX") or 10)
+
+# timeout=5 so a database that is down fails the request in seconds rather than
+# parking the worker for the 30s default.
 #
 # `check` is not optional here. Without it the pool hands out whatever it is
 # holding, and a connection the far end has quietly dropped -- a NAT expiring
-# an idle flow, an instance thawed after being frozen, a laptop that slept --
-# only reveals itself as "server closed the connection unexpectedly" on the
+# an idle flow, a firewall culling an idle flow overnight, a Postgres restart
+# -- only reveals itself as "server closed the connection unexpectedly" on the
 # first query, which the caller sees as a 500. Postgres itself is not closing
 # these: `idle_session_timeout` is 0 and keepalives do not start for two hours,
-# so nothing on the server side will ever prevent it.
+# so nothing on the server side will ever prevent it. A pool that now holds
+# connections open for days rather than minutes meets this more often, not
+# less.
 #
 # check_connection sends an empty query at checkout, so a dead connection is
 # discarded and replaced before the request touches it. It costs one round trip
@@ -86,15 +104,17 @@ APP_ORIGIN = (
 # fresh connection -- which is the price of the request not failing.
 pool = ConnectionPool(
     DATABASE_URL,
-    min_size=0,
-    max_size=2,
+    min_size=DB_POOL_MIN,
+    max_size=DB_POOL_MAX,
     timeout=5,
     check=ConnectionPool.check_connection,
     open=False,
 )
 
-# Opened here rather than in a lifespan handler: Vercel's ASGI wrapper does not
-# reliably run lifespan events, and with min_size=0 this connects to nothing.
+# Opened at import rather than in a lifespan handler, so the self-check at the
+# bottom of this file and any unit test of the models can import the module
+# without a database. Guarded, because min_size is no longer 0: opening with an
+# empty DATABASE_URL would now try to connect.
 if DATABASE_URL:
     pool.open()
 
@@ -255,8 +275,10 @@ RESET_TTL_MINUTES = 30
 
 # Long enough that a held-down resend button costs one mail, short enough that
 # a code lost to a slow inbox is not a five-minute wait. Enforced in
-# sp_issue_auth_token, because a serverless instance is frozen between requests
-# and an in-process counter would forget.
+# sp_issue_auth_token, because uvicorn forks a process per worker and an
+# in-process counter would only guard the worker that happened to take the
+# request -- four workers would be four resends. The database is the one thing
+# all of them share.
 OTP_RESEND_SECONDS = 60
 
 # Confirmation codes are bypassed, not removed. Every piece of the machinery is
@@ -307,11 +329,12 @@ SMTP_READY = bool(SMTP_HOST and SMTP_USER and SMTP_PASSWORD and SMTP_FROM_EMAIL)
 
 # Prints every confirmation code to the terminal. A development switch, and a
 # real credential leak anywhere else: a code in a log is a code anyone with log
-# access can sign in with, and Vercel's function logs are not a private place.
+# access can sign in with, and the service journal is readable by anyone with
+# a shell on the box.
 #
 # Off unless it is explicitly turned on, so forgetting to unset it is not
 # possible -- it has to be set to be dangerous. Never put OTP_ECHO in the
-# Vercel project environment.
+# server's .env.
 #
 # It also stands in for the mail server, so the whole sign-up flow can be
 # walked through before mail credentials exist or after they are withdrawn.
@@ -327,8 +350,8 @@ CAN_SEND_MAIL = SMTP_READY or OTP_ECHO
 if OTP_ECHO:
     print(
         "[OTP_ECHO] ON -- every confirmation code will be printed below.\n"
-        "[OTP_ECHO] Development only. Never set OTP_ECHO in the Vercel "
-        "environment.",
+        "[OTP_ECHO] Development only. Never set OTP_ECHO in the server's "
+        ".env.",
         file=sys.stderr,
         flush=True,
     )
@@ -796,9 +819,11 @@ class Login(BaseModel):
     password: str = Field(min_length=1, max_length=200)
 
 
-# ponytail: no throttle on wrong passwords. A serverless instance is frozen
-# between requests so an in-process counter buys nothing -- add a per-email
-# attempt column on `users` (or a WAF rule) if this ever faces a weak password.
+# ponytail: no throttle on wrong passwords. An in-process counter is per worker
+# and uvicorn runs several, so it would only ever guard a quarter of the
+# attempts -- the cheap answer now that nginx is in front is a limit_req zone
+# on this location, and the durable one is a per-email attempt column on
+# `users`. Worth having the day this faces a weak password.
 @app.post("/api/login")
 def login(entry: Login, response: Response) -> dict:
     """Password sign-in for any account in SIGN_IN_ROLES.

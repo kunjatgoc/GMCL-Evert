@@ -27,7 +27,8 @@ CORS never enters local development.
 | Path | What lives here |
 |---|---|
 | `src/` | React app. `components/` are sections, `components/ui/` are primitives, `lib/` is validation, motion and the API seam, `admin/` is the panel |
-| `api/` | FastAPI serverless function. Vercel routes every `/api/*` here by path, so the file must stay `api/index.py` |
+| `api/` | The FastAPI app, run by uvicorn. nginx proxies every `/api/*` here with the path intact |
+| `deploy/` | The nginx server block the VPS runs |
 | `db/` | Schema, stored procedures, grants, and a roll-back-only test. Applied by hand, in the order below |
 | `public/` | Served verbatim. `img/` is generated -- do not hand-edit |
 | `design/` | Image prompts and the raw generated PNGs they produce |
@@ -200,7 +201,9 @@ an address or resetting a password needs a way to reach the person, which is
 either a working mail config or `OTP_ECHO`; with neither, those endpoints
 answer 503 rather than pretending a mail went out. `APP_ORIGIN` is where the reset
 link points; unset, it falls back to the first `ALLOWED_ORIGINS` entry, which
-is right everywhere except a Vercel deployment that never consults that list. A confirmed account signs in without either mail
+is right in dev and wrong in production, where the page and the API share an
+origin and `ALLOWED_ORIGINS` is never consulted -- set `APP_ORIGIN` on the
+server rather than inheriting it. A confirmed account signs in without either mail
 setting. The session is a signed cookie, HttpOnly, eight hours, nothing kept in
 JS. Passwords are pbkdf2-sha256 at 600k rounds, hashed by `api/index.py` so the
 seed script and the login endpoint can never disagree on the format.
@@ -213,8 +216,9 @@ protocol every other provider speaks, so switching providers stays a change to
 
 Every setting is read from the environment and none is written in the source:
 `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM_EMAIL`, `SMTP_TIMEOUT`, `SMTP_USER`,
-`SMTP_PASSWORD` and `EMAIL_CONFIGURATION_SET` live in `.env` and in the Vercel
-project, and `.env.example` documents each one. Resend wants the literal
+`SMTP_PASSWORD` and `EMAIL_CONFIGURATION_SET` live in `.env` -- the one on the
+VPS that uvicorn reads through `--env-file` -- and `.env.example` documents
+each one. Resend wants the literal
 username `resend` and an API key as the password; the From domain has to be
 verified in their dashboard or the send is refused. Port 465 is implicit TLS,
 anything else does STARTTLS, and a server that offers no encryption never
@@ -254,8 +258,9 @@ rolled back over a message that was never going to leave. Switch it off and a
 refused send is a 502 again, unchanged.
 
 It is a development switch. A code in a log is a credential anyone with log
-access can sign in with, so it must never be set in the Vercel project
-environment. It is off unless it is exactly `1`, the server prints a warning at
+access can sign in with, so it must never be set in the server's `.env` -- the
+journal is readable by anyone with a shell on the box.
+It is off unless it is exactly `1`, the server prints a warning at
 boot whenever it is on, and the self-checks in `api/index.py` assert both
 halves: with it off a code never reaches the log, and with it on a refused send
 does not raise. With it off and no mail credentials, sign-up answers 503 rather
@@ -317,10 +322,36 @@ render their final value immediately, transitions collapse to zero.
 
 ## Deploy
 
-Vercel, from the repo root. `vercel.json` sets the Vite build, rewrites
-`/api/*` onto the Python function, and caps it at 15s. `DATABASE_URL` and
-`ALLOWED_ORIGINS` are project environment variables -- `ALLOWED_ORIGINS` must
-list the deployed page's origin.
+A VPS: nginx in front, uvicorn behind it, Postgres remote. Two processes and
+one config file, all of it in `deploy/nginx.conf`.
+
+```
+npm ci && npm run build          # writes dist/, which nginx serves as root
+.venv/bin/uvicorn --env-file .env api.index:app \
+    --host 127.0.0.1 --port 8000 --workers 4
+```
+
+nginx does two things and nothing else. `/api/` proxies to uvicorn on
+loopback with the path intact, so the routes in `api/index.py` keep their own
+`/api` prefix and nothing strips it. Everything else is `try_files $uri
+$uri/ /index.html`, because the app reads `window.location.pathname` and a
+refresh on `/league` or `/dashboard` has to reach the page rather than the
+filesystem. That is a rule rather than a list, which is the part the old
+`vercel.json` kept getting wrong -- it enumerated the routes, and `/league`
+was never added to it.
+
+Run uvicorn under systemd rather than by hand: it has to come back after a
+reboot, and `Restart=always` is the whole of what that takes. Keep it bound to
+`127.0.0.1` so the API is reachable only through nginx.
+
+Environment lives in `.env` on the server, read through `--env-file`, and
+`.env.example` documents every name. `ALLOWED_ORIGINS` only matters if the
+page is ever served from a different origin than the API; same-origin, as
+here, the list is never consulted. `APP_ORIGIN` does matter -- it builds the
+absolute password-reset link -- so set it to the live origin.
+
+Certificates are certbot's: `sudo certbot --nginx -d playgml.com`. It rewrites
+the `listen` lines in place and adds the http redirect.
 
 ## Stack
 
