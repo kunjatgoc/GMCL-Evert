@@ -165,7 +165,7 @@ function BandHead({ eyebrow, title }: { eyebrow: string; title: ReactNode }) {
       transition={{ duration: 0.4, ease: EASE }}
     >
       <p className={`${fieldLabel} text-[var(--admin-primary)]`}>{eyebrow}</p>
-      <h2 className="mt-2.5 font-[family-name:var(--font-display)] text-[clamp(1.7rem,2.9vw,2.4rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
+      <h2 className="mt-2.5 font-[family-name:var(--font-display)] text-[clamp(1.3rem,2vw,1.6rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
         {title}
       </h2>
     </motion.div>
@@ -210,7 +210,7 @@ function Hero({
   onJump: () => void
 }) {
   return (
-    <section className="relative isolate flex min-h-[34rem] flex-col justify-center overflow-hidden px-6 py-14 md:min-h-[min(82vh,54rem)] xl:px-16">
+    <section className="relative isolate flex min-h-[26rem] flex-col justify-center overflow-hidden px-6 py-12 md:min-h-[min(56vh,32rem)] xl:px-16">
       {/* Every image on this screen is optional and hides itself if absent,
           so the page is complete before a single one is generated. Paths are
           the League set in design/prompts.md -- nothing here points at an
@@ -253,15 +253,16 @@ function Hero({
           {longDate(LEAGUE_START)} to {longDate(LEAGUE_END)} 2026
         </p>
 
-        <h1 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(2.5rem,5.8vw,4.9rem)] font-bold leading-[0.95] tracking-[-0.035em] text-white">
-          Seven days on{' '}
-          <span className="text-[var(--admin-primary)]">the leaderboard</span>
-        </h1>
-
-        <p className="mt-5 max-w-2xl text-[clamp(1rem,1.25vw,1.15rem)] leading-relaxed text-[#E4EAE7]">
+        {/* The invitation is the headline now. It used to be a slogan with the
+            actual offer in small type underneath, which put the one fact
+            somebody is here for -- the dates and the prize -- in the line most
+            likely to be skipped. leading is looser than the slogan's 0.95: a
+            sentence three lines long needs room between them in a way two
+            words never did. */}
+        <h1 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(1.9rem,3.6vw,2.9rem)] font-bold leading-[1.08] tracking-[-0.03em] text-white">
           Join the upcoming league from 7th to 18th Sept and get a chance to
-          win $1,000 USD.
-        </p>
+          win <span className="text-[var(--admin-primary)]">$1,000 USD</span>.
+        </h1>
 
         <div className="mt-8 flex flex-wrap items-center gap-4">
           <button type="button" onClick={onJump} className={btnPrimary}>
@@ -284,15 +285,11 @@ function Hero({
  */
 function StepsAndPrizes() {
   return (
-    <section className="relative isolate overflow-hidden bg-[linear-gradient(180deg,#0A100E_0%,#0D1512_55%,#0A100E_100%)] px-6 py-16 sm:py-20 xl:px-16">
-      <img
-        src="/img/league-lanes.webp"
-        alt=""
-        aria-hidden
-        loading="lazy"
-        className="pointer-events-none absolute inset-0 -z-20 size-full object-cover opacity-[0.1] [mask-image:linear-gradient(180deg,transparent,#000_26%,#000_74%,transparent)]"
-        onError={(e) => (e.currentTarget.style.display = 'none')}
-      />
+    <section className="relative isolate overflow-hidden bg-[linear-gradient(180deg,#0A100E_0%,#0D1512_55%,#0A100E_100%)] px-6 py-12 sm:py-14 xl:px-16">
+      {/* A lanes plate used to sit here at opacity 0.1 under a mask that faded
+          both ends of it. Between the two it was not visible on any screen it
+          was looked at on, which made it 244KB fetched to change nothing. The
+          washes below are what the band was actually reading as. */}
       <div
         aria-hidden
         className="pointer-events-none absolute right-0 top-0 -z-10 size-[34rem] translate-x-1/3 -translate-y-1/4 rounded-full bg-[radial-gradient(circle,rgba(62,230,138,0.16),transparent_70%)] blur-[110px]"
@@ -326,7 +323,7 @@ function StepsAndPrizes() {
                     {String(i + 1).padStart(2, '0')}
                   </span>
                   <div className="min-w-0">
-                    <h3 className="flex items-center gap-2.5 text-[18px] font-bold text-white">
+                    <h3 className="flex items-center gap-2.5 text-[16px] font-bold text-white">
                       <Icon
                         className="size-[18px] shrink-0 text-[var(--admin-primary)]"
                         aria-hidden
@@ -347,7 +344,7 @@ function StepsAndPrizes() {
           <BandHead
             eyebrow="Prize pool"
             title={
-              <span className="tabular text-[clamp(2.4rem,5vw,3.6rem)]">
+              <span className="tabular text-[clamp(1.8rem,3.2vw,2.4rem)]">
                 {money(PRIZE_POOL)}
               </span>
             }
@@ -373,14 +370,14 @@ function StepsAndPrizes() {
                 }`}
               >
                 <dt
-                  className={`text-[16px] font-semibold ${
+                  className={`text-[14px] font-semibold ${
                     i === 0 ? 'text-[var(--admin-primary)]' : 'text-[#E4EAE7]'
                   }`}
                 >
                   {p.place}
                 </dt>
                 <dd
-                  className={`tabular text-[21px] font-bold ${
+                  className={`tabular text-[18px] font-bold ${
                     i === 0 ? 'text-[var(--admin-primary)]' : 'text-white'
                   }`}
                 >
@@ -463,7 +460,7 @@ function Congrats({ show, onDone }: { show: boolean; onDone: () => void }) {
               <Trophy className="size-5" />
             </motion.span>
             <div className="relative min-w-0">
-              <p className="font-[family-name:var(--font-display)] text-[20px] font-bold leading-tight text-white">
+              <p className="font-[family-name:var(--font-display)] text-[17px] font-bold leading-tight text-white">
                 Congratulations
               </p>
               <p className={`${TEXT.label} mt-0.5 text-[#E4EAE7]`}>
@@ -601,7 +598,7 @@ function MetaidForm({
           onChange={(e) => setMetaid(e.target.value)}
           placeholder="e.g. 43563"
           className={`${control} tabular w-full min-w-0 flex-1 ${
-            compact ? 'h-11 text-[18px]' : 'text-[20px]'
+            compact ? 'h-10 text-[16px]' : 'text-[17px]'
           } ${duplicate ? '!border-[rgba(248,113,113,0.55)]' : ''}`}
         />
         <button
@@ -662,12 +659,15 @@ function MetaidForm({
  * one. Written once and shared, because the three are the same card and the
  * list stops reading as a list the moment they drift apart.
  *
- * 6.5rem rather than 5.75: the compact form carries a line for the duplicate
- * message, reserved whether or not it has anything to say, and the row has to
- * be tall enough to hold it in every mode. One height is the property kept.
+ * The height is the tallest mode, which is the row being corrected: the
+ * compact form carries a line for the duplicate message, reserved whether or
+ * not it has anything to say. Measured at 64px of form plus the 32px of
+ * padding here, so 6rem holds it exactly and a row being read is not left with
+ * a band of empty space under it. One height across both modes is the property
+ * being kept; it was 6.5rem when the type was two steps larger.
  */
 const ENTRY_ROW =
-  'flex min-h-[6.5rem] items-center bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] px-4 py-4 sm:px-6'
+  'flex min-h-[6rem] items-center bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] px-4 py-4 sm:px-6'
 
 /**
  * One entry, and the correction of it.
@@ -712,7 +712,7 @@ function EntryRow({
       ) : (
         <div className="flex w-full items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="tabular text-[24px] font-bold leading-none text-white">
+            <p className="tabular text-[20px] font-bold leading-none text-white">
               {entry.metaid}
             </p>
             <p className={`${TEXT.label} mt-2 truncate text-[var(--admin-muted)]`}>
@@ -791,7 +791,7 @@ function JoinBand({
   return (
     <section
       id={JOIN_ID}
-      className="relative isolate scroll-mt-4 overflow-hidden bg-[linear-gradient(180deg,#0A100E_0%,rgba(31,92,65,0.42)_58%,rgba(62,230,138,0.16)_100%)] px-6 py-16 sm:py-20 xl:px-16"
+      className="relative isolate scroll-mt-4 overflow-hidden bg-[linear-gradient(180deg,#0A100E_0%,rgba(31,92,65,0.42)_58%,rgba(62,230,138,0.16)_100%)] px-6 py-12 sm:py-14 xl:px-16"
     >
       <img
         src="/img/league-gate.webp"
@@ -826,7 +826,7 @@ function JoinBand({
             >
               <Lock className="size-6" />
             </span>
-            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(1.8rem,3.2vw,2.7rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
+            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(1.35rem,2.1vw,1.75rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
               One step before this one
             </h2>
             <p className={`${TEXT.body} mx-auto mt-3 max-w-lg text-[#E4EAE7]`}>
@@ -841,7 +841,7 @@ function JoinBand({
           </>
         ) : entries.length === 0 ? (
           <>
-            <h2 className="font-[family-name:var(--font-display)] text-[clamp(1.8rem,3.2vw,2.7rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
+            <h2 className="font-[family-name:var(--font-display)] text-[clamp(1.35rem,2.1vw,1.75rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
               Enter with your MetaTrader5 Account
             </h2>
             <p className={`${TEXT.body} mx-auto mt-3 max-w-lg text-[#E4EAE7]`}>
@@ -860,7 +860,7 @@ function JoinBand({
             >
               <Trophy className="size-6" />
             </span>
-            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(1.8rem,3.2vw,2.7rem)] font-bold leading-[1.05] text-white">
+            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(1.35rem,2.1vw,1.75rem)] font-bold leading-[1.05] text-white">
               You are in the league
             </h2>
             <p className={`${TEXT.body} mt-3 text-[#E4EAE7]`}>
