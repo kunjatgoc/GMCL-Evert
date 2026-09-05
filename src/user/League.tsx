@@ -392,16 +392,12 @@ function StepsAndPrizes() {
             ))}
           </motion.dl>
 
-          {/* One plinth, not three. The marketing page already sells the
-              podium; this band sells first place. */}
-          <img
-            src="/img/league-plinth.webp"
-            alt=""
-            aria-hidden
-            loading="lazy"
-            className="pointer-events-none mx-auto -mb-6 mt-2 block w-full max-w-[20rem] select-none opacity-80 mix-blend-screen [mask-image:radial-gradient(62%_52%_at_50%_62%,#000_30%,transparent_76%)]"
-            onError={(e) => (e.currentTarget.style.display = 'none')}
-          />
+          {/* A plinth used to stand under the prize table. Both columns stretch
+              to the taller of them, so 300px of podium in this one pushed the
+              steps column out by the same amount and held the band open above
+              the section below it. The prize table is the argument here; the
+              picture of a podium was decoration charged at a third of a
+              screen. */}
         </div>
       </div>
     </section>
