@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import ChartCandle from '~icons/tabler/chart-candle'
 import { IconArt, type IconComponent } from '../components/ui/IconArt'
+import { SupportCard } from '../components/ui/Support'
 import { changePassword, updateName, Unauthorized, type Me } from '../lib/api'
 import {
   checkMetaidDuplicates,
@@ -266,6 +267,10 @@ function DashboardScreen({ me }: { me: Me }) {
       <p className={`${TEXT.body} mt-4 max-w-2xl text-[#E4EAE7]`}>
         Two steps, in this order.
       </p>
+
+      {/* Above the steps rather than below them. Somebody stuck on step one is
+          looking for this before they have scrolled anywhere. */}
+      <SupportCard className="mt-5 max-w-3xl" />
 
       {error && <div className="mt-6"><ErrorAlert>{error}</ErrorAlert></div>}
 
