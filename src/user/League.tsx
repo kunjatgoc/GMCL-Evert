@@ -658,6 +658,18 @@ function MetaidForm({
 }
 
 /**
+ * One row of the list -- holding an account, being corrected, or taking a new
+ * one. Written once and shared, because the three are the same card and the
+ * list stops reading as a list the moment they drift apart.
+ *
+ * 6.5rem rather than 5.75: the compact form carries a line for the duplicate
+ * message, reserved whether or not it has anything to say, and the row has to
+ * be tall enough to hold it in every mode. One height is the property kept.
+ */
+const ENTRY_ROW =
+  'flex min-h-[6.5rem] items-center bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] px-4 py-4 sm:px-6'
+
+/**
  * One entry, and the correction of it.
  *
  * Reading and editing in the same place rather than a dialog: there is one
@@ -686,11 +698,7 @@ function EntryRow({
   onSave: (metaid: string) => void
 }) {
   return (
-    // 6.5rem rather than 5.75: the compact form now carries a line for the
-    // duplicate message, reserved whether or not it has anything to say, and
-    // the row has to be tall enough to hold it in both modes. One height, read
-    // or corrected, is the property being kept.
-    <li className="flex min-h-[6.5rem] items-center bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] px-4 py-4 sm:px-6">
+    <li className={ENTRY_ROW}>
       {editing ? (
         <MetaidForm
           initial={entry.metaid}
@@ -887,19 +895,26 @@ function JoinBand({
                   onSave={(metaid) => save(e.id, metaid)}
                 />
               ))}
+
+              {/* The new account is typed into the list, not into a panel
+                  underneath it. It is going to become one of these rows, and
+                  a differently shaped box below the list only says that it is
+                  something else. */}
+              {adding && (
+                <li className={ENTRY_ROW}>
+                  <MetaidForm
+                    submitLabel="Add"
+                    busy={busy}
+                    compact
+                    taken={takenMetaids(entries)}
+                    onSubmit={add}
+                    onCancel={() => setAdding(false)}
+                  />
+                </li>
+              )}
             </ul>
 
-            {adding ? (
-              <div className="mx-auto mt-5 max-w-lg rounded-2xl border border-white/12 bg-white/[0.03] px-6 py-5">
-                <MetaidForm
-                  submitLabel="Add"
-                  busy={busy}
-                  taken={takenMetaids(entries)}
-                  onSubmit={add}
-                  onCancel={() => setAdding(false)}
-                />
-              </div>
-            ) : (
+            {!adding && (
               <button
                 type="button"
                 disabled={busy}
