@@ -35,10 +35,19 @@ EnvironmentFile=/opt/GMCL-Evert/.env
 # 8011. This box runs six other apps and 8000 is StockBotAPI's -- binding it
 # here would fail at best and steal traffic at worst. Bound to loopback, so
 # the only way in is through nginx.
+#
+# Two workers, not four. Each forks its own pool, so the ceiling on Postgres is
+# workers x DB_POOL_MAX -- and that Postgres is on this same box, shared with
+# every other service on it. Four would reserve 40 of a default 100
+# max_connections for a site that has had a few hundred signups, and the
+# service that ran out of connections would not be this one.
+#
+# Raise it once `select count(*) from pg_stat_activity` next to
+# `show max_connections` says there is room.
 ExecStart=/opt/GMCL-Evert/.venv/bin/uvicorn api.index:app \
     --host 127.0.0.1 \
     --port 8011 \
-    --workers 4
+    --workers 2
 
 Restart=always
 RestartSec=2
