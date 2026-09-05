@@ -224,17 +224,17 @@ begin
 end;
 $$;
 
--- Four to six digits, e.g. 43563. Newera's format, mirrored from
+-- Four to ten digits, e.g. 43563. Newera's format, mirrored from
 -- METAID_RE in api/index.py: the API rejects a bad one with a readable 422,
 -- and this is what stops anything else putting a wrong one in.
-do $$
-begin
-    if not exists (select 1 from pg_constraint where conname = 'league_entry_metaid_digits') then
-        alter table league_entry add constraint league_entry_metaid_digits
-            check (metaid ~ '^[0-9]{4,6}$');
-    end if;
-end;
-$$;
+--
+-- Dropped and re-added rather than created only when absent: the rule widened
+-- from six digits to ten, and an `if not exists` would have left every
+-- database that already had the narrower constraint refusing numbers the API
+-- had started accepting.
+alter table league_entry drop constraint if exists league_entry_metaid_digits;
+alter table league_entry add constraint league_entry_metaid_digits
+    check (metaid ~ '^[0-9]{4,10}$');
 
 -- One entry per account number per person. A person may enter more than one
 -- MetaID -- they can hold a demo and a real account, and newera issues a

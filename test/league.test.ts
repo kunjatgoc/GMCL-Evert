@@ -134,14 +134,14 @@ describe('takenMetaids', () => {
 })
 
 describe('METAID_RE', () => {
-  test('accepts four to six digits', () => {
-    for (const ok of ['4356', '43563', '435631']) {
+  test('accepts four to ten digits', () => {
+    for (const ok of ['4356', '43563', '435631', '1234567890']) {
       expect(METAID_RE.test(ok)).toBe(true)
     }
   })
 
   test('rejects anything shorter, longer, or not a digit', () => {
-    for (const bad of ['435', '4356312', '', '43a63', 'NW-4356', '4356.1', '-4356', ' 43563 ']) {
+    for (const bad of ['435', '12345678901', '', '43a63', 'NW-4356', '4356.1', '-4356', ' 43563 ']) {
       expect(METAID_RE.test(bad)).toBe(false)
     }
   })

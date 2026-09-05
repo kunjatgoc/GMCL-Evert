@@ -44,9 +44,9 @@ import { ErrorAlert } from '../components/auth/FormAlert'
  * page is ever bare.
  */
 
-/** Four to six digits, e.g. 43563. Mirrors METAID_RE in api/index.py and the
+/** Four to ten digits, e.g. 43563. Mirrors METAID_RE in api/index.py and the
  *  check constraint on league_entry; this copy only greys out the button. */
-export const METAID_RE = /^[0-9]{4,6}$/
+export const METAID_RE = /^[0-9]{4,10}$/
 
 /**
  * The window, on the IST calendar.
@@ -581,9 +581,9 @@ function MetaidForm({
           required
           autoFocus
           inputMode="numeric"
-          pattern="[0-9]{4,6}"
-          maxLength={6}
-          title="An account number is 4 to 6 digits"
+          pattern="[0-9]{4,10}"
+          maxLength={10}
+          title="An account number is 4 to 10 digits"
           aria-label={compact ? 'MetaTrader5 Account' : undefined}
           aria-describedby={`${id}-hint`}
           aria-invalid={duplicate || undefined}
@@ -643,7 +643,7 @@ function MetaidForm({
             : DUPLICATE_MESSAGE
           : compact
             ? ''
-            : '4 to 6 digits, no letters.'}
+            : '4 to 10 digits, no letters.'}
       </p>
     </form>
   )
