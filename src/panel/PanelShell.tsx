@@ -62,6 +62,12 @@ function usePath() {
     if (normalise(next) === path) return
     window.history.pushState({}, '', next)
     setPath(normalise(next))
+    // A new screen starts at its top. Without this the browser keeps the
+    // scroll position of the one before it, so arriving at a long screen from
+    // halfway down a short one lands in the middle of it. A router would do
+    // this; there isn't one, so it happens here, where every link goes
+    // through. popstate is left alone -- going back should land where it was.
+    window.scrollTo(0, 0)
   }
 
   return [path, go] as const

@@ -527,6 +527,7 @@ function MetaidForm({
   submitLabel,
   busy,
   compact = false,
+  focus = false,
   taken = [],
   onSubmit,
   onCancel,
@@ -534,6 +535,11 @@ function MetaidForm({
   initial?: string
   submitLabel: string
   busy: boolean
+  /** Only where the form appeared because the reader asked for it -- Edit on a
+   *  row, or Add under the list. The browser scrolls an autofocused field into
+   *  view, so a form that arrives with the screen would open it halfway down
+   *  itself, past the heading that says what it is. */
+  focus?: boolean
   /** Inside a row of the list, where the label and the hint are dropped so the
    *  row is the same height whether it is being read or corrected. A card that
    *  grows under the cursor moves everything below it. */
@@ -579,7 +585,7 @@ function MetaidForm({
           id={id}
           name="metaid"
           required
-          autoFocus
+          autoFocus={focus}
           inputMode="numeric"
           pattern="[0-9]{4,10}"
           maxLength={10}
@@ -700,6 +706,7 @@ function EntryRow({
           submitLabel="Save"
           busy={busy}
           compact
+          focus
           taken={takenMetaids(entries, entry.id)}
           onSubmit={onSave}
           onCancel={onCancel}
@@ -880,6 +887,7 @@ function JoinBand({
                     submitLabel="Add"
                     busy={busy}
                     compact
+                    focus
                     taken={takenMetaids(entries)}
                     onSubmit={add}
                     onCancel={() => setAdding(false)}
