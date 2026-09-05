@@ -26,7 +26,11 @@ export const holdDone = () =>
     setTimeout(resolve, prefersReducedMotion() ? 0 : DONE_HOLD_MS)
   )
 
-type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
+// Anchor-only attributes, allowed alongside the button ones because one
+// component renders both and a link that cannot say `target` is half a link.
+// Only ever set together with `href`.
+type Props = ButtonHTMLAttributes<HTMLButtonElement> &
+  Pick<AnchorHTMLAttributes<HTMLAnchorElement>, 'target' | 'rel'> & {
   children: ReactNode
   /** Cursor pulls the button toward it within this radius, in px. */
   magnetic?: boolean

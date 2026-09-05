@@ -4,6 +4,7 @@ import App from './App'
 import { Login } from './components/Login'
 import { Signup } from './components/Signup'
 import { ForgotPassword, ResetPassword } from './components/Recover'
+import { WhatsAppFab } from './components/ui/Support'
 import './index.css'
 
 // Ten screens is still not a router. A pathname check costs nothing and adds
@@ -52,6 +53,13 @@ const screen = path.startsWith('/admin') ? (
   <App />
 )
 
+// The floating WhatsApp button rides along on every entrant-facing screen, and
+// on none of the staff ones: the people who run the league have our number.
+const isStaffPanel = path.startsWith('/admin') || path === '/gml'
+
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>{screen}</StrictMode>
+  <StrictMode>
+    {screen}
+    {!isStaffPanel && <WhatsAppFab />}
+  </StrictMode>
 )
