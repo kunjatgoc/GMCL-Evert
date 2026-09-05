@@ -24,28 +24,21 @@ Wants=network-online.target
 [Service]
 Type=exec
 
-# Not root. This process parses request bodies from the open internet, and
-# nothing it does needs privilege -- it binds 8000, not 80.
-#
-#     sudo useradd --system --home /opt/GMCL-Evert --shell /usr/sbin/nologin gmcl
-#     sudo chown -R gmcl:gmcl /opt/GMCL-Evert
-#     sudo chmod 600 /opt/GMCL-Evert/.env
-User=gmcl
-Group=gmcl
-
 WorkingDirectory=/opt/GMCL-Evert
 
-# --env-file rather than systemd's EnvironmentFile=. Both parse KEY=VALUE and
-# they disagree about quoting, so the file is read by the same parser in
-# development and in production. One format, one set of surprises.
-ExecStart=/opt/GMCL-Evert/.venv/bin/uvicorn \
-    --env-file /opt/GMCL-Evert/.env \
-    api.index:app \
-    --host 127.0.0.1 \
-    --port 8000 \
-    --workers 4
+# EnvironmentFile and not uvicorn's --env-file. The two parse KEY=VALUE
+# slightly differently around quoting, and this is the one that has been
+# reading the live .env since September without complaint. Switching parsers
+# during a migration is how a working secret becomes a wrong one.
+EnvironmentFile=/opt/GMCL-Evert/.env
 
-# Bound to loopback above, so the only way in is through nginx.
+# 8011. This box runs six other apps and 8000 is StockBotAPI's -- binding it
+# here would fail at best and steal traffic at worst. Bound to loopback, so
+# the only way in is through nginx.
+ExecStart=/opt/GMCL-Evert/.venv/bin/uvicorn api.index:app \
+    --host 127.0.0.1 \
+    --port 8011 \
+    --workers 4
 
 Restart=always
 RestartSec=2
@@ -55,16 +48,19 @@ RestartSec=2
 StartLimitIntervalSec=60
 StartLimitBurst=5
 
-# The process reads code, reads .env, and talks to two sockets. It has no
-# reason to write anywhere, so it is not allowed to.
+# Runs as root, which is what it already did before this file existed. Worth
+# fixing, and deliberately not fixed in the same change that moves the app to
+# a new path: a migration that also changes the owner of every file has two
+# ways to fail and no way to tell them apart. Afterwards:
+#
+#     sudo useradd --system --home /opt/GMCL-Evert --shell /usr/sbin/nologin gmcl
+#     sudo chown -R gmcl:gmcl /opt/GMCL-Evert
+#     sudo chmod 600 /opt/GMCL-Evert/.env
+#
+# then add User=gmcl and Group=gmcl here. Nothing this process does needs
+# privilege -- it binds 8011, not 80.
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ProtectKernelTunables=true
-ProtectControlGroups=true
-RestrictSUIDSGID=true
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 
 [Install]
 WantedBy=multi-user.target

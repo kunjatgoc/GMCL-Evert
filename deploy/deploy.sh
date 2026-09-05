@@ -16,7 +16,7 @@ set -Eeuo pipefail
 REPO=${REPO:-/opt/GMCL-Evert}
 BRANCH=${BRANCH:-main}
 SERVICE=${SERVICE:-gmcl-api}
-OWNER=${OWNER:-gmcl}
+OWNER=${OWNER:-root}
 
 cd "$REPO"
 
@@ -45,10 +45,15 @@ npm run build
 .venv/bin/pip install --quiet --upgrade pip
 .venv/bin/pip install --quiet -r requirements.txt
 
-# The service runs as its own user, and a fresh build is owned by whoever ran
-# this. nginx reads dist/, uvicorn reads the rest.
+# A fresh build is owned by whoever ran this. nginx reads dist/, uvicorn reads
+# the rest. OWNER is root today because that is what the service runs as; see
+# deploy/gmcl-api.service for moving it to its own user.
 chown -R "$OWNER:$OWNER" "$REPO"
 chmod 600 "$REPO/.env"
+
+# This box hosts several sites. Reloading nginx below touches all of them, so
+# a config error anywhere is this deploy's problem -- which is what `nginx -t`
+# at the end is for, before the reload rather than after it.
 
 systemctl restart "$SERVICE"
 
@@ -60,7 +65,7 @@ systemctl restart "$SERVICE"
 # an answer. Anything 5xx, or nothing at all, is not.
 code=000
 for _ in $(seq 1 20); do
-    code=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/me 2>/dev/null || echo 000)
+    code=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8011/api/me 2>/dev/null || echo 000)
     [[ $code =~ ^[24] ]] && break
     sleep 0.5
 done
