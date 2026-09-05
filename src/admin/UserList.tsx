@@ -21,7 +21,6 @@ import {
   type Page,
   decideMetaid,
   listMetaidQueue,
-  setIdGiven,
   undoMetaid,
   type MetaidRow,
   type MetaidStatus,
@@ -95,9 +94,6 @@ type Props<T> = {
   columns: Column<T>[]
   filters: readonly Filter[]
   fetchPage: (qs: string) => Promise<Page<T>>
-  /** Only needed when a list draws its rows from more than one table, where
-   *  two rows can honestly share an id. Defaults to the id. */
-  rowKey?: (row: T) => string
 }
 
 function UserList<T extends { id: number }>({
@@ -106,7 +102,6 @@ function UserList<T extends { id: number }>({
   columns,
   filters,
   fetchPage,
-  rowKey = (row) => String(row.id),
 }: Props<T>) {
   // `draft` is what the inputs hold; `applied` is what the last search asked
   // for. Splitting them is what lets the query fire on submit instead of on
@@ -297,7 +292,7 @@ function UserList<T extends { id: number }>({
                 !error &&
                 data?.rows.map((row, i) => (
                   <motion.tr
-                    key={rowKey(row)}
+                    key={row.id}
                     className="border-t border-white/[0.06] transition-colors duration-200 hover:bg-[rgba(31,92,65,0.28)]"
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -383,25 +378,24 @@ const muted = (text: string) => (
 )
 
 /**
- * Every account request, from all three tables.
+ * Every MetaID request, one row per ask.
  *
- * `metaid_request` is what the signed-in dashboard writes; `registration` and
- * `real_account_request` are the landing form's, still taking rows. All three
- * answer the same question -- does this person have an MT5 account -- so one
- * screen answers it, in one vocabulary, with one set of buttons.
+ * `metaid_request` is the whole of it. The landing form that filled
+ * `registration` and `real_account_request` is off the product, so those two
+ * are frozen history waiting to be migrated in here; the list used to union
+ * all three, which showed one person up to three times with a dash under Name,
+ * Phone and Country every time. Every row now belongs to an account, so every
+ * column has something in it.
  *
  * Pending offers Approve and Reject. A decided row offers Undo, which puts it
- * back to pending and both buttons back. Where the row came from decides which
- * endpoint is called and nothing else: a dashboard request moves through
- * `metaid_request.status`, a landing-form row through `is_id_given`, and the
- * screen does not show the difference because there is no difference to show.
+ * back to pending and both buttons back with it.
  *
  * Nothing here asks for confirmation, because nothing here is final. Deciding
  * sends no mail -- newera issues the MetaID by hand afterwards -- so a
  * mis-click is one press to undo rather than something to apologise for.
  */
 export function MetaidQueue() {
-  const [busy, setBusy] = useState<string | null>(null)
+  const [busy, setBusy] = useState<number | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
   // A new identity for fetchPage is what UserList already reloads on, so a
   // decision refreshes the table without the table knowing decisions exist.
@@ -412,19 +406,12 @@ export function MetaidQueue() {
     [version]
   )
 
-  const keyOf = (r: MetaidRow) => `${r.source}-${r.id}`
-
   const move = async (row: MetaidRow, to: MetaidStatus) => {
-    setBusy(keyOf(row))
+    setBusy(row.id)
     setFailed(null)
     try {
-      if (row.source !== 'request') {
-        await setIdGiven(row.source, row.id, to)
-      } else if (to === 'pending') {
-        await undoMetaid(row.id)
-      } else {
-        await decideMetaid(row.id, to)
-      }
+      if (to === 'pending') await undoMetaid(row.id)
+      else await decideMetaid(row.id, to)
       setVersion((v) => v + 1)
     } catch (e) {
       setFailed(e instanceof Error ? e.message : 'Could not save that change.')
@@ -444,7 +431,6 @@ export function MetaidQueue() {
         title="MetaTrader5 Account"
         accent="Requests"
         fetchPage={fetchPage}
-        rowKey={keyOf}
         filters={[
           {
             name: 'status',
@@ -474,12 +460,9 @@ export function MetaidQueue() {
           {
             header: 'User',
             skeleton: 'w-16',
-            cell: (r) =>
-              r.user_id === null ? (
-                muted(DASH)
-              ) : (
-                <span className="tabular text-[var(--admin-muted)]">#{r.user_id}</span>
-              ),
+            cell: (r) => (
+              <span className="tabular text-[var(--admin-muted)]">#{r.user_id}</span>
+            ),
           },
           {
             header: 'Request',
@@ -541,10 +524,9 @@ export function MetaidQueue() {
           {
             header: 'Actions',
             skeleton: 'w-32',
-            // The status decides these, and nothing else does. Same buttons
-            // under the same word, whichever table the row came from.
+            // The status decides these, and nothing else does.
             cell: (r) => {
-              const working = busy === keyOf(r)
+              const working = busy === r.id
 
               if (r.status !== 'pending') {
                 return (

@@ -53,8 +53,8 @@ Every file is idempotent, so re-running the lot is safe.
 
 | Table | Holds |
 |---|---|
-| `registration` | Demo ID entrants, written by the public form. `is_id_given` says whether MT5 made the account |
-| `real_account_request` | Real ID interest, written by the card under the form. Same `is_id_given` |
+| `registration` | Demo ID entrants from the landing form, which is off the product. Frozen; `is_id_given` says whether MT5 made the account. Awaiting migration into `metaid_request` |
+| `real_account_request` | Real ID interest from the same form. Same `is_id_given`, same frozen state |
 | `user_roles` | `admin`, `end_user`, `gml_staff`, `newera_staff` |
 | `users` | Everyone who signs in, one row per account, one role per row |
 | `auth_token` | Email-confirmation codes and password-reset links -- one shape, told apart by `purpose` |
@@ -148,29 +148,41 @@ them. `/admin` is the dashboard and `/admin/metaid` is the one list.
 Everything behind `/admin` needs an admin session, so the panel is a separate
 lazy chunk the marketing page never loads.
 
-That list is every account request the site has ever taken, from all three
-tables: `metaid_request`, which the signed-in dashboard writes, and
-`registration` and `real_account_request`, which the landing form wrote and
-still writes. They are the same question asked in two eras -- does this person
-have an MT5 account -- so one screen answers it, and the dashboard's counts
-stop being numbers with no rows underneath them.
+That list is `metaid_request` and nothing else: one row per Demo or Real
+MetaID asked for from the dashboard, which since the landing form came off the
+product is the only way one can be asked for at all.
 
-Three states across all three tables: **Pending**, **Approved**, **Rejected**.
-`metaid_request` has a status column and always did. The landing-form tables
-have `is_id_given` instead, and the API reads it as the same three words:
+It used to union `registration` and `real_account_request` in as well, on the
+grounds that all three answer the same question -- does this person have an MT5
+account. What that produced was a screen that listed one person up to three
+times, because filling both forms and later signing up writes a row in each,
+and neither older table has a column for a name, a number or a country, so
+most of every row they contributed was a dash. Those two are now frozen at the
+rows they already hold, waiting to be migrated into `metaid_request`; until
+then they are history rather than a queue. `QUEUE_ROWS` in `api/index.py` is
+the query.
 
-| `is_id_given` | Status |
+Every row on the screen therefore belongs to an account, and name, phone and
+the account address are joined from `users` rather than stored on the request
+-- a corrected number reads corrected on every request the person ever made.
+Country is read off the E.164 number, not stored.
+
+Three states, the ones `metaid_request.status` already has: **Pending**,
+**Approved**, **Rejected**. Pending offers **Approve** and **Reject**; a
+decided row offers **Undo**, which puts it back to pending and both buttons
+back with it. Two endpoints answer the whole screen --
+`POST /api/admin/metaid/{id}` and its `/undo`.
+
+`POST /api/admin/id-given` still exists and no screen calls it. It writes
+`is_id_given` on a landing-form row, which is the only way left to correct one
+of those before the migration, and the migration reads that column. It goes
+when those tables do.
+
+| `is_id_given` | Means |
 |---|---|
-| `NO` | Pending |
-| `YES` | Approved |
-| `REJECTED` | Rejected |
-
-Which means one set of buttons for every row in the list. Pending offers
-**Approve** and **Reject**; a decided row offers **Undo**, which puts it back to
-pending and both buttons back with it. Where the row came from picks the
-endpoint and nothing else -- `POST /api/admin/metaid/{id}` and its `/undo` for
-a dashboard request, `POST /api/admin/id-given` for a landing-form row -- and
-the screen does not show the difference because there is none to show.
+| `NO` | No account yet |
+| `YES` | An account exists |
+| `REJECTED` | Refused by hand |
 
 Nothing asks for confirmation, because nothing here is final. Deciding sends no
 mail: newera issues the MetaID by hand afterwards, so a mis-click is one press
@@ -185,10 +197,6 @@ account-created export, and `sp_set_id_given` is how an admin answers in the gap
 between exports. The export only ever turns a non-YES into YES, so neither a
 hand-set `NO` nor a `REJECTED` is a revocation the platform will honour -- an
 account that demonstrably exists outranks a refusal recorded before it did.
-
-The union is scanned per page rather than materialised. That is right at 850
-rows and wrong at six figures; `UNION_ROWS` in `api/index.py` is where the view
-would go.
 
 ```bash
 psql "$DATABASE_URL" -f db/app_schema.sql

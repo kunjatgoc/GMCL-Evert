@@ -1687,47 +1687,28 @@ class Decision(BaseModel):
     note: Optional[str] = Field(default=None, max_length=500)
 
 
-# Three tables, one screen. `metaid_request` is what the signed-in dashboard
-# writes; `registration` and `real_account_request` are what the landing form
-# wrote before entry moved behind an account, and both are still taking rows
-# from the deployment that serves that form. They are the same question asked
-# in two eras -- "does this person have an MT5 account" -- so they belong in
-# one list rather than behind three menu items, and the dashboard's counts
-# stop being numbers with no rows under them.
+# One table, one screen. `metaid_request` is what the signed-in dashboard
+# writes, and since the landing form was taken off the product it is the only
+# thing that takes a new row at all.
 #
-# The two older tables have no status column. What they have is `is_id_given`,
-# and it answers the same question in the same three words:
+# `registration` and `real_account_request` are that form's two tables, frozen
+# at the rows they already hold and waiting to be migrated in here. Until they
+# are they are history, not a queue, and the list used to union them: a person
+# who filled both forms and then signed up appeared three times, and the two
+# older tables have no column for a name, a number or a country, so most of
+# every row they contributed was a dash. What they do have is `is_id_given`,
+# which the migration reads; nothing on this screen does any more.
 #
-#     YES       -> approved     NO -> pending     REJECTED -> rejected
-#
-# One vocabulary across all three tables, so the Status column reads as one
-# column and every row offers the same buttons under the same word.
-#
-# ponytail: scans all three tables per page. 850 rows today, so the sort costs
-# nothing; add a materialised view if it ever reaches six figures.
-UNION_ROWS = """
-    select 'request' as source, m.id, m.user_id, u.full_name, u.phone,
+# Every row here has a user_id, so name, phone and the account address are
+# joined from `users` rather than stored on the row -- a corrected number reads
+# corrected on every request the person ever made, which is the whole reason
+# app_schema.sql keeps them there.
+QUEUE_ROWS = """
+    select m.id, m.user_id, u.full_name, u.phone,
            u.email as account_email, m.email, m.metaid_type as type,
-           m.status, null::text as country,
-           m.decision_note, m.created_at, m.decided_at
+           m.status, m.decision_note, m.created_at, m.decided_at
       from metaid_request m
       join users u on u.id = m.user_id
-    union all
-    select 'demo', r.id, null::bigint, r.full_name, r.mobile,
-           null::text, r.email, 'demo',
-           case r.is_id_given when 'YES' then 'approved'
-                              when 'REJECTED' then 'rejected'
-                              else 'pending' end,
-           r.country, null::text, r.created_at, null::timestamptz
-      from registration r
-    union all
-    select 'real', t.id, null::bigint, null::text, null::text,
-           null::text, t.email, 'real',
-           case t.is_id_given when 'YES' then 'approved'
-                              when 'REJECTED' then 'rejected'
-                              else 'pending' end,
-           null::text, null::text, t.created_at, null::timestamptz
-      from real_account_request t
 """
 
 
@@ -1742,11 +1723,10 @@ def admin_metaid(
     page: int = 1,
     per_page: int = 25,
 ) -> dict:
-    """Every account request, newest first, whichever table it came from.
+    """Every MetaID request, newest first.
 
-    Phone and the account address are joined rather than stored on the row --
-    a corrected number has to read corrected here, which is the whole reason
-    app_schema.sql keeps them on `users`.
+    One row per ask, each one belonging to an account, so every column on the
+    screen is filled -- which is what the three-table union could not do.
     """
     page, per_page = _page(page, per_page)
     where, params = _window(date_from, date_to)
@@ -1757,8 +1737,8 @@ def admin_metaid(
             " or full_name ilike %s)"
         )
         params += [f"%{q.strip()}%"] * 4
-    # Both bound, not interpolated, and a value no source can hold simply
-    # matches nothing.
+    # Both bound, not interpolated, and a value the column's CHECK does not
+    # allow simply matches nothing.
     if status.strip():
         where.append("status = %s")
         params.append(status.strip().lower())
@@ -1770,23 +1750,24 @@ def admin_metaid(
 
     with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            f"select count(*) as total from ({UNION_ROWS}) src {clause}", params
+            f"select count(*) as total from ({QUEUE_ROWS}) src {clause}", params
         )
         total = cur.fetchone()["total"]
         cur.execute(
             f"""
-            select * from ({UNION_ROWS}) src
+            select * from ({QUEUE_ROWS}) src
             {clause}
-            order by created_at desc, source, id desc
+            order by created_at desc, id desc
             limit %s offset %s
             """,
             params + [per_page, (page - 1) * per_page],
         )
         rows = cur.fetchall()
 
-    # Read off the number where the table does not store one: see country_of.
+    # Read off the number rather than stored: no table here holds a country,
+    # and `users.phone` is E.164, which carries one. See country_of.
     for row in rows:
-        row["country"] = row["country"] or country_of(row["phone"] or "")
+        row["country"] = country_of(row["phone"] or "")
 
     return {"rows": rows, "total": total, "page": page, "per_page": per_page}
 
@@ -1817,7 +1798,7 @@ def admin_metaid_stats(_: int = Depends(require_staff)) -> dict:
 
 
 class IdGiven(BaseModel):
-    """What the list sends back for a landing-form row. The column is text with
+    """One landing-form row and the state to put it in. The column is text with
     a three-value CHECK behind it, so the model says the same thing."""
 
     source: str = Field(pattern=r"^(demo|real)$")
@@ -1828,6 +1809,12 @@ class IdGiven(BaseModel):
 @app.post("/api/admin/id-given")
 def set_id_given(entry: IdGiven, staff_id: int = Depends(require_staff)) -> dict:
     """Move one landing-form row between the three states.
+
+    No screen calls this any more: the queue reads `metaid_request` alone, and
+    `registration` and `real_account_request` are frozen history until they are
+    migrated into it. It stays because it is the only way left to correct one
+    of those rows in the meantime, and because the migration reads the column
+    it writes. It goes when those tables do.
 
     YES is approved, NO is pending and REJECTED is rejected -- the same three
     the dashboard's own requests have, written to the one column these tables
@@ -2055,12 +2042,15 @@ if __name__ == "__main__":
     else:
         raise AssertionError("accepted a short new password")
 
-    # Four to six digits, and the trim happens before the match so a pasted
-    # ID with spaces around it is accepted rather than bounced.
+    # Four to ten digits, and the trim happens before the match so a pasted
+    # ID with spaces around it is accepted rather than bounced. Both ends of
+    # the range are asserted: the rule widened from six to ten, and only a
+    # check on the longest legal number catches a ceiling left behind.
     assert LeagueJoin(metaid="4356").metaid == "4356"
     assert LeagueJoin(metaid="  43563  ").metaid == "43563"
     assert LeagueJoin(metaid="435631").metaid == "435631"
-    for bad in ("435", "4356312", "", "   ", "43a63", "NW-4356", "4356.1", "-4356"):
+    assert LeagueJoin(metaid="4356312345").metaid == "4356312345"
+    for bad in ("435", "43563123456", "", "   ", "43a63", "NW-4356", "4356.1", "-4356"):
         try:
             LeagueJoin(metaid=bad)
         except ValidationError:
