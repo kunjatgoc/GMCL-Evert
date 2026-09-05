@@ -60,14 +60,15 @@ grant execute on procedure sp_request_real_account(text, bigint)
 revoke all on table real_account_request from gmcl_api;
 
 -- The accounts procedures get the same treatment: gmcl_api may call them and
--- may not touch the tables underneath, so a leaked password cannot read a
--- password hash, a live OTP or the MetaID queue back out.
+-- writes go through them, so a leaked password cannot insert a row anywhere or
+-- rewrite one it was not meant to.
 --
--- Reads are the gap. The admin panel and the end-user views select from these
--- tables directly, and gmcl_api has no SELECT, so those paths need either a
--- second role with read rights or a grant added here. Today DATABASE_URL holds
--- the owning role and the distinction is theoretical -- worth closing before
--- it stops being.
+-- Reads used to be the gap, and this file used to say the distinction was
+-- theoretical because DATABASE_URL held the owning role. It stopped being
+-- theoretical the day the server started connecting as gmcl_api: every
+-- authenticated screen selects from these tables directly, got `permission
+-- denied for table registration`, and the whole signed-in half of the site was
+-- unusable. The grants are below.
 
 alter procedure sp_signup(text, text, text, text, bigint)
     security definer set search_path = public, pg_temp;
@@ -115,3 +116,53 @@ grant execute on procedure sp_edit_league_metaid(bigint, bigint, text, bigint) t
 
 revoke all on table users, user_roles, auth_token, metaid_request, league_entry
     from gmcl_api;
+
+-- What the API reads for itself, having revoked everything above.
+--
+-- SELECT and no more. Every insert and every delete in this system goes
+-- through a procedure, so the role needs no INSERT anywhere and no rights on
+-- any sequence -- a leaked password can read the entrant list, which is bad,
+-- but cannot add to it, forge a league entry or approve a MetaID request.
+--
+-- auth_token is deliberately absent. Live OTP hashes and reset tokens are read
+-- only by sp_verify_otp and sp_reset_password, which run as the owner, so
+-- nothing the API connects with can read a token out of the table.
+grant select on table
+    users, user_roles, registration, real_account_request,
+    metaid_request, league_entry
+    to gmcl_api;
+
+-- The only table the API writes without a procedure, and only these four
+-- columns: verification on first sign-in, the login timestamp, the name from
+-- the profile screen, and the new password. Column-level rather than table
+-- level, so this cannot become the way somebody flips a role_id or clears
+-- is_active.
+grant update (email_verified_at, last_login_at, full_name, password_hash)
+    on table users to gmcl_api;
+
+-- sp_join_league and sp_edit_league_metaid were declared security definer in
+-- this file and were not, on the database. The alters above ran when the file
+-- was shorter than it is now, and nothing re-ran it afterwards -- so both were
+-- executing as gmcl_api against tables gmcl_api could not touch, and the
+-- league was unenterable in a way that only shows up under the least-privilege
+-- role. Asserted here rather than trusted, because the same silence would hide
+-- it again.
+do $$
+declare
+    v_missing text;
+begin
+    select string_agg(p.proname, ', ')
+      into v_missing
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.proname like 'sp\_%'
+       and not p.prosecdef;
+
+    if v_missing is not null then
+        raise exception
+            'these procedures are not security definer: %. Re-run the alters above.',
+            v_missing;
+    end if;
+end;
+$$;
