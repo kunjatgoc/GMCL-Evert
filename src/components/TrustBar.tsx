@@ -20,7 +20,7 @@ export function TrustBar() {
       />
 
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-5 text-center sm:flex-row sm:text-left">
-        <p className="text-[15px] text-[#E4EAE7]">
+        <p className="text-[14px] text-[#E4EAE7]">
           Free to enter. A{' '}
           <span className="font-medium text-white">$10,000 demo account</span>,
           no deposit, and no risk to money you already have.

@@ -127,11 +127,11 @@ export function AboutLeague() {
             <Eyebrow>How it works</Eyebrow>
             <h2
               id="about-heading"
-              className="mt-6 text-[clamp(2.1rem,5.2vw,3.6rem)] font-bold leading-[1.05]"
+              className="mt-6 text-[clamp(1.93rem,5.2vw,3.31rem)] font-bold leading-[1.05]"
             >
               About the <span className="text-[#00FF87]">League</span>
             </h2>
-            <p className="mt-5 max-w-xl text-[1.05rem] leading-relaxed text-[#E4EAE7]">
+            <p className="mt-5 max-w-xl text-[0.97rem] leading-relaxed text-[#E4EAE7]">
               Everyone follows the same rules and starts with the same amount.
               You trade for twelve days at real market prices, using practice
               money. Whoever makes the most wins.
@@ -177,7 +177,7 @@ export function AboutLeague() {
                     {f.label}
                   </p>
 
-                  <p className="mt-2 text-[1.9rem] font-bold leading-none tracking-tight text-white">
+                  <p className="mt-2 text-[1.75rem] font-bold leading-none tracking-tight text-white">
                     {'counter' in f && f.counter ? (
                       <Counter to={f.counter} prefix="$" />
                     ) : (
@@ -185,7 +185,7 @@ export function AboutLeague() {
                     )}
                   </p>
 
-                  <p className="mt-4 text-[1rem] leading-relaxed text-[#E4EAE7]">
+                  <p className="mt-4 text-[0.92rem] leading-relaxed text-[#E4EAE7]">
                     {f.body}
                   </p>
                 </div>

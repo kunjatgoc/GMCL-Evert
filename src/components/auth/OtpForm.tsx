@@ -186,7 +186,11 @@ export function OtpForm({
             onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
             // Transparent rather than hidden: a field with no box still takes
             // the OS autofill and the paste, and screen readers still find it.
-            className="absolute inset-0 z-10 w-full cursor-text bg-transparent text-transparent caret-transparent outline-none disabled:cursor-default"
+            //
+            // 16px on a phone even though nothing here is visible: iOS zooms on
+            // the computed size of the focused field, not on whether anyone can
+            // read it, and this one is focused the moment the step opens.
+            className="absolute inset-0 z-10 w-full cursor-text bg-transparent text-transparent caret-transparent outline-none max-sm:text-[16px] disabled:cursor-default"
           />
 
           {/* The track the six curl onto. Dotted on purpose: a solid ring at
@@ -230,7 +234,7 @@ export function OtpForm({
                   key={i}
                   data-filled={filled || undefined}
                   className={[
-                    'grid h-14 place-items-center rounded-xl border text-[22px] font-semibold',
+                    'grid h-14 place-items-center rounded-xl border text-[20px] font-semibold',
                     'transition-[background-color,border-color,box-shadow,color] duration-200',
                     'ease-[cubic-bezier(0.23,1,0.32,1)]',
                     filled
@@ -290,12 +294,12 @@ export function OtpForm({
         {submitLabel}
       </GlowButton>
 
-      <p className="text-center text-[14px] leading-relaxed text-[#E4EAE7]/80">
+      <p className="text-center text-[13px] leading-relaxed text-[#E4EAE7]/80">
         We only ask this once. After this, you sign in with just your
         password.
       </p>
 
-      <div className="flex items-center justify-between gap-4 pt-1 text-[13.5px]">
+      <div className="flex items-center justify-between gap-4 pt-1 text-[12.5px]">
         <button
           type="button"
           disabled={turning}

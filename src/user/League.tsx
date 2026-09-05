@@ -165,7 +165,7 @@ function BandHead({ eyebrow, title }: { eyebrow: string; title: ReactNode }) {
       transition={{ duration: 0.4, ease: EASE }}
     >
       <p className={`${fieldLabel} text-[var(--admin-primary)]`}>{eyebrow}</p>
-      <h2 className="mt-2.5 font-[family-name:var(--font-display)] text-[clamp(1.3rem,2vw,1.6rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
+      <h2 className="mt-2.5 font-[family-name:var(--font-display)] text-[clamp(1.2rem,2vw,1.47rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
         {title}
       </h2>
     </motion.div>
@@ -259,7 +259,7 @@ function Hero({
             likely to be skipped. leading is looser than the slogan's 0.95: a
             sentence three lines long needs room between them in a way two
             words never did. */}
-        <h1 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(1.9rem,3.6vw,2.9rem)] font-bold leading-[1.08] tracking-[-0.03em] text-white">
+        <h1 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(1.75rem,3.6vw,2.67rem)] font-bold leading-[1.08] tracking-[-0.03em] text-white">
           Join the upcoming league from 7th to 18th Sept and get a chance to
           win <span className="text-[var(--admin-primary)]">$1,000 USD</span>.
         </h1>
@@ -319,11 +319,11 @@ function StepsAndPrizes() {
                   transition={{ duration: 0.4, ease: EASE, delay: i * 0.07 }}
                   className="flex gap-4 bg-[linear-gradient(90deg,rgba(255,255,255,0.045),rgba(255,255,255,0.015))] px-5 py-5"
                 >
-                  <span className="tabular mt-0.5 font-[family-name:var(--font-display)] text-[15px] font-bold text-[var(--admin-primary)]">
+                  <span className="tabular mt-0.5 font-[family-name:var(--font-display)] text-[14px] font-bold text-[var(--admin-primary)]">
                     {String(i + 1).padStart(2, '0')}
                   </span>
                   <div className="min-w-0">
-                    <h3 className="flex items-center gap-2.5 text-[16px] font-bold text-white">
+                    <h3 className="flex items-center gap-2.5 text-[14.5px] font-bold text-white">
                       <Icon
                         className="size-[18px] shrink-0 text-[var(--admin-primary)]"
                         aria-hidden
@@ -344,7 +344,7 @@ function StepsAndPrizes() {
           <BandHead
             eyebrow="Prize pool"
             title={
-              <span className="tabular text-[clamp(1.8rem,3.2vw,2.4rem)]">
+              <span className="tabular text-[clamp(1.66rem,3.2vw,2.21rem)]">
                 {money(PRIZE_POOL)}
               </span>
             }
@@ -370,14 +370,14 @@ function StepsAndPrizes() {
                 }`}
               >
                 <dt
-                  className={`text-[14px] font-semibold ${
+                  className={`text-[13px] font-semibold ${
                     i === 0 ? 'text-[var(--admin-primary)]' : 'text-[#E4EAE7]'
                   }`}
                 >
                   {p.place}
                 </dt>
                 <dd
-                  className={`tabular text-[18px] font-bold ${
+                  className={`tabular text-[16.5px] font-bold ${
                     i === 0 ? 'text-[var(--admin-primary)]' : 'text-white'
                   }`}
                 >
@@ -456,7 +456,7 @@ function Congrats({ show, onDone }: { show: boolean; onDone: () => void }) {
               <Trophy className="size-5" />
             </motion.span>
             <div className="relative min-w-0">
-              <p className="font-[family-name:var(--font-display)] text-[17px] font-bold leading-tight text-white">
+              <p className="font-[family-name:var(--font-display)] text-[15.5px] font-bold leading-tight text-white">
                 Congratulations
               </p>
               <p className={`${TEXT.label} mt-0.5 text-[#E4EAE7]`}>
@@ -481,7 +481,7 @@ function Congrats({ show, onDone }: { show: boolean; onDone: () => void }) {
  * Applied only in the compact shape; the standalone forms keep the full-size
  * buttons, which is what a page-level action should look like.
  */
-const COMPACT_BTN = 'h-11 !px-3.5 !text-[15px]'
+const COMPACT_BTN = 'h-11 !px-3.5 !text-[14px]'
 
 /**
  * The numbers this person has already entered, which a new one may not repeat.
@@ -600,7 +600,7 @@ function MetaidForm({
           onChange={(e) => setMetaid(e.target.value)}
           placeholder="e.g. 43563"
           className={`${control} tabular w-full min-w-0 flex-1 ${
-            compact ? 'h-10 text-[16px]' : 'text-[17px]'
+            compact ? 'h-10 max-sm:text-[16px] text-[14.5px]' : 'max-sm:text-[16px] text-[15.5px]'
           } ${duplicate ? '!border-[rgba(248,113,113,0.55)]' : ''}`}
         />
         <button
@@ -715,7 +715,7 @@ function EntryRow({
       ) : (
         <div className="flex w-full items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="tabular text-[20px] font-bold leading-none text-white">
+            <p className="tabular text-[18.5px] font-bold leading-none text-white">
               {entry.metaid}
             </p>
             <p className={`${TEXT.label} mt-2 truncate text-[var(--admin-muted)]`}>
@@ -823,7 +823,7 @@ function JoinBand({
           <div className="mx-auto h-40 w-full animate-pulse rounded-2xl border border-white/8 bg-white/[0.02]" />
         ) : entries.length === 0 ? (
           <>
-            <h2 className="font-[family-name:var(--font-display)] text-[clamp(1.35rem,2.1vw,1.75rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
+            <h2 className="font-[family-name:var(--font-display)] text-[clamp(1.24rem,2.1vw,1.61rem)] font-bold leading-[1.05] tracking-[-0.02em] text-white">
               Enter with your MetaTrader5 Account
             </h2>
             <p className={`${TEXT.body} mx-auto mt-3 max-w-lg text-[#E4EAE7]`}>
@@ -842,7 +842,7 @@ function JoinBand({
             >
               <Trophy className="size-6" />
             </span>
-            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(1.35rem,2.1vw,1.75rem)] font-bold leading-[1.05] text-white">
+            <h2 className="mt-5 font-[family-name:var(--font-display)] text-[clamp(1.24rem,2.1vw,1.61rem)] font-bold leading-[1.05] text-white">
               You are in the league
             </h2>
             <p className={`${TEXT.body} mt-3 text-[#E4EAE7]`}>

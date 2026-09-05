@@ -200,7 +200,7 @@ function StepCard({
 
       <div className="relative flex items-center gap-3">
         <span
-          className={`tabular grid size-9 shrink-0 place-items-center rounded-xl border text-[15px] font-bold ${
+          className={`tabular grid size-9 shrink-0 place-items-center rounded-xl border text-[14px] font-bold ${
             done
               ? 'border-[rgba(62,230,138,0.45)] bg-[rgba(62,230,138,0.14)] text-[#3EE68A]'
               : 'border-white/12 bg-white/[0.04] text-[#E4EAE7]'
@@ -213,7 +213,7 @@ function StepCard({
         </p>
       </div>
 
-      <h2 className="relative mt-5 font-[family-name:var(--font-display)] text-[clamp(1.15rem,1.7vw,1.4rem)] font-bold leading-tight text-white">
+      <h2 className="relative mt-5 font-[family-name:var(--font-display)] text-[clamp(1.06rem,1.7vw,1.29rem)] font-bold leading-tight text-white">
         {title}
       </h2>
       {body && (

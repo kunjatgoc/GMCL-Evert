@@ -66,7 +66,7 @@ export function ForgotPassword() {
             If {sentTo} has an account, we sent a reset link to it. The link
             works for 30 minutes.
           </Notice>
-          <p className="text-[15px] leading-relaxed text-[#E4EAE7]/80">
+          <p className="text-[14px] leading-relaxed text-[#E4EAE7]/80">
             No email? Check your spam folder. You can ask for a new link after
             one minute.
           </p>
@@ -81,7 +81,7 @@ export function ForgotPassword() {
         </div>
       ) : (
         <form onSubmit={onSubmit} className="relative space-y-5">
-          <p className="text-[15px] leading-relaxed text-[#E4EAE7]/80">
+          <p className="text-[14px] leading-relaxed text-[#E4EAE7]/80">
             Enter your email. We will send you a link to set a new password.
           </p>
 
@@ -114,7 +114,7 @@ export function ForgotPassword() {
             Send link
           </GlowButton>
 
-          <p className="text-center text-[14px] leading-relaxed text-[#E4EAE7]/80">
+          <p className="text-center text-[13px] leading-relaxed text-[#E4EAE7]/80">
             Remember your password?{' '}
             <a
               href="/login"
@@ -262,7 +262,7 @@ export function ResetPassword() {
 
           {/* The way out when the link has lapsed, which is what the 401 above
               says and the only failure a person can act on. */}
-          <p className="text-center text-[14px] leading-relaxed text-[#E4EAE7]/80">
+          <p className="text-center text-[13px] leading-relaxed text-[#E4EAE7]/80">
             Link expired?{' '}
             <a
               href="/forgot-password"

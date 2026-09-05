@@ -31,7 +31,7 @@ export function Lockup({
     <span className="inline-flex items-center gap-3">
       <span
         aria-hidden
-        className={`grid size-12 shrink-0 place-items-center rounded-2xl border text-[15px] font-extrabold tracking-tight ${accent}`}
+        className={`grid size-12 shrink-0 place-items-center rounded-2xl border text-[14px] font-extrabold tracking-tight ${accent}`}
       >
         GML
       </span>
@@ -43,8 +43,8 @@ export function Lockup({
         <span
           className={`${compact ? 'hidden sm:block' : 'block'} font-[family-name:var(--font-display)] font-bold tracking-tight text-white ${
             tone === 'panel'
-              ? 'text-[16px] leading-[1.15]'
-              : 'truncate text-[19px]'
+              ? 'text-[14.5px] leading-[1.15]'
+              : 'truncate text-[17.5px]'
           }`}
         >
           Global Market League

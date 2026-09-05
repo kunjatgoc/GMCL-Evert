@@ -19,7 +19,7 @@ function FieldError({ id, message }: { id: string; message?: string }) {
     <p
       id={id}
       role="alert"
-      className="mt-2 flex items-center gap-1.5 text-[14px] text-[#ff6b6b]"
+      className="mt-2 flex items-center gap-1.5 text-[13px] text-[#ff6b6b]"
     >
       <AlertCircle className="size-3.5 shrink-0" />
       {message}
@@ -223,7 +223,7 @@ export function Signup() {
             Create account
           </GlowButton>
 
-          <p className="text-center text-[14px] leading-relaxed text-[#E4EAE7]/80">
+          <p className="text-center text-[13px] leading-relaxed text-[#E4EAE7]/80">
             Already have an account?{' '}
             <a
               href="/login"
@@ -256,7 +256,7 @@ export function Signup() {
 
       {stage.name === 'expired' && (
         <div className="relative space-y-5 text-center">
-          <p className="text-[15.5px] leading-relaxed text-[#E4EAE7]">
+          <p className="text-[14.5px] leading-relaxed text-[#E4EAE7]">
             Your account is saved, but your code expired. Sign in with your
             password and we will send you a new code.
           </p>

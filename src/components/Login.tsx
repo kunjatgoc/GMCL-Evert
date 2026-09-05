@@ -112,7 +112,7 @@ export function Login() {
             />
           </div>
 
-          <p className="-mt-1 text-right text-[14px]">
+          <p className="-mt-1 text-right text-[13px]">
             <a
               href="/forgot-password"
               className="text-[#E4EAE7]/70 underline-offset-4 transition-colors duration-200 hover:text-[#00FF87] hover:underline"
@@ -134,7 +134,7 @@ export function Login() {
             Sign in
           </GlowButton>
 
-          <p className="text-center text-[14px] leading-relaxed text-[#E4EAE7]/80">
+          <p className="text-center text-[13px] leading-relaxed text-[#E4EAE7]/80">
             No account yet?{' '}
             <a
               href="/signup"

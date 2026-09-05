@@ -59,7 +59,7 @@ export default function App() {
         <JoinCta />
       </main>
 
-      <footer className="border-t border-white/5 px-6 py-8 text-center text-[13.5px] text-[#E4EAE7]/70">
+      <footer className="border-t border-white/5 px-6 py-8 text-center text-[12.5px] text-[#E4EAE7]/70">
         <p>
           Global Market League · Associated with newera Broker. Demo accounts
           only &mdash; no real capital is traded and no deposit is required.

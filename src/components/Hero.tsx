@@ -128,7 +128,7 @@ export function Hero() {
           <Eyebrow>7 – 18 September · Registration open</Eyebrow>
         </motion.div>
 
-        <h1 className="mt-8 max-w-[16ch] text-[clamp(2.6rem,8.2vw,6.5rem)] font-bold leading-[0.94]">
+        <h1 className="mt-8 max-w-[16ch] text-[clamp(2.39rem,8.2vw,5.98rem)] font-bold leading-[0.94]">
           {HEADLINE.map((line, i) => (
             <MaskedLine key={line.text} delay={0.25 + i * 0.13}>
               <span
@@ -141,7 +141,7 @@ export function Hero() {
         </h1>
 
         <motion.p
-          className="mt-8 max-w-2xl text-[clamp(1rem,1.9vw,1.2rem)] leading-relaxed text-[#E4EAE7]"
+          className="mt-8 max-w-2xl text-[clamp(0.92rem,1.9vw,1.1rem)] leading-relaxed text-[#E4EAE7]"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, ease: EASE, delay: 0.62 }}
@@ -169,7 +169,7 @@ export function Hero() {
             <ArrowDown className="size-4 transition-transform duration-300 group-hover:translate-y-0.5" />
           </GlowButton>
 
-          <span className="inline-flex items-center gap-2 text-[15px] text-[#E4EAE7] [text-shadow:0_1px_10px_rgba(0,0,0,0.9)]">
+          <span className="inline-flex items-center gap-2 text-[14px] text-[#E4EAE7] [text-shadow:0_1px_10px_rgba(0,0,0,0.9)]">
             <ShieldCheck className="size-4 text-[#00FF87]" />
             Free to enter · Demo capital only
           </span>

@@ -44,11 +44,11 @@ export function JoinCta() {
           <Eyebrow>Entries close 6 September</Eyebrow>
           <h2
             id="register-heading"
-            className="mt-6 text-[clamp(2.1rem,5.2vw,3.4rem)] font-bold leading-[1.05]"
+            className="mt-6 text-[clamp(1.93rem,5.2vw,3.13rem)] font-bold leading-[1.05]"
           >
             Join the League <span className="text-[#00FF87]">Now</span>
           </h2>
-          <p className="mx-auto mt-5 max-w-xl text-[1.05rem] leading-relaxed text-[#E4EAE7]">
+          <p className="mx-auto mt-5 max-w-xl text-[0.97rem] leading-relaxed text-[#E4EAE7]">
             Create an account to join the league. After logging in, you can
             request a Demo MetaID or a Real MetaID from your dashboard.
           </p>
@@ -72,7 +72,7 @@ export function JoinCta() {
               </GlowButton>
             </div>
 
-            <p className="mt-6 text-center text-[15px] leading-relaxed text-white/85">
+            <p className="mt-6 text-center text-[14px] leading-relaxed text-white/85">
               Already have an account?{' '}
               <a
                 href="/login"
@@ -84,7 +84,7 @@ export function JoinCta() {
 
             {/* items-start, because on a phone this wraps to three lines and a
                 vertically centred icon then floats beside the middle of them. */}
-            <p className="mt-5 flex items-start justify-center gap-2 text-center text-[14.5px] text-[#E4EAE7]">
+            <p className="mt-5 flex items-start justify-center gap-2 text-center text-[13.5px] text-[#E4EAE7]">
               <ShieldCheck className="mt-[3px] size-4 shrink-0 text-[#00FF87]" />
               Free to enter. No deposit, no payment details, no risk to your own
               funds.

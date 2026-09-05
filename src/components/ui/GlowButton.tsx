@@ -128,7 +128,7 @@ export function GlowButton({
     'data-departing': departing || undefined,
     className: [
       'group relative isolate inline-flex items-center justify-center gap-2 overflow-hidden',
-      'rounded-full px-8 py-4 text-[16px] font-semibold tracking-tight',
+      'rounded-full px-8 py-4 text-[14.5px] font-semibold tracking-tight',
       'transition-[transform,filter,background-color,border-color] duration-300',
       // The press: a touch smaller for exactly as long as the finger is down.
       'active:scale-[0.97] active:duration-100',

@@ -28,7 +28,7 @@ function Lane({ ariaHidden }: { ariaHidden?: boolean }) {
     >
       {INSTRUMENTS.map((it) => (
         <li key={it.sym} className="flex items-baseline gap-2 whitespace-nowrap">
-          <span className="text-[14px] font-medium text-white">{it.sym}</span>
+          <span className="text-[13px] font-medium text-white">{it.sym}</span>
           <span className="text-[11px] uppercase tracking-[0.16em] text-[#E4EAE7]/70">
             {it.tag}
           </span>
@@ -109,7 +109,7 @@ export function Nav() {
               sign-in stays the quieter of the pair. */}
           <a
             href="/login"
-            className="rounded-full px-3 py-1.5 text-[13.5px] font-medium text-[#E4EAE7] transition-colors duration-300 hover:text-white"
+            className="rounded-full px-3 py-1.5 text-[12.5px] font-medium text-[#E4EAE7] transition-colors duration-300 hover:text-white"
           >
             Sign in
           </a>
@@ -118,7 +118,7 @@ export function Nav() {
               button to the same place. */}
           <a
             href="/signup"
-            className="rounded-full border border-[rgba(0,255,135,0.32)] bg-[rgba(0,255,135,0.07)] px-4 py-1.5 text-[13.5px] font-semibold text-[#00FF87] transition-colors duration-300 hover:bg-[rgba(0,255,135,0.14)]"
+            className="rounded-full border border-[rgba(0,255,135,0.32)] bg-[rgba(0,255,135,0.07)] px-4 py-1.5 text-[12.5px] font-semibold text-[#00FF87] transition-colors duration-300 hover:bg-[rgba(0,255,135,0.14)]"
           >
             Sign up
           </a>

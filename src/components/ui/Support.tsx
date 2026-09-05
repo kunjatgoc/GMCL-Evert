@@ -79,11 +79,11 @@ export function SupportBand({ className = '' }: { className?: string }) {
         <div className="min-w-0">
           <h2
             id="support-heading"
-            className="text-[clamp(1.05rem,1.7vw,1.25rem)] font-bold leading-tight"
+            className="text-[clamp(0.97rem,1.7vw,1.15rem)] font-bold leading-tight"
           >
             Stuck anywhere? <span className="text-[#00FF87]">Write to us.</span>
           </h2>
-          <p className="mt-1 text-[14px] leading-relaxed text-[#E4EAE7]/85">
+          <p className="mt-1 text-[13px] leading-relaxed text-[#E4EAE7]/85">
             In case of any query, please contact us. A real person answers.
           </p>
         </div>
@@ -109,7 +109,7 @@ export function SupportBand({ className = '' }: { className?: string }) {
               doneLabel="Copied"
               icon={<Mail className="size-4" />}
               aria-label={`Copy ${SUPPORT_EMAIL}`}
-              className="w-full !px-6 !py-3 !text-[15px] sm:w-auto"
+              className="w-full !px-6 !py-3 !text-[14px] sm:w-auto"
             >
               <span className="whitespace-nowrap">{SUPPORT_EMAIL}</span>
             </GlowButton>
@@ -118,7 +118,7 @@ export function SupportBand({ className = '' }: { className?: string }) {
               href={HREF}
               magnetic={false}
               icon={<Mail className="size-4" />}
-              className="w-full !px-6 !py-3 !text-[15px] sm:w-auto"
+              className="w-full !px-6 !py-3 !text-[14px] sm:w-auto"
             >
               <span className="whitespace-nowrap">{SUPPORT_EMAIL}</span>
             </GlowButton>

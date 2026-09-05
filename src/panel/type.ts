@@ -17,12 +17,17 @@
  *
  * 13 is still comfortably readable; it is what the same row in Linear or
  * Stripe is set in. The floor is real, it just sits one step lower.
+ *
+ * The whole scale came down another 8% when the rest of the site did, and 13
+ * did not move with it -- it is the floor, and a floor that slides is not one.
+ * So the gap between label and body narrowed by a pixel, which is the price of
+ * keeping the smallest thing on the screen readable.
  */
 export const TEXT = {
   /** Column headers, field labels, secondary lines, chips. */
   label: 'text-[13px]',
   /** Everything read to do the work: rows, inputs, nav, notes, buttons. */
-  body: 'text-[15px]',
+  body: 'text-[14px]',
   /**
    * Page headings and the dashboard numbers.
    *
@@ -30,9 +35,9 @@ export const TEXT = {
    * is not: 4vw passes 3.1rem at 1240px, so every laptop and every desktop got
    * the 49.6px ceiling and only phones ever saw the middle term. A clamp whose
    * max is reached by its smallest real viewport is a fixed size with extra
-   * steps. This one tops out at 32px and means it.
+   * steps. This one tops out at 29px and means it.
    */
-  display: 'text-[clamp(1.6rem,2.4vw,2rem)]',
+  display: 'text-[clamp(1.47rem,2.4vw,1.84rem)]',
 } as const
 
 /**
@@ -40,9 +45,16 @@ export const TEXT = {
  * screen because two panels wear them now -- the admin filter bar and the
  * entrant's forms -- and a second copy is how the focus ring ends up two
  * different greens.
+ *
+ * 16px on a phone and smaller from `sm:` up. iOS Safari zooms the page in when
+ * a focused text control is set under 16px, and it does not zoom back out --
+ * so a field that reads a pixel tighter on a laptop costs a phone user the
+ * whole layout the moment they tap it. The reduction is real everywhere it can
+ * be taken and stops at the one place it cannot.
  */
 export const control =
   `${TEXT.body} rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-white ` +
+  'max-sm:text-[16px] ' +
   'placeholder:text-white/30 outline-none transition-all duration-300 ' +
   'focus:border-[rgba(62,230,138,0.5)] focus:bg-white/[0.05] ' +
   'focus:shadow-[0_0_0_3px_rgba(62,230,138,0.1)]'

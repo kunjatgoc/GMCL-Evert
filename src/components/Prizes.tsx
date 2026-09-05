@@ -128,11 +128,11 @@ export function Prizes() {
         <header className="mx-auto max-w-2xl text-center">
           <h2
             id="prizes-heading"
-            className="text-[clamp(2.1rem,5.2vw,3.6rem)] font-bold leading-[1.05]"
+            className="text-[clamp(1.93rem,5.2vw,3.31rem)] font-bold leading-[1.05]"
           >
             <span className="text-[#00FF87]">Prizes</span>
           </h2>
-          <p className="mt-5 text-[1.05rem] leading-relaxed text-[#E4EAE7]">
+          <p className="mt-5 text-[0.97rem] leading-relaxed text-[#E4EAE7]">
             Paid to the fifty traders who grow their demo balance the most by
             the close of 18 September.
           </p>
@@ -213,8 +213,8 @@ export function Prizes() {
                   <p
                     className={`mt-2 font-bold leading-none tracking-tight ${
                       first
-                        ? 'text-[clamp(2.2rem,4.5vw,3rem)] text-[#00FF87] text-glow'
-                        : 'text-[clamp(1.75rem,3.6vw,2.25rem)] text-white'
+                        ? 'text-[clamp(2.02rem,4.5vw,2.76rem)] text-[#00FF87] text-glow'
+                        : 'text-[clamp(1.61rem,3.6vw,2.07rem)] text-white'
                     }`}
                   >
                     <Counter

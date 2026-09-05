@@ -108,7 +108,7 @@ export function AuthShell({ eyebrow, title, children, footer, wide }: Props) {
 
           {/* The hero's masked reveal: the line rises out from behind a hard
               clip rather than fading in. */}
-          <h1 className="mt-6 text-balance text-[clamp(2rem,7vw,2.85rem)] font-bold leading-[1.05]">
+          <h1 className="mt-6 text-balance text-[clamp(1.84rem,7vw,2.62rem)] font-bold leading-[1.05]">
             <span className="block overflow-hidden pb-[0.12em]">
               <motion.span
                 className="block"
@@ -143,7 +143,7 @@ export function AuthShell({ eyebrow, title, children, footer, wide }: Props) {
 
         {footer && (
           <motion.p
-            className="mt-8 text-center text-[13.5px] leading-relaxed text-[#E4EAE7]/75 [text-shadow:0_1px_10px_rgba(0,0,0,0.9)]"
+            className="mt-8 text-center text-[12.5px] leading-relaxed text-[#E4EAE7]/75 [text-shadow:0_1px_10px_rgba(0,0,0,0.9)]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.9, ease: EASE, delay: 0.9 }}
