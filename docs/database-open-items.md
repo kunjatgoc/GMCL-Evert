@@ -13,12 +13,15 @@ worth doing.
 least-privilege role `grants.sql` was written for -- `gmcl_api` -- exists in the
 database and is not used by anything.
 
-**Why it matters.** The credential in `DATABASE_URL` is the whole perimeter:
-Vercel has no fixed egress IP, so Postgres accepts connections from anywhere and
-`pg_hba.conf` cannot narrow it. Leaked today, that string reads and writes every
-table, password hashes and live MetaID queue included. The header of
-`db/grants.sql` claims the API cannot read a row. That has not been true since
-the admin panel shipped.
+**Why it matters.** Leaked today, that string reads and writes every table,
+password hashes and live MetaID queue included. The header of `db/grants.sql`
+claims the API cannot read a row. That has not been true since the admin panel
+shipped.
+
+The move off Vercel narrows this without fixing it. There is now one egress
+address instead of none, so `pg_hba.conf` can name the VPS and stop accepting
+connections from the rest of the internet -- worth doing on its own, and
+separate from the role question below.
 
 **Why it is still open.** The panel runs `select ... from registration` and the
 other lists directly -- the filters are dynamic and a procedure per filter
@@ -27,7 +30,7 @@ connection string today breaks the panel.
 
 **The fix.** Grant `gmcl_api` `SELECT` on `registration`,
 `real_account_request`, `metaid_request`, `user_roles` and `users`, then change
-`DATABASE_URL` in `.env` and in the Vercel project. Read access to `users` still
+`DATABASE_URL` in `.env` on the VPS. Read access to `users` still
 exposes password hashes, so consider column-level grants, or move the login
 lookup behind a procedure that returns only what the check needs.
 
@@ -42,22 +45,31 @@ The live connection is TLS 1.3 today (checked against `pg_stat_ssl`), but
 `DATABASE_URL` sets no `sslmode`, so libpq uses `prefer`: it will encrypt if the
 server offers it and fall back to plaintext without a word if it does not.
 
-**The fix.** Append `?sslmode=require` to `DATABASE_URL` in `.env` and in the
-Vercel environment. `verify-full` is better still, but needs the server's CA
-certificate distributed with the function.
+**The fix.** Append `?sslmode=require` to `DATABASE_URL` in `.env` on the VPS.
+`verify-full` is better still, and is now cheap: there is one host to put the
+server's CA certificate on rather than an unknown number of function
+instances.
 
 ---
 
-## 3. Connection pool ceiling
+## 3. Connection pool ceiling (closed by the move to the VPS)
 
-`api/index.py` opens a pool with `max_size=2` and there is no PgBouncer in
-front of Postgres. One Vercel instance is fine; a signup spike multiplies
-instances, and each one takes up to two connections until Postgres refuses the
-next.
+Closed by the move to the VPS, and worth keeping written down because the
+arithmetic changed rather than went away.
 
-**The fix.** A pooled connection string -- a PgBouncer in front of the current
-host, or the pooled endpoint if the database ever moves to a managed provider.
-No code change; it is the same URL with a different port.
+On Vercel the pool was `min_size=0, max_size=2`: a signup spike multiplied
+instances and each new one took up to two connections until Postgres refused
+the next -- an unbounded number of pools, two connections each.
+
+The VPS runs a fixed number of workers, so the ceiling is now arithmetic:
+`--workers` x `DB_POOL_MAX`, defaulting to 4 x 10 = 40 against a
+`max_connections` of 100. Both are environment variables (`DB_POOL_MIN`,
+`DB_POOL_MAX`), so tuning is not a deploy.
+
+**What is left.** Nothing urgent. Raising the worker count is the thing that
+moves this number, and 100 is the figure to check it against. PgBouncer only
+becomes worth its own moving part if the worker count has to grow past what
+Postgres will hold.
 
 Carried over from the stack review on 2 September 2026.
 
@@ -95,10 +107,12 @@ Done for mail: `sp_issue_auth_token` refuses a second token inside the caller's
 window, and both the API and the seed script pass 60 seconds, so a held-down
 "resend" costs one message.
 
-Still open: wrong passwords are not throttled at all. `admin_login` carries a
-`ponytail:` comment naming the fix -- a per-email attempt column on `users`, or
-a WAF rule. The code that follows the password is capped at five wrong answers,
-so the guessable half is the password itself.
+Still open: wrong passwords are not throttled at all. `login` in `api/index.py`
+carries a `ponytail:` comment naming the fix. Now that nginx sits in front, the
+cheap half is a `limit_req` zone on `/api/login`; the durable half is a
+per-email attempt column on `users`, since a limit keyed on IP does not follow
+one account across addresses. The code that follows the password is capped at
+five wrong answers, so the guessable half is the password itself.
 
 The OTP itself is already capped -- five wrong answers kill the token -- so this
 is about mail volume and password guessing, not code guessing.
@@ -151,3 +165,44 @@ expires. Closing it means a `session_epoch` column on `users`, bumped by
 
 Eight hours is the current answer to this. It is only worth changing if that
 window ever matters.
+
+---
+
+## 10. `sp_join_league` stamps the wrong address on a second entry
+
+`league_entry.email` is documented as the address the MetaID was approved
+against, and `db/app_schema.sql` gives the reason: it records what was true at
+the moment of joining, so a later change to the account cannot rewrite an entry
+that has already been counted.
+
+`sp_join_league` does not read it per account. It takes whichever approved
+request was decided last:
+
+```sql
+order by m.decided_at desc nulls last
+limit 1
+```
+
+That was correct when a person could hold one entry. Multiple entries landed on
+4 September 2026 without touching this procedure, so from the second entry
+onward the column says something that is not true.
+
+**How it goes wrong.** Demo approved against `alex@gmail.com` on Monday, Real
+approved against `alex@work.com` on Tuesday. On Wednesday they join with the
+demo account number, and the row records `alex@work.com` -- an address that
+account was never approved under.
+
+**The shape of the fix.** The join has to say which approved request it is
+entering under, which means the API passing the request id or the type down to
+the procedure, and the screen knowing which of the two a number belongs to. The
+screen does not know that today: it asks for a number and nothing else, because
+newera issues the number outside this system and nothing here maps a number back
+to the request that produced it.
+
+So it is not a one-line change to the `order by`. It needs the same decision
+item 8 is waiting on -- what a MetaID is issued against -- before there is a
+correct answer to pick.
+
+**Deferred deliberately**, 5 September 2026. Rows written before this is fixed
+carry the wrong address on every entry after the first, so a backfill is part of
+the fix rather than an afterthought.

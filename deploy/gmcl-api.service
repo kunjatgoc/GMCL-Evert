@@ -1,0 +1,70 @@
+# Global Market League -- the uvicorn process, under systemd.
+#
+# The README said to run it under systemd and then left you to write this.
+# Here it is. Without it the API does not come back after a reboot, and a
+# crash at 3am stays down until somebody notices.
+#
+#     sudo cp deploy/gmcl-api.service /etc/systemd/system/
+#     sudo systemctl daemon-reload
+#     sudo systemctl enable --now gmcl-api
+#     systemctl status gmcl-api
+#
+# Logs go to the journal, so there is no file to rotate:
+#
+#     journalctl -u gmcl-api -f
+
+[Unit]
+Description=Global Market League API (uvicorn behind nginx)
+Documentation=https://github.com/kunjatgoc/GMCL-Evert
+# network-online rather than network: the pool opens connections to a remote
+# Postgres on startup, and "an interface exists" is not "routing works".
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+
+# Not root. This process parses request bodies from the open internet, and
+# nothing it does needs privilege -- it binds 8000, not 80.
+#
+#     sudo useradd --system --home /opt/GMCL-Evert --shell /usr/sbin/nologin gmcl
+#     sudo chown -R gmcl:gmcl /opt/GMCL-Evert
+#     sudo chmod 600 /opt/GMCL-Evert/.env
+User=gmcl
+Group=gmcl
+
+WorkingDirectory=/opt/GMCL-Evert
+
+# --env-file rather than systemd's EnvironmentFile=. Both parse KEY=VALUE and
+# they disagree about quoting, so the file is read by the same parser in
+# development and in production. One format, one set of surprises.
+ExecStart=/opt/GMCL-Evert/.venv/bin/uvicorn \
+    --env-file /opt/GMCL-Evert/.env \
+    api.index:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 4
+
+# Bound to loopback above, so the only way in is through nginx.
+
+Restart=always
+RestartSec=2
+
+# A worker that cannot reach Postgres exits at once, and restarting four of
+# them in a tight loop is how a database outage becomes a second outage.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# The process reads code, reads .env, and talks to two sockets. It has no
+# reason to write anywhere, so it is not allowed to.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

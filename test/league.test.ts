@@ -7,7 +7,9 @@ import {
   PRIZE_POOL,
   leaguePhase,
   phaseLabel,
+  takenMetaids,
 } from '../src/user/League'
+import type { LeagueEntry } from '../src/user/api'
 
 /**
  * The League screen is static except for one thing: where today sits against
@@ -15,7 +17,17 @@ import {
  * only place worth a test.
  */
 describe('leaguePhase', () => {
-  const on = (day: number) => new Date(2026, 8, day)
+  /**
+   * Midday IST on the given September day.
+   *
+   * Written with an explicit offset rather than `new Date(2026, 8, day)`,
+   * which is midnight in whatever zone the machine running the test is set
+   * to. That is the same IST date for most of the world and the day before
+   * for anyone east of Delhi, so the old helper made these tests pass in
+   * Mumbai and fail in Auckland.
+   */
+  const on = (day: number) =>
+    new Date(`2026-09-${String(day).padStart(2, '0')}T12:00:00+05:30`)
 
   test('counts the days remaining before the league opens', () => {
     expect(leaguePhase(on(4))).toEqual({ name: 'before', days: 3 })
@@ -43,9 +55,81 @@ describe('leaguePhase', () => {
   })
 
   test('a time of day never moves the count', () => {
-    const early = new Date(2026, 8, 4, 0, 1)
-    const late = new Date(2026, 8, 4, 23, 59)
+    const early = new Date('2026-09-04T00:01:00+05:30')
+    const late = new Date('2026-09-04T23:59:00+05:30')
     expect(leaguePhase(early)).toEqual(leaguePhase(late))
+  })
+
+  /**
+   * The window is an IST window, because that is what the database counts in.
+   * These pin the two edges to the minute: one minute either side of IST
+   * midnight has to fall on opposite sides of the phase, whatever zone the
+   * reader -- or the machine running this -- happens to be in.
+   */
+  describe('the boundary is IST midnight, not the reader midnight', () => {
+    test('opens at 00:00 IST on 7 September', () => {
+      expect(leaguePhase(new Date('2026-09-06T18:29:00Z'))).toEqual({
+        name: 'before',
+        days: 1,
+      })
+      expect(leaguePhase(new Date('2026-09-06T18:30:00Z'))).toEqual({
+        name: 'running',
+        day: 1,
+      })
+    })
+
+    test('closes at the end of 18 September IST', () => {
+      expect(leaguePhase(new Date('2026-09-18T18:29:00Z'))).toEqual({
+        name: 'running',
+        day: LEAGUE_DAYS,
+      })
+      expect(leaguePhase(new Date('2026-09-18T18:30:00Z'))).toEqual({
+        name: 'after',
+      })
+    })
+
+    test('a reader in New York on the evening of the 6th is already in day 1', () => {
+      // 22:00 on 6 September in New York is 07:30 on the 7th in Delhi. Under
+      // the old local-midnight arithmetic this read "Starts tomorrow" while
+      // the league was running.
+      expect(leaguePhase(new Date('2026-09-06T22:00:00-04:00'))).toEqual({
+        name: 'running',
+        day: 1,
+      })
+    })
+  })
+})
+
+/**
+ * One person may hold several entries, and may not enter the same account
+ * twice. The screen answers that as it is typed; the unique index on
+ * (user_id, metaid) is what actually enforces it.
+ */
+describe('takenMetaids', () => {
+  const entry = (id: number, metaid: string): LeagueEntry => ({
+    id,
+    metaid,
+    email: 'alex@example.com',
+    created_at: '2026-09-01T00:00:00+05:30',
+  })
+
+  const entries = [entry(1, '43563'), entry(2, '9012')]
+
+  test('lists every number already entered', () => {
+    expect(takenMetaids(entries)).toEqual(['43563', '9012'])
+  })
+
+  test('excludes the row being corrected, so an unchanged number can be saved', () => {
+    expect(takenMetaids(entries, 1)).toEqual(['9012'])
+    expect(takenMetaids(entries, 1)).not.toContain('43563')
+  })
+
+  test('an id that matches nothing excludes nothing', () => {
+    expect(takenMetaids(entries, 99)).toEqual(['43563', '9012'])
+  })
+
+  test('no entries, nothing taken', () => {
+    expect(takenMetaids([])).toEqual([])
   })
 })
 

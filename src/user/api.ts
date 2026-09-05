@@ -6,8 +6,12 @@ export type MetaidType = 'demo' | 'real'
 export type MetaidStatus = 'pending' | 'approved' | 'rejected'
 
 export type MetaidRequest = {
-  /** The row's own id -- what the admin queue will decide against. */
-  id: number
+  /** The row's own id -- what the admin queue will decide against.
+   *
+   *  Null for an account newera issued before this app existed. Those come
+   *  back in this list so the screens stay a function of one array, but there
+   *  is no request behind them and so nothing to decide against. */
+  id: number | null
   user_id: number
   /** Joined from the account, never copied onto the row. */
   phone: string

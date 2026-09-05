@@ -16,6 +16,7 @@ import {
   type LeagueEntry,
 } from './api'
 import { Unauthorized } from '../lib/api'
+import { formatIst, istDate, istDaysBetween } from '../lib/time'
 import { EASE, viewportOnce } from '../lib/motion'
 import { prefersReducedMotion } from '../lib/motionPreference'
 import {
@@ -48,19 +49,18 @@ import { ErrorAlert } from '../components/auth/FormAlert'
  *  check constraint on league_entry; this copy only greys out the button. */
 export const METAID_RE = /^[0-9]{4,6}$/
 
-/** Local midnight, so a comparison counts days and not hours. */
-const midnight = (d: Date) =>
-  new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-
-/** Whole days from `a` to `b`. Rounded because a DST boundary makes one of
- *  them 23 or 25 hours long, and this is a count of dates, not of hours. */
-const daysBetween = (a: Date, b: Date) =>
-  Math.round((midnight(b) - midnight(a)) / 86_400_000)
-
-/** Month is 0-based: 8 is September. */
-export const LEAGUE_START = new Date(2026, 8, 7)
-export const LEAGUE_END = new Date(2026, 8, 18)
-export const LEAGUE_DAYS = daysBetween(LEAGUE_START, LEAGUE_END) + 1
+/**
+ * The window, on the IST calendar.
+ *
+ * IST because that is what the league runs on and what the database counts in
+ * -- see src/lib/time.ts. Written as dates rather than as `new Date(2026, 8, 7)`,
+ * which was 7 September only for a reader already in India: a reader in New
+ * York at 22:00 on the 6th is in the 7th in Delhi, and used to be told the
+ * league had not started.
+ */
+export const LEAGUE_START = istDate('2026-09-07')
+export const LEAGUE_END = istDate('2026-09-18')
+export const LEAGUE_DAYS = istDaysBetween(LEAGUE_START, LEAGUE_END) + 1
 
 export type Phase =
   | { name: 'before'; days: number }
@@ -75,7 +75,7 @@ export type Phase =
  * function is where that would happen.
  */
 export function leaguePhase(now: Date): Phase {
-  const until = daysBetween(now, LEAGUE_START)
+  const until = istDaysBetween(now, LEAGUE_START)
   if (until > 0) return { name: 'before', days: until }
   const day = 1 - until
   return day <= LEAGUE_DAYS ? { name: 'running', day } : { name: 'after' }
@@ -112,15 +112,10 @@ const money = (n: number) => `$${n.toLocaleString('en-US')}`
 /** Named once: the hero's button scrolls to it and the band answers to it. */
 const JOIN_ID = 'join'
 
-const longDate = (d: Date) =>
-  d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
+const longDate = (d: Date) => formatIst(d, { day: 'numeric', month: 'long' })
 
 const joinedOn = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+  formatIst(iso, { day: 'numeric', month: 'short', year: 'numeric' })
 
 /**
  * The three steps, in the order they actually happen. Numbered because this
@@ -496,6 +491,39 @@ function Congrats({ show, onDone }: { show: boolean; onDone: () => void }) {
 const COMPACT_BTN = 'h-11 !px-3.5 !text-[15px]'
 
 /**
+ * The numbers this person has already entered, which a new one may not repeat.
+ *
+ * `exceptId` is the row being corrected. Without it an edit that leaves the
+ * number alone would count as a duplicate of itself and the Save button would
+ * never enable -- so the exclusion is the whole reason this is a function
+ * rather than a `.map` at each call site, and it is what the test pins.
+ *
+ * One person, their own entries. Two different people holding the same number
+ * is a separate question, deliberately left open -- see
+ * docs/database-open-items.md.
+ */
+export const takenMetaids = (
+  entries: readonly LeagueEntry[],
+  exceptId?: number
+): string[] =>
+  entries.filter((e) => e.id !== exceptId).map((e) => e.metaid)
+
+/**
+ * What the field says the moment the number matches one already entered.
+ *
+ * Two lengths for one message, because the two places it appears are not the
+ * same size. The form has a line to itself and says the whole thing; the
+ * compact row has the width left over beside two buttons, and a sentence that
+ * wrapped there would be clipped by the fixed-height line it sits on. The red
+ * border carries the rest of the meaning in that case.
+ *
+ * Worded as a prompt rather than a refusal: the likely cause is somebody
+ * adding a second account and pasting the first one by mistake.
+ */
+const DUPLICATE_MESSAGE = 'You have already entered this account. Check the number.'
+const DUPLICATE_SHORT = 'Already entered.'
+
+/**
  * The account number field, and the one button that acts on it.
  *
  * Written once because it appears twice -- adding an entry and correcting one
@@ -507,6 +535,7 @@ function MetaidForm({
   submitLabel,
   busy,
   compact = false,
+  taken = [],
   onSubmit,
   onCancel,
 }: {
@@ -517,6 +546,9 @@ function MetaidForm({
    *  row is the same height whether it is being read or corrected. A card that
    *  grows under the cursor moves everything below it. */
   compact?: boolean
+  /** The numbers already entered, so a repeat is answered as it is typed
+   *  rather than after a round trip. Build it with `takenMetaids`. */
+  taken?: readonly string[]
   onSubmit: (metaid: string) => void
   /** Present on a correction, absent on the first entry: there is nothing to
    *  go back to when the list is empty. */
@@ -524,6 +556,14 @@ function MetaidForm({
 }) {
   const [metaid, setMetaid] = useState(initial)
   const id = useId()
+
+  const trimmed = metaid.trim()
+  // As it is typed, not on submit. The server still refuses a duplicate with
+  // a 409 -- the unique index on (user_id, metaid) is the guard, and two taps
+  // on a slow button race past anything a screen can check. This is so the
+  // answer arrives while the number is still on screen and under the cursor.
+  const duplicate = taken.includes(trimmed)
+  const valid = METAID_RE.test(trimmed)
 
   return (
     <form
@@ -553,7 +593,8 @@ function MetaidForm({
           maxLength={6}
           title="An account number is 4 to 6 digits"
           aria-label={compact ? 'MetaTrader5 Account' : undefined}
-          aria-describedby={compact ? undefined : `${id}-hint`}
+          aria-describedby={`${id}-hint`}
+          aria-invalid={duplicate || undefined}
           autoComplete="off"
           spellCheck={false}
           value={metaid}
@@ -561,11 +602,11 @@ function MetaidForm({
           placeholder="e.g. 43563"
           className={`${control} tabular w-full min-w-0 flex-1 ${
             compact ? 'h-11 text-[18px]' : 'text-[20px]'
-          }`}
+          } ${duplicate ? '!border-[rgba(248,113,113,0.55)]' : ''}`}
         />
         <button
           type="submit"
-          disabled={busy || !METAID_RE.test(metaid.trim())}
+          disabled={busy || !valid || duplicate}
           className={`${btnPrimary} shrink-0 ${compact ? COMPACT_BTN : ''}`}
         >
           {/* A trophy is for entering; a correction is not an entry. */}
@@ -589,14 +630,44 @@ function MetaidForm({
           </button>
         )}
       </div>
-      {!compact && (
-        <p id={`${id}-hint`} className={`${TEXT.label} mt-2.5 text-[var(--admin-muted)]`}>
-          4 to 6 digits, no letters.
-        </p>
-      )}
+      {/* One line, two jobs. Standing on its own it states the rule; the
+          moment the number repeats one already entered it says so instead, in
+          the same place, so nothing below it moves.
+
+          Compact keeps the line rather than dropping it, at a fixed height and
+          empty when there is nothing to say. A row that grew a message while
+          being corrected would push every row under it down -- which is the
+          shift the min-height on the row exists to prevent. */}
+      <p
+        id={`${id}-hint`}
+        aria-live="polite"
+        className={`${TEXT.label} ${
+          compact ? 'mt-1 h-4 truncate leading-4' : 'mt-2.5'
+        } ${duplicate ? 'text-[#F87171]' : 'text-[var(--admin-muted)]'}`}
+      >
+        {duplicate
+          ? compact
+            ? DUPLICATE_SHORT
+            : DUPLICATE_MESSAGE
+          : compact
+            ? ''
+            : '4 to 6 digits, no letters.'}
+      </p>
     </form>
   )
 }
+
+/**
+ * One row of the list -- holding an account, being corrected, or taking a new
+ * one. Written once and shared, because the three are the same card and the
+ * list stops reading as a list the moment they drift apart.
+ *
+ * 6.5rem rather than 5.75: the compact form carries a line for the duplicate
+ * message, reserved whether or not it has anything to say, and the row has to
+ * be tall enough to hold it in every mode. One height is the property kept.
+ */
+const ENTRY_ROW =
+  'flex min-h-[6.5rem] items-center bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] px-4 py-4 sm:px-6'
 
 /**
  * One entry, and the correction of it.
@@ -608,6 +679,7 @@ function MetaidForm({
  */
 function EntryRow({
   entry,
+  entries,
   editing,
   busy,
   onEdit,
@@ -615,6 +687,10 @@ function EntryRow({
   onSave,
 }: {
   entry: LeagueEntry
+  /** The whole list, so a correction can be checked against the other rows.
+   *  This row is excluded, or leaving the number alone would read as a
+   *  duplicate of itself and Save would never enable. */
+  entries: readonly LeagueEntry[]
   editing: boolean
   busy: boolean
   onEdit: () => void
@@ -622,13 +698,14 @@ function EntryRow({
   onSave: (metaid: string) => void
 }) {
   return (
-    <li className="flex min-h-[5.75rem] items-center bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))] px-4 py-4 sm:px-6">
+    <li className={ENTRY_ROW}>
       {editing ? (
         <MetaidForm
           initial={entry.metaid}
           submitLabel="Save"
           busy={busy}
           compact
+          taken={takenMetaids(entries, entry.id)}
           onSubmit={onSave}
           onCancel={onCancel}
         />
@@ -806,6 +883,7 @@ function JoinBand({
                 <EntryRow
                   key={e.id}
                   entry={e}
+                  entries={entries}
                   editing={editingId === e.id}
                   busy={busy}
                   onEdit={() => {
@@ -817,18 +895,26 @@ function JoinBand({
                   onSave={(metaid) => save(e.id, metaid)}
                 />
               ))}
+
+              {/* The new account is typed into the list, not into a panel
+                  underneath it. It is going to become one of these rows, and
+                  a differently shaped box below the list only says that it is
+                  something else. */}
+              {adding && (
+                <li className={ENTRY_ROW}>
+                  <MetaidForm
+                    submitLabel="Add"
+                    busy={busy}
+                    compact
+                    taken={takenMetaids(entries)}
+                    onSubmit={add}
+                    onCancel={() => setAdding(false)}
+                  />
+                </li>
+              )}
             </ul>
 
-            {adding ? (
-              <div className="mx-auto mt-5 max-w-lg rounded-2xl border border-white/12 bg-white/[0.03] px-6 py-5">
-                <MetaidForm
-                  submitLabel="Add"
-                  busy={busy}
-                  onSubmit={add}
-                  onCancel={() => setAdding(false)}
-                />
-              </div>
-            ) : (
+            {!adding && (
               <button
                 type="button"
                 disabled={busy}

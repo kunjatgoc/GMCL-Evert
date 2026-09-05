@@ -10,6 +10,7 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  KeyRound,
   LayoutDashboard,
   Loader2,
   Send,
@@ -175,7 +176,9 @@ function StepCard({
 }: {
   step: number
   title: string
-  body: string
+  /** Optional: a card whose title and state already say everything does not
+   *  need a paragraph repeating it. */
+  body?: string
   done: boolean
   children: ReactNode
   delay: number
@@ -212,9 +215,11 @@ function StepCard({
       <h2 className="relative mt-5 font-[family-name:var(--font-display)] text-[clamp(1.4rem,2.2vw,1.9rem)] font-bold leading-tight text-white">
         {title}
       </h2>
-      <p className={`${TEXT.body} relative mt-3 leading-relaxed text-[#E4EAE7]`}>
-        {body}
-      </p>
+      {body && (
+        <p className={`${TEXT.body} relative mt-3 leading-relaxed text-[#E4EAE7]`}>
+          {body}
+        </p>
+      )}
 
       {children && <div className="relative mt-auto pt-7">{children}</div>}
     </motion.article>
@@ -270,7 +275,6 @@ function DashboardScreen({ me }: { me: Me }) {
           delay={0.05}
           done={Boolean(approved)}
           title="Request the MetaTrader5 Account"
-          body="Ask newera for a demo or a real account. They check the address and answer. You need the number they issue before you can enter."
         >
           {!rows ? (
             <Loading />
@@ -437,16 +441,27 @@ type ModalProps = {
  * signed in with, so the dialog opens, files the request and says how long the
  * answer takes.
  *
- * Real opens on the address it will use and asks for a confirmation. The check
- * happens on that press rather than on opening, so nothing is asked of newera
- * for a dialog somebody opened to read and closed again -- and so the answer
- * is as old as the press, not as old as the dialog.
+ * Real asks for the address, on an empty field. It cannot be the one this
+ * account signs in with -- that address is already spoken for -- so there is
+ * nothing useful to prefill it with, and a filled box only invites somebody to
+ * press Confirm on the one answer that is going to be refused.
+ *
+ * The check happens on that press rather than on opening, so nothing is asked
+ * of newera for a dialog somebody opened to read and closed again -- and so
+ * the answer is as old as the press, not as old as the dialog.
  */
 type Step =
   | { name: 'checking' }
-  | { name: 'confirm'; email: string }
+  | { name: 'confirm' }
   | { name: 'taken'; email: string; dup: MetaidDuplicates }
   | { name: 'sent' }
+
+/** Said on the press, and again by the server before it writes anything. */
+const SAME_AS_LOGIN =
+  'This email is already in use. Use a different one for your Real MetaTrader5 Account.'
+
+const sameAddress = (a: string, b: string) =>
+  a.trim().toLowerCase() === b.trim().toLowerCase()
 
 /** Three ways to be refused, because newera answers about two identifiers.
  *  Each names the one that matched rather than saying "these details". */
@@ -460,9 +475,7 @@ const takenTitle = ({ phone_taken, email_taken }: MetaidDuplicates) =>
 function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
   const [step, setStep] = useState<Step>(() =>
-    kind.type === 'demo'
-      ? { name: 'checking' }
-      : { name: 'confirm', email: accountEmail }
+    kind.type === 'demo' ? { name: 'checking' } : { name: 'confirm' }
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -491,6 +504,14 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
     setError(null)
     try {
       if (kind.type === 'real') {
+        // Before newera is asked, because this one is already known. Guarded
+        // here rather than on the Confirm button so the address the duplicate
+        // step goes on to ask for is held to the same rule -- both routes come
+        // through here, and only one of them has a Confirm button.
+        if (sameAddress(email, accountEmail)) {
+          setError(SAME_AS_LOGIN)
+          return
+        }
         const dup = await checkMetaidDuplicates(email)
         if (dup.phone_taken || dup.email_taken) {
           setStep({ name: 'taken', email, dup })
@@ -514,8 +535,9 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /** The different address the duplicate step asks for. Same two moves. */
-  const onSubmitOther = (e: FormEvent<HTMLFormElement>) => {
+  /** Both steps that ask for an address: the first one, and the one that asks
+   *  again after newera says it is taken. Same two moves either way. */
+  const onSubmitEmail = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     return file(String(new FormData(e.currentTarget).get('email') ?? ''))
   }
@@ -583,15 +605,27 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
         )}
 
         {step.name === 'confirm' && (
-          <>
-            <p className={`${TEXT.body} mt-6 leading-relaxed text-[#E4EAE7]`}>
-              Your {kind.title} will be held against this email:
+          <form onSubmit={onSubmitEmail} className="mt-6">
+            <p className={`${TEXT.body} leading-relaxed text-[#E4EAE7]`}>
+              Please share your new email. It has to be different from the one
+              you sign in with.
             </p>
-            <p
-              className={`${TEXT.body} mt-3 break-all rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 font-medium`}
-            >
-              {step.email}
-            </p>
+            <div className="mt-5">
+              <label className={`${fieldLabel} mb-2 block`} htmlFor="confirm-email">
+                Email
+              </label>
+              <input
+                id="confirm-email"
+                name="email"
+                type="email"
+                required
+                autoFocus
+                inputMode="email"
+                autoComplete="off"
+                placeholder="you@example.com"
+                className={`${control} w-full`}
+              />
+            </div>
             {error && <div className="mt-4"><ErrorAlert>{error}</ErrorAlert></div>}
             <div className="mt-6 flex justify-end gap-2.5">
               <button
@@ -602,21 +636,16 @@ function RequestModal({ kind, accountEmail, onClose, onChanged }: ModalProps) {
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => file(step.email)}
-                className={btnPrimary}
-              >
+              <button type="submit" disabled={busy} className={btnPrimary}>
                 {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                 Confirm
               </button>
             </div>
-          </>
+          </form>
         )}
 
         {step.name === 'taken' && (
-          <form onSubmit={onSubmitOther} className="mt-6">
+          <form onSubmit={onSubmitEmail} className="mt-6">
             <p className={`${TEXT.body} leading-relaxed text-[#E4EAE7]`}>
               {step.dup.phone_taken && step.dup.email_taken ? (
                 <>
@@ -713,6 +742,10 @@ function ProfileScreen({ me }: { me: Me }) {
   const [pwBusy, setPwBusy] = useState(false)
   const [pwDone, setPwDone] = useState(false)
   const [pwError, setPwError] = useState<string | null>(null)
+  // The card is a button until this is true. Two empty password boxes sitting
+  // on a profile page invite a stray autofill; asking first means the fields
+  // only exist once somebody has said they want them.
+  const [resetting, setResetting] = useState(false)
 
   const fail = (set: (m: string) => void) => (e: unknown) => {
     if (e instanceof Unauthorized) window.location.href = '/login'
@@ -751,9 +784,13 @@ function ProfileScreen({ me }: { me: Me }) {
 
     setPwBusy(true)
     try {
-      await changePassword(String(data.get('current_password') ?? ''), next)
+      await changePassword(next)
       form.reset()
       setPwDone(true)
+      // Back to the button. The fields have done their job, and leaving them
+      // filled in behind a "Password changed" notice reads like it did not
+      // take.
+      setResetting(false)
     } catch (err) {
       fail(setPwError)(err)
     } finally {
@@ -829,59 +866,82 @@ function ProfileScreen({ me }: { me: Me }) {
         <section className={`${card} p-6`}>
           <h2 className={`${TEXT.body} font-semibold`}>Change password</h2>
 
-          <form onSubmit={savePassword} className="mt-5 space-y-5">
-            <div>
-              <label className={`${fieldLabel} mb-2 block`} htmlFor="current-password">
-                Current password
-              </label>
-              <input
-                id="current-password"
-                name="current_password"
-                type="password"
-                required
-                autoComplete="current-password"
-                className={`${control} w-full`}
-              />
-            </div>
-            <div>
-              <label className={`${fieldLabel} mb-2 block`} htmlFor="new-password">
-                New password
-              </label>
-              <input
-                id="new-password"
-                name="new_password"
-                type="password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                placeholder="At least 8 characters"
-                className={`${control} w-full`}
-              />
-            </div>
-            <div>
-              <label className={`${fieldLabel} mb-2 block`} htmlFor="confirm-password">
-                Confirm new password
-              </label>
-              <input
-                id="confirm-password"
-                name="confirm"
-                type="password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                placeholder="Type it again"
-                className={`${control} w-full`}
-              />
-            </div>
+          {!resetting ? (
+            <div className="mt-5 space-y-5">
+              <p className={`${TEXT.label} text-[var(--admin-muted)]`}>
+                Choose a new password for this account. You will not be signed
+                out of this device.
+              </p>
 
-            {pwError && <ErrorAlert>{pwError}</ErrorAlert>}
-            {pwDone && <Notice>Password changed.</Notice>}
+              {pwDone && <Notice>Password changed.</Notice>}
 
-            <button type="submit" disabled={pwBusy} className={`${btnPrimary} w-full sm:w-auto`}>
-              {pwBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-              Change password
-            </button>
-          </form>
+              <button
+                type="button"
+                onClick={() => {
+                  setPwError(null)
+                  setPwDone(false)
+                  setResetting(true)
+                }}
+                className={`${btnPrimary} w-full sm:w-auto`}
+              >
+                <KeyRound className="size-4" />
+                Reset
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={savePassword} className="mt-5 space-y-5">
+              <div>
+                <label className={`${fieldLabel} mb-2 block`} htmlFor="new-password">
+                  New password
+                </label>
+                <input
+                  id="new-password"
+                  name="new_password"
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  placeholder="At least 8 characters"
+                  className={`${control} w-full`}
+                />
+              </div>
+              <div>
+                <label className={`${fieldLabel} mb-2 block`} htmlFor="confirm-password">
+                  Confirm new password
+                </label>
+                <input
+                  id="confirm-password"
+                  name="confirm"
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  placeholder="Type it again"
+                  className={`${control} w-full`}
+                />
+              </div>
+  
+              {pwError && <ErrorAlert>{pwError}</ErrorAlert>}
+  
+              <div className="flex flex-wrap gap-3">
+                <button type="submit" disabled={pwBusy} className={`${btnPrimary} w-full sm:w-auto`}>
+                  {pwBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                  Save password
+                </button>
+                <button
+                  type="button"
+                  disabled={pwBusy}
+                  onClick={() => {
+                    setPwError(null)
+                    setResetting(false)
+                  }}
+                  className={`${btnGhost} w-full sm:w-auto`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
         </section>
       </div>
     </div>

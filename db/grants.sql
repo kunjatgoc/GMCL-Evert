@@ -1,10 +1,19 @@
 -- Least-privilege role for the API.
 --
--- The API runs on Vercel, which has no fixed egress IP, so Postgres has to
--- accept connections from anywhere and pg_hba.conf cannot narrow it down.
--- The credential in DATABASE_URL is therefore the whole perimeter: give it
--- permission to call sp_register and nothing else. It cannot read, update or
--- delete a row, so a leaked password cannot dump the entrant list.
+-- The credential in DATABASE_URL is a perimeter of its own: give it permission
+-- to call sp_register and nothing else. It cannot read, update or delete a
+-- row, so a leaked password cannot dump the entrant list.
+--
+-- It is no longer the *whole* perimeter. On Vercel there was no fixed egress
+-- IP, so Postgres had to accept connections from anywhere and pg_hba.conf
+-- could not narrow it down. The API now runs from one VPS with one address,
+-- so pg_hba.conf can name it and the grants below stop being the only thing
+-- standing between a leaked password and the data:
+--
+--     hostssl  all  gmcl_api  <vps address>/32  scram-sha-256
+--
+-- Worth doing. This file cannot do it -- pg_hba.conf is not SQL and lives on
+-- the database host -- so it is written down here rather than assumed.
 --
 -- Run as the owner of the registration table, after schema.sql and the
 -- procedures. Every statement is idempotent.
