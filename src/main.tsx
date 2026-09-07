@@ -26,6 +26,7 @@ const ENTRANT_PATHS = new Set([
   '/dashboard',
   '/request-metaid',
   '/league',
+  '/leaderboard',
   '/profile',
 ])
 

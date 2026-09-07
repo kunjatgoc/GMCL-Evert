@@ -12,6 +12,7 @@ import {
   Clock,
   KeyRound,
   LayoutDashboard,
+  ListOrdered,
   Loader2,
   Send,
   Trophy,
@@ -33,6 +34,7 @@ import {
   type MetaidType,
 } from './api'
 import { LeagueScreen } from './League'
+import { LeaderboardScreen } from './Leaderboard'
 import { getLeagueStatus, type LeagueEntry } from './api'
 import { PanelShell, type PanelRoute } from '../panel/PanelShell'
 import {
@@ -71,6 +73,7 @@ const ROUTES: readonly PanelRoute[] = [
     view: RequestScreen,
   },
   { path: '/league', label: 'League', icon: Trophy, view: LeagueScreen },
+  { path: '/leaderboard', label: 'Leaderboard', icon: ListOrdered, view: LeaderboardScreen },
   {
     path: '/profile',
     label: 'My Profile',

@@ -594,6 +594,39 @@ across the whole frame. Fills the frame corner to corner. Texture only, no
 focal point.
 ```
 
+## L5. Results board — Leaderboard screen
+
+**Path:** `public/img/leaderboard-board.webp` **Size:** 1774 x 887 (2:1)
+**Fallback if skipped:** the flat ground and washes. The screen is complete
+without it, and hides the image if the file is absent.
+
+The whole announcement in one picture: a board with nothing on it yet. The copy
+sits in the light the lamps throw, not underneath it, so **the middle band must
+stay dark enough to read white type over** and the board must hold the top
+third.
+
+Render this **2:1 or wider**. The screen is a full-bleed panel beside a 15.5rem
+rail, which is about 2:1 on a desktop. A 3:2 plate shipped here first and had
+to give up either the board's top or the lit floor to cover that slot; at 2:1
+it covers with almost nothing cropped and needs no `object-position` of its
+own. The lit floor is not decoration -- it is what fills the bottom third and
+stops the screen reading as a picture with dead space under it.
+
+```
+[PROMPT]
+An empty results board mounted high on the far wall of a vast dark indoor
+arena, photographed straight on from a distance. The board is a grid of blank
+unlit panels in brushed dark steel, every cell empty, nothing displayed yet.
+A single row of spring green indicator lamps runs along its bottom edge, the
+only lit thing in the frame, throwing a soft green wash down the wall beneath
+it and a faint spill onto the concrete floor below. The centre of the frame is
+almost entirely unlit -- empty dark wall falling away to black, no detail,
+nothing to read. Depth builds only at the left and right edges, where the wall
+recedes into darkness. Faint dust in the low green light. No crowd, no seating,
+no equipment, no numbers or letters anywhere on the board. All four edges fall
+off to near-black. Still, monumental, waiting to be filled.
+```
+
 ## 22. Panel plate  the replacement for 17
 
 **Path:** `public/img/panel-plate.webp` **Size:** 2560 x 1440 (16:9)
