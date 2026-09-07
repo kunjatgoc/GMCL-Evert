@@ -5,6 +5,10 @@ import { Login } from './components/Login'
 import { Signup } from './components/Signup'
 import { ForgotPassword, ResetPassword } from './components/Recover'
 import { WhatsAppFab } from './components/ui/Support'
+// A set rather than a chain of comparisons, because the list grows and the
+// chain stops reading once it does. Shared with the rail rather than copied
+// beside it -- see the note in src/user/paths.ts.
+import { ENTRANT_PATH_SET } from './user/paths'
 import './index.css'
 
 // Ten screens is still not a router. A pathname check costs nothing and adds
@@ -19,16 +23,6 @@ const UserDashboard = lazy(() => import('./user/UserDashboard'))
 
 const fallback = <div className="min-h-dvh" />
 
-// The entrant panel's own screens. A set rather than a chain of comparisons,
-// because the list grows and the chain does not read once it does. Keep in
-// step with ROUTES in src/user/UserDashboard.tsx.
-const ENTRANT_PATHS = new Set([
-  '/dashboard',
-  '/request-metaid',
-  '/league',
-  '/profile',
-])
-
 const screen = path.startsWith('/admin') ? (
   <Suspense fallback={fallback}>
     <AdminApp />
@@ -37,7 +31,7 @@ const screen = path.startsWith('/admin') ? (
   <Suspense fallback={fallback}>
     <GmlApp />
   </Suspense>
-) : ENTRANT_PATHS.has(path) ? (
+) : ENTRANT_PATH_SET.has(path) ? (
   <Suspense fallback={fallback}>
     <UserDashboard />
   </Suspense>

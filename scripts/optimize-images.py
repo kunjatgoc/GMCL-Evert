@@ -55,6 +55,10 @@ TARGETS = {
     "league-plinth":     (1200, 1200, True,  85),
     "league-gate":       (2400,  800, False, 78),
     "league-lanes":      (1800, 1050, False, 74),
+    # The Leaderboard plate. 2:1 because the slot is -- see L5 in
+    # design/prompts.md; a 3:2 render has to drop either the board or the lit
+    # floor to cover a panel twice as wide as it is tall.
+    "leaderboard-board": (1800,  900, False, 78),
     # The MetaTrader mark, drawn at 18px in the rail. The source is 47px, so
     # this is a cap it never reaches rather than an upscale.
     "mt5-icon":          (  96,   96, True,  90),
