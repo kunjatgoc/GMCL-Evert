@@ -447,7 +447,7 @@ the art: seven lanes, seven light bars, seven marks on the floor.
 None of these reuse an existing file. Nothing on this screen points at
 `particles.webp`, `streak.webp`, `podium-4tier.webp` or any hero plate.
 
-## STYLE LOCK  League screen only. Replaces the one at the top of this file
+## STYLE LOCK  League and Leaderboard screens. Replaces the one at the top of this file
 
 ```
 Visual system: near-black ground (#08110E to #0F1B16), single accent of
@@ -463,7 +463,7 @@ to near-black so the image meets a CSS gradient without a seam. Fine
 photographic grain. 8k.
 ```
 
-## NEGATIVE  League screen only
+## NEGATIVE  League and Leaderboard screens
 
 ```
 text, letters, words, numbers, watermark, logo, signature, UI mockup, buttons,
@@ -480,9 +480,14 @@ not a market.
 
 ---
 
-Sizes and crops below match the built screen: a hero a little under the
-viewport with the copy on the left, one band pairing the steps with the prize
-table, and a short join band. Three bands, not five.
+L1 to L4 are the League screen: a hero a little under the viewport with the
+copy on the left, one band pairing the steps with the prize table, and a short
+join band. Three bands, not five.
+
+L5 is the Leaderboard, which is a different screen in the same room -- one
+full-bleed band, copy centred, no bands under it. It shares the style lock and
+the negative above (same arena, same lamps, same palette) and nothing else in
+this preamble; its own crop rules are written out under its heading.
 
 Every band already carries a CSS gradient wash. So each image should **fall off
 to near-black at its own edges** rather than ending on a hard rectangle -- the

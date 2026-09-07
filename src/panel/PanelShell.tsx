@@ -13,8 +13,8 @@ import { PanelSkeleton, useDelayed } from './Skeleton'
  * The signed-in shell: a rail of screens on the left, one screen on the right.
  *
  * One shell for every role. What differs is the list handed to it -- an
- * entrant gets two screens, an admin gets three, and a staff role will get its
- * own without another rail being written. That is the whole of "the menu
+ * entrant gets five screens, an admin gets three, and a staff role will get
+ * its own without another rail being written. That is the whole of "the menu
  * depends on who you are": a different array, not a different layout.
  */
 export type PanelRoute = {
@@ -170,8 +170,10 @@ export function PanelShell({ views }: Props) {
 
         <motion.nav
           // 15.5rem, not 19.5. At 19.5 the rail took 312px of a 1280px laptop
-          // -- a quarter of the screen for four links -- and the table beside
-          // it paid for every one of those pixels.
+          // -- a quarter of the screen for the links on it -- and the table
+          // beside it paid for every one of those pixels. The count has grown
+          // since (an entrant is on five); the width has not, because from md:
+          // up the rail is a column and a sixth link costs height, not width.
           className="glass relative isolate overflow-hidden border-b border-white/8 bg-[var(--admin-card)] p-4 md:sticky md:top-0 md:h-dvh md:w-[15.5rem] md:shrink-0 md:border-b-0 md:border-r md:p-5"
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
@@ -189,7 +191,16 @@ export function PanelShell({ views }: Props) {
 
           <Lockup tone="panel" subtitle={view.subtitle} />
 
-          <ul className="mt-5 flex gap-1.5 overflow-x-auto md:mt-9 md:flex-col md:overflow-visible">
+          {/* Under md: this is a horizontal strip, and it has always been
+              wider than a phone -- on a 375px screen "League" sat entirely
+              past the right edge before the Leaderboard was added, and two
+              items do now. It scrolls, but a scrollbar that only appears once
+              you are already scrolling is not an affordance, so the last
+              stretch fades out: an item cut off mid-fade reads as "there is
+              more this way" in a way a hard edge never does. The mask is
+              dropped from md: up, where the list is a column and nothing is
+              clipped. */}
+          <ul className="mt-5 flex gap-1.5 overflow-x-auto [mask-image:linear-gradient(90deg,#000_78%,transparent)] md:mt-9 md:flex-col md:overflow-visible md:[mask-image:none]">
             {view.routes.filter((r) => !r.atBottom).map((r, i) => {
               const Icon = r.icon
               const on = r.path === active.path

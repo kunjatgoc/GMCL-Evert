@@ -35,6 +35,7 @@ import {
 } from './api'
 import { LeagueScreen } from './League'
 import { LeaderboardScreen } from './Leaderboard'
+import { ENTRANT_PATHS } from './paths'
 import { getLeagueStatus, type LeagueEntry } from './api'
 import { PanelShell, type PanelRoute } from '../panel/PanelShell'
 import {
@@ -63,19 +64,28 @@ const Mt5Mark = ({ className }: { className?: string }) => (
  *
  *  The main list is the work, in the order it is done: get an account, then
  *  enter the league with it. The footer is the account itself, which is why
- *  My Profile sits down there beside the address and the sign-out control. */
-const ROUTES: readonly PanelRoute[] = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, view: DashboardScreen },
+ *  My Profile sits down there beside the address and the sign-out control.
+ *
+ *  Paths come from ./paths rather than being written here, so main.tsx and
+ *  this rail cannot disagree about what a panel URL is. Exported for the test
+ *  that checks exactly that. */
+export const ROUTES: readonly PanelRoute[] = [
+  { path: ENTRANT_PATHS.dashboard, label: 'Dashboard', icon: LayoutDashboard, view: DashboardScreen },
   {
-    path: '/request-metaid',
+    path: ENTRANT_PATHS.requestMetaid,
     label: 'MetaTrader Account',
     icon: Mt5Mark,
     view: RequestScreen,
   },
-  { path: '/league', label: 'League', icon: Trophy, view: LeagueScreen },
-  { path: '/leaderboard', label: 'Leaderboard', icon: ListOrdered, view: LeaderboardScreen },
+  { path: ENTRANT_PATHS.league, label: 'League', icon: Trophy, view: LeagueScreen },
   {
-    path: '/profile',
+    path: ENTRANT_PATHS.leaderboard,
+    label: 'Leaderboard',
+    icon: ListOrdered,
+    view: LeaderboardScreen,
+  },
+  {
+    path: ENTRANT_PATHS.profile,
     label: 'My Profile',
     icon: UserRound,
     view: ProfileScreen,

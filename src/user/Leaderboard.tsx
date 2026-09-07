@@ -17,65 +17,73 @@ import { EASE } from '../lib/motion'
  * Nothing here is a still photograph. The lamps breathe, a scan crosses the
  * empty cells, and the two lines arrive one after the other -- a screen whose
  * whole claim is "about to" cannot be motionless, or the claim is the only
- * thing on it that nobody believes. Every animation reuses a keyframe the
- * stylesheet already has, and the global prefers-reduced-motion rule stops
- * all of them without this file knowing about it.
+ * thing on it that nobody believes.
+ *
+ * Two separate mechanisms answer a reduced-motion preference, and it is worth
+ * knowing which does what: the stylesheet's global rule (index.css) clamps the
+ * two CSS animations below, and MotionConfig in PanelShell collapses the
+ * transforms on the two spans. Neither covers the other, and the second one is
+ * not in this file -- so a screen built by copying this one to somewhere
+ * outside the panel keeps the CSS half and quietly loses the rest.
  *
  * Like every plate in this panel it is optional and hides itself if absent;
  * the washes below it are what the screen reads as without it.
  */
-
-/** Where the lamp row falls, as a fraction of the frame. The plate is 2:1 and
- *  so is this slot, so the row lands in the same place at every width -- which
- *  is what lets the glow and the scan be positioned in percentages at all. */
-const LAMPS_TOP = '20%'
-const BOARD_TOP = '7%'
-
 export function LeaderboardScreen() {
   return (
     <div className="relative isolate -m-5 flex min-h-[30rem] flex-col justify-center overflow-hidden bg-[#0A100E] px-6 py-16 sm:-m-6 md:min-h-dvh xl:-m-8 xl:px-16">
-      {/* The plate is 2:1, which is what this slot is on a desktop -- so it
-          covers with almost nothing cropped and needs no object-position of
-          its own. A 3:2 render shipped here first and had to give up either
-          the board's top or the lit floor to fit. */}
-      <img
-        src="/img/leaderboard-board.webp"
-        alt=""
-        aria-hidden
-        loading="eager"
-        className="pointer-events-none absolute inset-0 -z-20 size-full object-cover object-center"
-        onError={(e) => (e.currentTarget.style.display = 'none')}
-      />
-
-      {/* A scan crossing the dead cells, on the slowest cycle here so it is
-          noticed second rather than first. Two identical lanes in a strip
-          twice the frame's width: shifting the pair by exactly half puts lane
-          two where lane one began, so `marquee` loops without a seam. The mask
-          is not decoration -- without it the strip's own box draws two hard
-          horizontal edges across the wall, which is exactly the fault the
-          panel's backdrop plate was replaced for. */}
+      {/*
+       * The plate and everything positioned against it share one 2:1 stage.
+       *
+       * The two overlays are placed in percentages of the picture -- the lamp
+       * row is at 20% of the plate, not at 20% of the browser window. Those
+       * were the same number only while the panel happened to be 2:1 too,
+       * which it is at 1920x825 and is not on an ultrawide: at 3440 the slot
+       * is 2.22:1, object-cover crops 78px off the top, and a glow pinned to
+       * the frame drifts about 48px clear of the lamps it is meant to be
+       * coming from.
+       *
+       * `aspect-[2/1] min-h-full min-w-full`, centred, is exactly what
+       * object-cover does to the geometry -- the smallest box of that ratio
+       * that still covers the frame -- so a percentage inside this stage lands
+       * on the same part of the picture at every viewport.
+       */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 -z-10 h-[21%] overflow-hidden [mask-image:radial-gradient(62%_130%_at_50%_50%,#000_45%,transparent_82%)]"
-        style={{ top: BOARD_TOP }}
+        className="pointer-events-none absolute left-1/2 top-1/2 -z-10 aspect-[2/1] min-h-full min-w-full -translate-x-1/2 -translate-y-1/2"
       >
-        <div className="h-full w-[200%] [animation:marquee_14s_linear_infinite] [background:repeating-linear-gradient(90deg,transparent_0%,transparent_12%,rgba(62,230,138,0.09)_18%,rgba(125,247,184,0.22)_25%,rgba(62,230,138,0.09)_32%,transparent_38%,transparent_50%)]" />
-      </div>
+        <img
+          src="/img/leaderboard-board.webp"
+          alt=""
+          loading="eager"
+          className="absolute inset-0 size-full object-cover"
+          onError={(e) => (e.currentTarget.style.display = 'none')}
+        />
 
-      {/* The lamp row, breathing. Same keyframe the panel's own horizon uses,
-          on a shorter cycle: this one is a fixture about to come on, not a
-          city at rest. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 -z-10 h-[26%] [animation:horizon-glow_6.5s_ease-in-out_infinite] [background:radial-gradient(64%_100%_at_50%_0%,rgba(62,230,138,0.2),transparent_72%)]"
-        style={{ top: LAMPS_TOP }}
-      />
+        {/* A scan crossing the dead cells, on the slowest cycle here so it is
+            noticed second rather than first. Two identical lanes in a strip
+            twice the stage's width: shifting the pair by exactly half puts
+            lane two where lane one began, so `marquee` loops without a seam.
+            The mask is not decoration -- without it the strip's own box draws
+            two hard horizontal edges across the wall, which is exactly the
+            fault the panel's backdrop plate was replaced for. */}
+        <div className="absolute inset-x-0 top-[7%] h-[21%] overflow-hidden [mask-image:radial-gradient(62%_130%_at_50%_50%,#000_45%,transparent_82%)]">
+          <div className="h-full w-[200%] [animation:marquee_14s_linear_infinite] [background:repeating-linear-gradient(90deg,transparent_0%,transparent_12%,rgba(62,230,138,0.09)_18%,rgba(125,247,184,0.22)_25%,rgba(62,230,138,0.09)_32%,transparent_38%,transparent_50%)]" />
+        </div>
+
+        {/* The lamp row, breathing. Same keyframe the panel's own horizon uses,
+            on a shorter cycle: this one is a fixture about to come on, not a
+            city at rest. */}
+        <div className="absolute inset-x-0 top-[20%] h-[26%] [animation:horizon-glow_6.5s_ease-in-out_infinite] [background:radial-gradient(64%_100%_at_50%_0%,rgba(62,230,138,0.2),transparent_72%)]" />
+      </div>
 
       {/* A pool of near-black under the copy, sized to it rather than to the
           frame. The lamps stay bright above it and the floor stays lit below,
           so the headline sits in shadow inside a room that is still lit --
           which is what makes it read as one picture rather than as type on a
-          photograph. */}
+          photograph. This wash and the two below it are pinned to the frame
+          rather than to the stage, because they follow the copy, and the copy
+          is laid out in the frame. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(58%_42%_at_50%_54%,rgba(10,16,14,0.94)_0%,rgba(10,16,14,0.72)_45%,transparent_100%)]"
@@ -108,8 +116,12 @@ export function LeaderboardScreen() {
           The board is about to light up.
         </motion.span>
 
+        {/* The halo is written out here rather than taken from the `.text-glow`
+            utility: that one is hard-coded to the marketing page's #00FF87,
+            and a neon halo around #3EE68A type is precisely the two-greens-at-
+            once that rules 4 and 5 in panel/palette.ts exist to prevent. */}
         <motion.span
-          className="text-glow mt-2 block text-[var(--admin-primary)]"
+          className="mt-2 block text-[var(--admin-primary)] [text-shadow:0_0_28px_rgba(62,230,138,0.45)]"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: EASE, delay: 0.34 }}

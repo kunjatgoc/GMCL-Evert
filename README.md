@@ -347,6 +347,8 @@ to under 1 MB. `og` is special-cased to a 1200x630 JPEG.
 | `card-texture` | Prize card surface | plain glass gradient |
 | `streak` | Light-leak above the Prizes heading | nothing, decorative |
 | `podium` / `podium-4tier` | Prize section base (desktop only) | per-card hairline rim |
+| `league-arena` / `-gate` / `-lanes` | League screen bands | the gradient washes under them |
+| `leaderboard-board` | Leaderboard announcement | the washes alone; the copy still reads |
 | `admin-plate` | Admin panel backdrop | `particles.webp` + radial bloom |
 | `data-texture` | Dashboard card surface | `card-texture.webp` |
 | `admin-rail` | Sidebar plate | `.glass` gradient |
